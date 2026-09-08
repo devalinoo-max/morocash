@@ -254,7 +254,15 @@ export const ToastNotification: React.FC = () => {
   };
 
   return (
-    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] sm:max-w-md w-full px-4 animate-in fade-in slide-in-from-top-4 duration-200">
+    // z-[100] : doit toujours passer au-dessus de TOUT, y compris les modales
+    // imbriquées (z-60, ex. DiscountModal/CustomerPickerModal ouvertes depuis
+    // NewSaleModal). Avant, ce toast était en z-50 — le même niveau que
+    // NewSaleModal — et comme ce dernier est monté plus tard dans le DOM, il
+    // passait visuellement dessus : un toast d'erreur ("Caisse fermée...",
+    // "Sélectionne un client...", etc.) déclenché en cliquant "Valider la
+    // commande" existait bien dans le DOM mais restait invisible, caché
+    // derrière la modale — l'action semblait "ne rien faire".
+    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] max-w-[90vw] sm:max-w-md w-full px-4 animate-in fade-in slide-in-from-top-4 duration-200">
       <div
         id="toast-notification"
         className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium ${bgClasses[toastMessage.type]}`}

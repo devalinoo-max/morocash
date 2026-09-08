@@ -149,9 +149,12 @@ export const NewSaleModal: React.FC = () => {
     return list.slice(0, 4);
   }, [sales, customers]);
 
-  // Auto-focus search on open
+  // Auto-focus search on open — desktop uniquement (>= md, 768px). Sur mobile,
+  // focus() ouvre immédiatement le clavier tactile et masque une bonne partie
+  // de l'écran dès l'ouverture de la modale, avant même que le vendeur ait
+  // choisi de taper quoi que ce soit.
   useEffect(() => {
-    if (isNewSaleOpen && step === 'PRODUCTS') {
+    if (isNewSaleOpen && step === 'PRODUCTS' && window.innerWidth >= 768) {
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 100);
@@ -392,8 +395,18 @@ export const NewSaleModal: React.FC = () => {
             <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-white border-r border-slate-200/80">
               {/* BARRE D'OUTILS */}
               <div className="p-3 border-b border-slate-100 bg-white space-y-2 shrink-0">
+                {/* Recherche + filtre catégorie — ligne toujours entière, jamais coupée.
+                    Avant, ces deux-là partageaient une seule ligne "flex" avec 5 autres
+                    boutons à largeur fixe (shrink-0) : sur mobile, ça ne rentrait jamais
+                    et le champ de recherche se retrouvait écrasé à quelques pixels
+                    pendant que les boutons de droite (recharger/scanner/WhatsApp)
+                    sortaient de l'écran sans aucun moyen d'y accéder (pas de scroll ni
+                    de retour à la ligne). Le filtre catégorie reste hors de la ligne
+                    défilante ci-dessous : son menu déroulant serait sinon rogné
+                    verticalement (overflow-x-auto force aussi overflow-y en "auto"
+                    tant que l'axe Y n'est pas explicitement "visible" — limite CSS,
+                    pas un choix). */}
                 <div className="flex items-center gap-2">
-                  {/* Champ de recherche */}
                   <div className="relative flex-1 min-w-0">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
@@ -416,35 +429,8 @@ export const NewSaleModal: React.FC = () => {
                     )}
                   </div>
 
-                  {/* POINT 3 : LE BOUTON + SERVICE EN PILULE PLEINE #EEF2FF TEXTE #4F46E5 */}
-                  <button
-                    id="btn-add-service-pos"
-                    type="button"
-                    onClick={() => setIsServiceModalOpen(true)}
-                    title="Ajouter un service ou une prestation"
-                    className="h-10 px-3.5 rounded-full bg-[#EEF2FF] hover:bg-indigo-100 text-[#4F46E5] font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors cursor-pointer"
-                  >
-                    <Wrench className="w-3.5 h-3.5" />
-                    <span>+ Service</span>
-                  </button>
-
-                  {/* POINT 5: LE BOUTON [+] AVEC ICÔNE ET TEXTE DIRECTEMENT À DROITE */}
-                  <button
-                    id="btn-add-product-pos"
-                    type="button"
-                    onClick={() => {
-                      setScannerPreBarcode('');
-                      setIsProductFormOpen(true);
-                    }}
-                    title="Ajouter un nouveau produit au catalogue"
-                    className="h-11 px-3.5 sm:px-4 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-xs transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Ajouter un produit</span>
-                  </button>
-
                   {/* Filtre catégorie [ ▽ ] */}
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <button
                       id="btn-filter-category"
                       type="button"
@@ -487,6 +473,38 @@ export const NewSaleModal: React.FC = () => {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Boutons d'action secondaires — ligne à défilement horizontal (comme
+                    les pastilles de catégories juste en dessous) : sur un écran étroit,
+                    on glisse pour les atteindre plutôt que de les perdre hors champ. */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                  {/* POINT 3 : LE BOUTON + SERVICE EN PILULE PLEINE #EEF2FF TEXTE #4F46E5 */}
+                  <button
+                    id="btn-add-service-pos"
+                    type="button"
+                    onClick={() => setIsServiceModalOpen(true)}
+                    title="Ajouter un service ou une prestation"
+                    className="h-10 px-3.5 rounded-full bg-[#EEF2FF] hover:bg-indigo-100 text-[#4F46E5] font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors cursor-pointer"
+                  >
+                    <Wrench className="w-3.5 h-3.5" />
+                    <span>+ Service</span>
+                  </button>
+
+                  {/* POINT 5: LE BOUTON [+] AVEC ICÔNE ET TEXTE DIRECTEMENT À DROITE */}
+                  <button
+                    id="btn-add-product-pos"
+                    type="button"
+                    onClick={() => {
+                      setScannerPreBarcode('');
+                      setIsProductFormOpen(true);
+                    }}
+                    title="Ajouter un nouveau produit au catalogue"
+                    className="h-11 px-3.5 sm:px-4 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Ajouter un produit</span>
+                  </button>
 
                   {/* Bouton Recharger [ ⟳ ] */}
                   <button
