@@ -1,5 +1,11 @@
 {
   "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "framework": "vite"
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "https://morocash.vercel.app/api/v1/:path*"
+    }
+  ]
 }
