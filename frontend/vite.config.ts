@@ -48,10 +48,12 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          // Permet de tester le Service Worker en dev (npm run dev) sans
-          // devoir faire un build complet à chaque itération.
-          enabled: true,
-          type: 'module',
+          // Désactivé en dev (défaut vite-plugin-pwa) : un Service Worker actif
+          // pendant le développement met en cache l'app et masque les modifs
+          // tant qu'on n'a pas cliqué "Mettre à jour" (registerType 'prompt') —
+          // source de faux bugs pendant l'itération. Il ne tourne qu'en build
+          // de production (npm run build / preview), là où il a du sens.
+          enabled: false,
         },
       }),
     ],

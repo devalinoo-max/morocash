@@ -86,6 +86,7 @@ export const NewSaleModal: React.FC = () => {
     uiState,
     setSelectedSaleForReceipt,
     showToast,
+    activeCashSession,
   } = useApp();
 
   // Navigation state
@@ -206,6 +207,16 @@ export const NewSaleModal: React.FC = () => {
     }
   }, [finalTotal, paymentType]);
 
+  // Caisse fermée à l'arrivée sur l'étape paiement : basculer sur "il paie
+  // plus tard" (seule option possible sans caisse ouverte) plutôt que de
+  // laisser "Il paie tout" pré-sélectionné mais désactivé sans explication.
+  useEffect(() => {
+    if (step === 'PAYMENT' && !activeCashSession && paymentType !== 'CREDIT') {
+      setPaymentType('CREDIT');
+      setCustomPaidAmount(0);
+    }
+  }, [step, activeCashSession, paymentType]);
+
   if (!isNewSaleOpen) return null;
 
   // Selected customer object
@@ -230,6 +241,17 @@ export const NewSaleModal: React.FC = () => {
     if (!selectedCustomerId) {
       showToast('Sélectionne un client pour cette vente !', 'error');
       setIsCustomerPickerOpen(true);
+      return;
+    }
+
+    // Encaisser de l'argent exige une caisse ouverte (le serveur le refuse
+    // de toute façon, CASH_REGISTER_CLOSED) — on le vérifie avant de faire
+    // remplir tout le formulaire de paiement pour rien.
+    if (actualPaid > 0 && !activeCashSession) {
+      showToast(
+        "Caisse fermée : ouvre-la avant d'encaisser un paiement, ou choisis \"Il paie plus tard\".",
+        'error'
+      );
       return;
     }
 
@@ -1008,20 +1030,36 @@ export const NewSaleModal: React.FC = () => {
                 </p>
               </div>
 
+              {/* Caisse fermée : impossible d'encaisser de l'argent (seul "il
+                  paie plus tard" / dette reste possible) — prévenu avant de
+                  remplir le formulaire plutôt qu'au clic final sur Valider. */}
+              {!activeCashSession && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <p className="text-xs font-semibold text-rose-900">
+                    Caisse fermée : tu ne peux pas encaisser d'argent maintenant. Ouvre la
+                    caisse d'abord, ou choisis <strong>"Il paie plus tard"</strong> ci-dessous.
+                  </p>
+                </div>
+              )}
+
               {/* 3 grands choix en boutons interactifs */}
               <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
                 {/* 1. Il paie tout */}
                 <button
                   id="btn-pay-full"
                   type="button"
+                  disabled={!activeCashSession}
                   onClick={() => {
                     setPaymentType('FULL');
                     setCustomPaidAmount(finalTotal);
                   }}
-                  className={`py-4 px-2 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                    paymentType === 'FULL'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-600/25 scale-[1.02]'
-                      : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
+                  className={`py-4 px-2 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                    !activeCashSession
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                      : paymentType === 'FULL'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-600/25 scale-[1.02] cursor-pointer'
+                      : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50 cursor-pointer'
                   }`}
                 >
                   <Check className="w-5 h-5" />
@@ -1033,14 +1071,17 @@ export const NewSaleModal: React.FC = () => {
                 <button
                   id="btn-pay-partial"
                   type="button"
+                  disabled={!activeCashSession}
                   onClick={() => {
                     setPaymentType('PARTIAL');
                     setCustomPaidAmount(Math.round(finalTotal / 2));
                   }}
-                  className={`py-4 px-2 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                    paymentType === 'PARTIAL'
-                      ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-lg shadow-amber-500/25 scale-[1.02]'
-                      : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
+                  className={`py-4 px-2 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                    !activeCashSession
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                      : paymentType === 'PARTIAL'
+                      ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-lg shadow-amber-500/25 scale-[1.02] cursor-pointer'
+                      : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50 cursor-pointer'
                   }`}
                 >
                   <AlertCircle className="w-5 h-5" />

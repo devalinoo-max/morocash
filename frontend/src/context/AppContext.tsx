@@ -693,19 +693,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    */
   const loadRealData = async (userName: string) => {
     try {
-      const [apiProducts, apiCustomers, apiOrders, currentRegister, apiMovements] = await Promise.all([
+      // Toutes ces requêtes sont indépendantes les unes des autres (seul le
+      // calcul des soldes clients, vague 2 ci-dessous, dépend de la liste des
+      // clients) : on les lance donc en une seule vague parallèle plutôt qu'en
+      // 8+ appels séquentiels, ce qui divisait par un facteur important le
+      // temps de rechargement déclenché après chaque action (créer un produit,
+      // un client, valider une commande...). Les routes réservées
+      // OWNER/ACCOUNTANT (403 FORBIDDEN_ROLE pour un SELLER, spec §0 règle 7)
+      // gardent leur repli existant via `.catch()`.
+      const [
+        apiProducts,
+        apiCustomers,
+        apiOrders,
+        currentRegister,
+        apiMovements,
+        productCategories,
+        registersResult,
+        categories,
+        apiExpenses,
+        apiReceptions,
+        apiCounts,
+        apiStockMovements,
+      ] = await Promise.all([
         productsApi.listProducts(),
         customersApi.listCustomers(),
         ordersApi.listOrders(),
         cashApi.getCurrentRegister(),
         cashApi.listMovements(),
+        productsApi.listProductCategories().catch(() => []),
+        cashApi.listHistory().catch(() => null),
+        expensesApi.listCategories('DEPENSE'),
+        expensesApi.listExpenses().catch(() => []),
+        stockApi.listReceptions().catch(() => []),
+        stockApi.listCounts().catch(() => []),
+        stockApi.listMovements(),
       ]);
 
-      const productCategories = await productsApi.listProductCategories().catch(() => []);
       const productCategoryName = (id: string | null) =>
         productCategories.find((c) => c.id === id)?.nom ?? 'Général';
       setProducts(apiProducts.map((p) => productsApi.toFrontendProduct(p, productCategoryName(p.categoryId))));
 
+      // Vague 2 : les soldes clients ont besoin de la liste des clients
+      // (vague 1 ci-dessus) pour savoir quels ids interroger.
       const balances = await Promise.all(
         apiCustomers.map((c) => customersApi.fetchCustomerBalance(c.id).catch(() => 0))
       );
@@ -726,48 +755,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // /cash/history est réservé OWNER/ACCOUNTANT (FORBIDDEN_ROLE pour un
       // SELLER) — on retombe sur la seule caisse courante dans ce cas.
-      let registers: cashApi.ApiCashRegister[] = [];
-      try {
-        registers = await cashApi.listHistory();
-      } catch {
-        registers = currentRegister ? [currentRegister] : [];
-      }
+      const registers = registersResult ?? (currentRegister ? [currentRegister] : []);
       setCashSessions(registers.map((r) => cashApi.toFrontendCashSession(r, {})));
 
       // Catégories accessibles à tous les rôles (non sensibles en elles-mêmes) —
       // sert à afficher un nom de catégorie lisible sur chaque dépense.
-      const categories = await expensesApi.listCategories('DEPENSE');
       const categoryName = (id: string) => categories.find((c) => c.id === id)?.nom ?? 'Autre';
-
-      // /expenses, /stock/receptions et /stock/counts sont réservés
-      // OWNER/ACCOUNTANT (FORBIDDEN_ROLE pour un SELLER, spec §0 règle 7) —
-      // repli sur une liste vide dans ce cas plutôt que de faire échouer tout
-      // le chargement.
-      let apiExpenses: expensesApi.ApiExpense[] = [];
-      try {
-        apiExpenses = await expensesApi.listExpenses();
-      } catch {
-        apiExpenses = [];
-      }
       setExpenses(apiExpenses.map((e) => expensesApi.toFrontendExpense(e, categoryName(e.categoryId))));
 
-      let apiReceptions: stockApi.ApiStockReception[] = [];
-      try {
-        apiReceptions = await stockApi.listReceptions();
-      } catch {
-        apiReceptions = [];
-      }
       setStockReceptions(apiReceptions.map((r) => stockApi.toFrontendStockReception(r, userName)));
-
-      let apiCounts: stockApi.ApiStockCount[] = [];
-      try {
-        apiCounts = await stockApi.listCounts();
-      } catch {
-        apiCounts = [];
-      }
       setStockCounts(apiCounts.map((c) => stockApi.toFrontendStockCount(c, userName)));
 
-      const apiStockMovements = await stockApi.listMovements();
       const productName = (id: string) => apiProducts.find((p) => p.id === id)?.nom;
       setStockMovements(
         apiStockMovements.map((m) =>
@@ -1065,7 +1063,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const categoryName = updates.category?.trim();
       const categoryId = categoryName ? await productsApi.resolveProductCategoryId(categoryName) : undefined;
-      await productsApi.updateProduct(id, {
+      const updated = await productsApi.updateProduct(id, {
         ...(updates.name !== undefined ? { nom: updates.name } : {}),
         ...(updates.salePrice !== undefined ? { prixVente: updates.salePrice } : {}),
         ...(updates.purchasePrice !== undefined ? { prixAchat: updates.purchasePrice } : {}),
@@ -1075,8 +1073,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...(updates.isService !== undefined ? { type: updates.isService ? 'SERVICE' : 'PRODUIT' } : {}),
         ...(categoryId ? { categoryId } : {}),
       });
+      // Le produit mis à jour contient déjà tout ce qu'il faut : on patche la
+      // liste directement plutôt que de recharger tout loadRealData() (même
+      // raisonnement que pour addProduct). On fusionne avec l'existant plutôt
+      // que d'appeler toFrontendProduct() telle quelle, car celle-ci renvoie
+      // salesCount à 0 et ignore barcode/productCodes — des champs gérés
+      // localement (hors périmètre de ce passage, voir plus haut) qu'un
+      // remplacement complet effacerait.
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                name: updated.nom,
+                salePrice: updated.prixVente,
+                purchasePrice: updated.prixAchat ?? p.purchasePrice,
+                stock: updated.stock,
+                alertThreshold: updated.seuilAlerte,
+                category: categoryName || p.category,
+                unit: updated.unite,
+                isService: updated.type === 'SERVICE',
+              }
+            : p
+        )
+      );
       showToast('Produit mis à jour', 'success');
-      await loadRealData(currentUser?.nom ?? 'Vendeur');
     } catch (error) {
       showToast(apiErrorMessage(error), 'error');
     }
@@ -1085,11 +1106,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteProduct = async (id: string) => {
     try {
       const result = await productsApi.deleteOrDeactivateProduct(id);
-      showToast(
-        result === 'DELETED' ? 'Produit supprimé' : 'Produit désactivé (il a un historique de ventes)',
-        'info'
-      );
-      await loadRealData(currentUser?.nom ?? 'Vendeur');
+      if (result === 'DELETED') {
+        // Suppression réelle : le produit ne peut plus apparaître nulle part,
+        // on le retire directement plutôt que de recharger tout loadRealData().
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        showToast('Produit supprimé', 'info');
+      } else {
+        // Désactivation (le produit a un historique de ventes) : GET /products
+        // ne filtre pas les produits désactivés et le frontend ne modélise pas
+        // ce champ `actif` — on recharge donc pour rester fidèle à ce que le
+        // serveur renvoie réellement, plutôt que de deviner un état local.
+        showToast('Produit désactivé (il a un historique de ventes)', 'info');
+        await loadRealData(currentUser?.nom ?? 'Vendeur');
+      }
     } catch (error) {
       showToast(apiErrorMessage(error), 'error');
     }
@@ -1266,8 +1295,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         note: customerData.notes || undefined,
       });
       const customer = customersApi.toFrontendCustomer(created, 0);
+      // Nouveau client, dette forcément nulle : on l'ajoute directement à la
+      // liste plutôt que de recharger tout loadRealData() (même raisonnement
+      // que pour addProduct — voir plus haut).
+      setCustomers((prev) => [customer, ...prev]);
       showToast(`Client ${customerData.name} ajouté`, 'success');
-      await loadRealData(currentUser?.nom ?? 'Vendeur');
       return customer;
     } catch (error) {
       showToast(apiErrorMessage(error), 'error');
