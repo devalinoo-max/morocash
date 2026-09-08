@@ -1,0 +1,6 @@
+{
+  "name": "MoroCash — Gestion de Caisse & Ventes Hors-Ligne",
+  "description": "Enregistre tes ventes en 10 secondes. Suis ton stock, tes bénéfices et tes dettes, même sans connexion. PWA pour commerçants d'Afrique de l'Ouest.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

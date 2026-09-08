@@ -1,0 +1,672 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────── ÉNUMÉRATIONS ───────────────
+enum BusinessStatus {
+  ESSAI
+  ACTIF
+  IMPAYE
+  SUSPENDU
+  RESILIE
+}
+
+enum ActivityType {
+  COMMERCE
+  SERVICES
+  MIXTE
+}
+
+enum UserRole {
+  OWNER
+  SELLER
+  ACCOUNTANT
+}
+
+enum ProductType {
+  PRODUIT
+  SERVICE
+}
+
+enum CodeFormat {
+  EAN13
+  EAN8
+  UPCA
+  UPCE
+  CODE128
+  CODE39
+  ITF14
+  QR
+  DATAMATRIX
+  INTERNE
+}
+
+enum CodeOrigin {
+  GENERE
+  SCANNE
+  PHOTO
+  MANUEL
+}
+
+enum PaymentStatus {
+  PAYEE
+  PARTIELLE
+  CREDIT
+}
+
+enum OrderStatus {
+  VALIDEE
+  ANNULEE
+}
+
+enum DiscountMode {
+  POURCENTAGE
+  MONTANT
+}
+
+enum PaymentMethod {
+  ESPECES
+  WAVE
+  ORANGE_MONEY
+  MTN
+  MOOV
+  VIREMENT
+  AUTRE
+}
+
+enum PaymentKind {
+  COMMANDE
+  REMBOURSEMENT_DETTE
+}
+
+enum PaymentState {
+  VALIDE
+  ANNULE
+}
+
+enum MovementType {
+  ENTREE
+  SORTIE
+  RETOUR
+  CASSE
+  PERTE
+  INVENTAIRE
+}
+
+enum CashMovementType {
+  ENTREE
+  SORTIE
+}
+
+enum CashOrigin {
+  COMMANDE
+  REMBOURSEMENT
+  DEPENSE
+  APPORT
+  RETRAIT
+}
+
+enum RegisterStatus {
+  OUVERTE
+  FERMEE
+}
+
+enum CategoryType {
+  PRODUIT
+  DEPENSE
+}
+
+enum ExpenseOrigin {
+  MANUELLE
+  AUTO_STOCK
+}
+
+enum SubPeriod {
+  MENSUEL
+  ANNUEL
+}
+
+enum SubPayState {
+  INITIE
+  REUSSI
+  ECHOUE
+  EXPIRE
+}
+
+// ─────────────── ABONNEMENT ───────────────
+model Plan {
+  id                  String   @id @default(cuid())
+  code                String   @unique          // SOLO | BUSINESS
+  nom                 String
+  prixMensuel         Int
+  prixAnnuel          Int
+  maxUsers            Int
+  maxProduits         Int
+  rapportsComparatifs Boolean  @default(false)
+  exportExcel         Boolean  @default(false)
+  actif               Boolean  @default(true)
+  businesses          Business[]
+  subscriptions       Subscription[]
+}
+
+model Business {
+  id                 String         @id @default(cuid())
+  nom                String
+  typeActivite       ActivityType   @default(COMMERCE)
+  ville              String?
+  pays               String         @default("CI")
+  email              String?
+  devise             String         @default("XOF")
+  logoUrl            String?
+  planId             String?
+  plan               Plan?          @relation(fields: [planId], references: [id])
+  statut             BusinessStatus @default(ESSAI)
+  trialEndsAt        DateTime?
+  subscriptionEndsAt DateTime?
+  remiseMaxVendeur   Int            @default(0)   // en %, 0 = interdit
+  seuilEcartComptage Int            @default(5)   // en unités
+  createdAt          DateTime       @default(now())
+  deletedAt          DateTime?
+
+  users        User[]
+  products     Product[]
+  customers    Customer[]
+  orders       Order[]
+  payments     Payment[]
+  expenses     Expense[]
+  categories   Category[]
+  movements    StockMovement[]
+  receptions   StockReception[]
+  counts       StockCount[]
+  registers    CashRegister[]
+  cashMoves    CashMovement[]
+  dailyStats   DailyStats[]
+  notifications Notification[]
+  subscriptions Subscription[]
+  subPayments  SubscriptionPayment[]
+  invoices     Invoice[]
+  auditLogs    AuditLog[]
+  productCodes ProductCode[]
+
+  @@index([statut])
+}
+
+model Subscription {
+  id        String    @id @default(cuid())
+  businessId String
+  business  Business  @relation(fields: [businessId], references: [id])
+  planId    String
+  plan      Plan      @relation(fields: [planId], references: [id])
+  periode   SubPeriod
+  dateDebut DateTime
+  dateFin   DateTime
+  montant   Int
+  actif     Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  payments  SubscriptionPayment[]
+  invoices  Invoice[]
+
+  @@index([businessId, dateFin])
+}
+
+model SubscriptionPayment {
+  id                  String       @id @default(cuid())
+  businessId          String
+  business            Business     @relation(fields: [businessId], references: [id])
+  subscriptionId      String?
+  subscription        Subscription? @relation(fields: [subscriptionId], references: [id])
+  montant             Int
+  methode             PaymentMethod
+  referenceInterne    String       @unique
+  referencePasserelle String?
+  statut              SubPayState  @default(INITIE)
+  payloadWebhook      Json?
+  createdAt           DateTime     @default(now())
+
+  @@index([businessId, statut])
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  businessId     String
+  business       Business @relation(fields: [businessId], references: [id])
+  numero         String   @unique
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  total          Int
+  dateEmission   DateTime @default(now())
+  pdfUrl         String?
+}
+
+// ─────────────── UTILISATEURS ───────────────
+model User {
+  id          String    @id @default(cuid())
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id])
+  nom         String
+  telephone   String
+  codeHash    String
+  role        UserRole  @default(OWNER)
+  actif       Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  sessions   Session[]
+  orders     Order[]
+  expenses   Expense[]
+  movements  StockMovement[]
+  receptions StockReception[]
+  counts     StockCount[]
+  cashMoves  CashMovement[]
+  registersOpened CashRegister[] @relation("RegisterOpener")
+  registersClosed CashRegister[] @relation("RegisterCloser")
+
+  @@unique([businessId, telephone])   // PAS unique globalement
+  @@index([telephone])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  nom          String
+  email        String   @unique
+  passwordHash String
+  totpSecret   String
+  actif        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  telephone String
+  codeHash  String
+  tentatives Int     @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([telephone, expiresAt])
+}
+
+model RateLimit {
+  id        String   @id @default(cuid())
+  cle       String                       // "login:2250700000000" | "ip:1.2.3.4"
+  compteur  Int      @default(1)
+  resetAt   DateTime
+  @@unique([cle])
+  @@index([resetAt])
+}
+
+// ─────────────── CATALOGUE ───────────────
+model Category {
+  id         String       @id @default(cuid())
+  businessId String
+  business   Business     @relation(fields: [businessId], references: [id])
+  nom        String
+  type       CategoryType
+  systeme    Boolean      @default(false)
+  products   Product[]
+  expenses   Expense[]
+
+  @@unique([businessId, nom, type])
+}
+
+model Product {
+  id           String      @id @default(cuid())
+  businessId   String
+  business     Business    @relation(fields: [businessId], references: [id])
+  nom          String
+  type         ProductType @default(PRODUIT)
+  prixVente    Int
+  prixAchat    Int         @default(0)
+  cmp          Int         @default(0)   // coût moyen pondéré
+  stock        Int         @default(0)   // peut être négatif
+  seuilAlerte  Int         @default(0)
+  unite        String      @default("pièce")
+  categoryId   String?
+  category     Category?   @relation(fields: [categoryId], references: [id])
+  actif        Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+
+  images    ProductImage[]
+  codes     ProductCode[]
+  items     OrderItem[]
+  movements StockMovement[]
+
+  @@unique([businessId, nom])
+  @@index([businessId, actif])
+}
+
+model ProductImage {
+  id                 String   @id @default(cuid())
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url                String
+  cloudinaryPublicId String?
+  ordre              Int      @default(0)
+  isPrincipale       Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([productId, ordre])
+}
+
+model ProductCode {
+  id           String     @id @default(cuid())
+  businessId   String
+  business     Business   @relation(fields: [businessId], references: [id])
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  code         String
+  format       CodeFormat
+  origine      CodeOrigin
+  estPrincipal Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@unique([businessId, code])   // unique PAR boutique, jamais globalement
+  @@index([businessId, code])
+}
+
+// ─────────────── CLIENTS ───────────────
+model Customer {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  nom        String
+  telephone  String?
+  note       String?
+  archive    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  orders   Order[]
+  payments Payment[]
+
+  @@index([businessId, archive])
+  @@index([businessId, telephone])
+}
+
+// ─────────────── COMMANDES ───────────────
+model Order {
+  id             String        @id @default(cuid())
+  businessId     String
+  business       Business      @relation(fields: [businessId], references: [id])
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  customerId     String
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  clientUuid     String        @unique
+  numero         String                         // CMD-AAAAMMJJ-NNNN
+  sousTotal      Int
+  remiseMode     DiscountMode?
+  remiseValeur   Int?
+  remiseMontant  Int           @default(0)
+  total          Int
+  coutTotal      Int
+  statutPaiement PaymentStatus
+  statut         OrderStatus   @default(VALIDEE)
+  motifAnnulation String?
+  annuleeParId   String?
+  annuleeLe      DateTime?
+  createdAt      DateTime      @default(now())
+  syncedAt       DateTime?
+
+  items     OrderItem[]
+  payments  Payment[]
+  movements StockMovement[]
+
+  @@unique([businessId, numero])
+  @@index([businessId, createdAt])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product? @relation(fields: [productId], references: [id])
+  libelle       String
+  qte           Int
+  prixUnitaire  Int
+  coutUnitaire  Int      // FIGÉ au moment de la commande
+  totalLigne    Int
+
+  @@index([orderId])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  businessId String
+  business   Business      @relation(fields: [businessId], references: [id])
+  orderId    String?
+  order      Order?        @relation(fields: [orderId], references: [id])
+  customerId String?
+  customer   Customer?     @relation(fields: [customerId], references: [id])
+  clientUuid String        @unique
+  montant    Int
+  methode    PaymentMethod
+  type       PaymentKind
+  statut     PaymentState  @default(VALIDE)
+  createdAt  DateTime      @default(now())
+
+  cashMovement CashMovement?
+
+  @@index([businessId, createdAt])
+  @@index([customerId, statut])
+}
+
+// ─────────────── DÉPENSES ───────────────
+model Expense {
+  id              String        @id @default(cuid())
+  businessId      String
+  business        Business      @relation(fields: [businessId], references: [id])
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  clientUuid      String        @unique
+  montant         Int
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id])
+  note            String?
+  justificatifUrl String?
+  methode         PaymentMethod @default(ESPECES)
+  recurrente      Boolean       @default(false)
+  origine         ExpenseOrigin @default(MANUELLE)
+  receptionId     String?       @unique
+  reception       StockReception? @relation(fields: [receptionId], references: [id])
+  date            DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+
+  @@index([businessId, date])
+}
+
+// ─────────────── MOUVEMENTS DE STOCK ───────────────
+model StockMovement {
+  id                 String        @id @default(cuid())
+  businessId         String
+  business           Business      @relation(fields: [businessId], references: [id])
+  productId          String
+  product            Product       @relation(fields: [productId], references: [id])
+  clientUuid         String        @unique
+  type               MovementType
+  quantite           Int           // signée : + entrée, − sortie
+  stockAvant         Int
+  stockApres         Int
+  prixAchatUnitaire  Int?          // ENTREE uniquement
+  coutUnitaire       Int           // CMP au moment du mouvement
+  motif              String?
+  fournisseur        String?
+  note               String?
+  justificatifUrl    String?
+  orderId            String?
+  order              Order?        @relation(fields: [orderId], references: [id])
+  receptionId        String?
+  reception          StockReception? @relation(fields: [receptionId], references: [id])
+  countId            String?
+  count              StockCount?   @relation(fields: [countId], references: [id])
+  annule             Boolean       @default(false)
+  mouvementInverseId String?
+  userId             String
+  user               User          @relation(fields: [userId], references: [id])
+  createdAt          DateTime      @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([productId, createdAt])
+  @@index([businessId, type])
+}
+
+model StockReception {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+  clientUuid    String   @unique
+  fournisseur   String?
+  note          String?
+  justificatifUrl String?
+  totalArticles Int
+  totalMontant  Int
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  createdAt     DateTime @default(now())
+
+  movements StockMovement[]
+  expense   Expense?
+
+  @@index([businessId, createdAt])
+}
+
+model StockCount {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id])
+  clientUuid   String   @unique
+  perimetre    String   @default("TOUT")
+  nbProduits   Int
+  nbEcarts     Int
+  ecartUnites  Int
+  ecartValeur  Int
+  commentaire  String?
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+
+  movements StockMovement[]
+
+  @@index([businessId, createdAt])
+}
+
+// ─────────────── CAISSE ───────────────
+model CashRegister {
+  id              String         @id @default(cuid())
+  businessId      String
+  business        Business       @relation(fields: [businessId], references: [id])
+  ouverteParId    String
+  ouvertePar      User           @relation("RegisterOpener", fields: [ouverteParId], references: [id])
+  ouverteLe       DateTime       @default(now())
+  fondDepart      Int
+  fermeeParId     String?
+  fermeePar       User?          @relation("RegisterCloser", fields: [fermeeParId], references: [id])
+  fermeeLe        DateTime?
+  montantAttendu  Int?
+  montantCompte   Int?
+  ecart           Int?
+  commentaireEcart String?
+  statut          RegisterStatus @default(OUVERTE)
+
+  movements CashMovement[]
+
+  @@index([businessId, statut])
+  @@index([businessId, ouverteLe])
+}
+
+model CashMovement {
+  id             String           @id @default(cuid())
+  businessId     String
+  business       Business         @relation(fields: [businessId], references: [id])
+  cashRegisterId String
+  cashRegister   CashRegister     @relation(fields: [cashRegisterId], references: [id])
+  clientUuid     String           @unique
+  type           CashMovementType
+  origine        CashOrigin
+  paymentId      String?          @unique
+  payment        Payment?         @relation(fields: [paymentId], references: [id])
+  referenceId    String?
+  montant        Int
+  methode        PaymentMethod
+  motif          String?
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([cashRegisterId])
+}
+
+// ─────────────── AGRÉGATS, DIVERS ───────────────
+model DailyStats {
+  id               String   @id @default(cuid())
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  date             DateTime @db.Date
+  nbCommandes      Int      @default(0)
+  totalVendu       Int      @default(0)
+  recu             Int      @default(0)
+  aCredit          Int      @default(0)
+  coutMarchandises Int      @default(0)
+  margeBrute       Int      @default(0)
+  totalDepenses    Int      @default(0)
+  gagne            Int      @default(0)
+  creancesTotales  Int      @default(0)
+
+  @@unique([businessId, date])
+  @@index([businessId, date])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  type       String
+  titre      String
+  message    String
+  lu         Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, lu])
+}
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  businessId        String?
+  business          Business? @relation(fields: [businessId], references: [id])
+  userId            String?
+  adminUserId       String?
+  action            String
+  entite            String
+  entiteId          String?
+  anciennesValeurs  Json?
+  nouvellesValeurs  Json?
+  motif             String?
+  ip                String?
+  createdAt         DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([entite, entiteId])
+}

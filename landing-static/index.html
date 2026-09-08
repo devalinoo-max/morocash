@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MoroCash — Tu vends tous les jours. Mais est-ce que tu gagnes ?</title>
+<meta name="description" content="MoroCash te dit chaque soir ce que tu as vraiment gagné, ce qui te reste en stock, et qui te doit de l'argent. En 10 secondes par vente." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+<style>
+  :root {
+    --bg: #080A10;
+    --card: #111524;
+    --card-hover: #171D31;
+    --border: #1F263E;
+    --text: #FFFFFF;
+    --text-muted: #8F9BBA;
+    --badge-bg: rgba(255,255,255,0.03);
+    --emerald: #00E687;
+    --violet: #7B61FF;
+    --terre: #F59E0B;
+    --ease: cubic-bezier(.22,.68,0,1);
+  }
+  html.light {
+    --bg: #FFFBF5;
+    --card: #FFFFFF;
+    --card-hover: #FFF7ED;
+    --border: #FDE8CD;
+    --text: #1C1917;
+    --text-muted: #78716C;
+    --badge-bg: #F5EFEB;
+    --emerald: #009A66;
+    --violet: #7B61FF;
+    --terre: #C2540A;
+  }
+
+  * { transition-timing-function: var(--ease); }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+  }
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    transition: background-color .5s var(--ease), color .5s var(--ease);
+    overflow-x: clip;
+  }
+
+  .font-serif-em { font-family: 'Playfair Display', serif; }
+  .font-mono-data { font-family: 'Space Mono', monospace; }
+
+  .theme-bg { background-color: var(--bg); }
+  .theme-card { background-color: var(--card); }
+  .theme-card-hover:hover { background-color: var(--card-hover); }
+  .theme-border { border-color: var(--border); }
+  .theme-text { color: var(--text); }
+  .theme-text-muted { color: var(--text-muted); }
+  .theme-badge { background-color: var(--badge-bg); }
+  .accent-emerald { color: var(--emerald); }
+  .bg-accent-emerald { background-color: var(--emerald); }
+  .border-accent-emerald { border-color: var(--emerald); }
+  .accent-violet { color: var(--violet); }
+  .bg-accent-violet { background-color: var(--violet); }
+  .accent-terre { color: var(--terre); }
+  .bg-accent-terre { background-color: var(--terre); }
+
+  ::selection { background: var(--emerald); color: #06110B; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--violet); }
+
+  /* --- Bruit analogique global (0.04 d'opacité, jamais plus) --- */
+  .noise-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    opacity: 0.04;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* --- Barre de progression de scroll : scaleX, jamais width --- */
+  #scroll-progress {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 3px;
+    transform-origin: left center;
+    transform: scaleX(0);
+    background: linear-gradient(90deg, var(--violet), var(--emerald));
+    z-index: 90;
+    transition: transform .1s linear;
+  }
+
+  /* --- Système de révélation au scroll : transform + opacity uniquement --- */
+  .reveal { opacity: 0; transition: opacity .8s var(--ease), transform .8s var(--ease), filter .8s var(--ease); will-change: transform, opacity; }
+  .reveal-up { transform: translateY(28px); }
+  .reveal-left { transform: translateX(-40px); }
+  .reveal-right { transform: translateX(40px); }
+  .reveal-zoom { transform: scale(0.94); }
+  .reveal-blur { transform: translateY(20px); filter: blur(8px); }
+  .reveal.is-visible { opacity: 1; transform: none; filter: blur(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .reveal.is-visible { transition: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
+    .floating-phone, .marquee-track, .animated-gradient, .sweep-highlight { animation: none !important; }
+  }
+
+  /* --- Flottement du mockup téléphone --- */
+  @keyframes floatPhone {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(-1.2deg); }
+  }
+  .floating-phone { animation: floatPhone 6.5s ease-in-out infinite; }
+
+  /* --- Bandeaux défilants à l'infini --- */
+  @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes scrollRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+  .marquee-track { display: flex; width: max-content; }
+  .marquee-left .marquee-track { animation: scrollLeft 32s linear infinite; }
+  .marquee-right .marquee-track { animation: scrollRight 26s linear infinite; }
+  .marquee-row:hover .marquee-track { animation-play-state: paused; }
+  .marquee-pill { transition: transform .25s var(--ease); }
+  .marquee-pill:hover { transform: translateY(-3px); }
+
+  /* --- Barres de stock : scaleX, jamais width --- */
+  .stock-bar-fill { transform: scaleX(0); transform-origin: left center; transition: transform 1s var(--ease); }
+  .stock-bar-fill.filled { transform: scaleX(1); }
+
+  /* --- Reflet périodique sur la colonne MoroCash du comparatif --- */
+  @keyframes sweep {
+    0%   { transform: translateX(-120%); animation-timing-function: var(--ease); }
+    45%  { transform: translateX(220%); }
+    100% { transform: translateX(220%); }
+  }
+  .sweep-highlight { animation: sweep 4.5s infinite; }
+
+  /* --- Dégradé animé du bandeau final --- */
+  @keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animated-gradient { background-size: 200% 200%; animation: gradientMove 12s ease infinite; }
+
+  /* --- Étoiles des témoignages --- */
+  .star-pending { opacity: 0; transform: scale(0.4); transition: opacity .4s var(--ease), transform .4s cubic-bezier(.34,1.56,.64,1); }
+  .star-lit { opacity: 1; transform: scale(1); }
+
+  /* --- Switch de thème (piste + bille en transform) --- */
+  #theme-track { position: relative; }
+  #theme-knob { transform: translateX(0); transition: transform .4s var(--ease); }
+  html.light #theme-knob { transform: translateX(20px); }
+  .theme-icon-dark, .theme-icon-light { transition: opacity .3s var(--ease), transform .3s var(--ease); }
+  .theme-icon-dark { opacity: 1; transform: scale(1); }
+  .theme-icon-light { opacity: 0; transform: scale(0.5); }
+  html.light .theme-icon-dark { opacity: 0; transform: scale(0.5); }
+  html.light .theme-icon-light { opacity: 1; transform: scale(1); }
+
+  /* --- Toggle mensuel/annuel --- */
+  #billing-knob { transform: translateX(0); transition: transform .4s var(--ease); }
+  .billing-yearly #billing-knob { transform: translateX(24px); }
+
+  /* --- Panneau reçu WhatsApp (bento) : les deux états se superposent en
+     position absolue pour un fondu croisé sans à-coup de mise en page. --- */
+  .raw-message, .receipt-panel { position: absolute; inset: 0; transition: opacity .5s var(--ease), transform .5s var(--ease); }
+  .raw-message.hidden-msg { opacity: 0; transform: translateY(-6px) scale(0.98); pointer-events: none; }
+  .receipt-panel { opacity: 0; transform: translateY(10px) scale(0.98); pointer-events: none; }
+  .receipt-panel.shown { opacity: 1; transform: none; pointer-events: auto; }
+</style>
+</head>
+<body class="antialiased selection:bg-emerald-400 relative">
+
+<div class="noise-overlay"></div>
+<div id="scroll-progress"></div>
+
+<!-- Halos décoratifs -->
+<div class="fixed top-[-10%] left-[10%] w-[480px] h-[480px] rounded-full pointer-events-none -z-10" style="background: radial-gradient(circle, var(--violet) 0%, transparent 70%); opacity:.12; filter: blur(120px);"></div>
+<div class="fixed top-[60vh] right-[-5%] w-[520px] h-[520px] rounded-full pointer-events-none -z-10" style="background: radial-gradient(circle, var(--emerald) 0%, transparent 70%); opacity:.12; filter: blur(120px);"></div>
+<div class="fixed top-[160vh] left-[-5%] w-[480px] h-[480px] rounded-full pointer-events-none -z-10" style="background: radial-gradient(circle, var(--emerald) 0%, transparent 70%); opacity:.1; filter: blur(120px);"></div>
+<div class="fixed top-[260vh] right-[10%] w-[480px] h-[480px] rounded-full pointer-events-none -z-10" style="background: radial-gradient(circle, var(--violet) 0%, transparent 70%); opacity:.1; filter: blur(120px);"></div>
+
+<!-- ============================================================ -->
+<!-- NAVBAR FLOTTANTE — "L'ÎLE FLOTTANTE"                          -->
+<!-- ============================================================ -->
+<header class="fixed top-5 left-0 right-0 z-50 px-4 md:px-8">
+  <nav class="max-w-6xl mx-auto theme-badge backdrop-blur-xl border theme-border rounded-full py-3 px-5 flex items-center justify-between shadow-2xl shadow-black/10">
+    <a href="#top" class="flex items-center gap-2 group shrink-0">
+      <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-accent-emerald to-accent-violet flex items-center justify-center text-[#06110B] font-extrabold text-sm shadow-md transition-transform group-hover:scale-110">M</div>
+      <span class="font-extrabold text-lg tracking-tight theme-text">Moro<span class="accent-emerald">Cash</span></span>
+    </a>
+
+    <div class="hidden lg:flex items-center gap-6 text-xs font-semibold theme-text-muted">
+      <a href="#solutions" class="hover:text-[var(--emerald)] transition-colors">Pour qui ?</a>
+      <a href="#pourquoi" class="hover:text-[var(--emerald)] transition-colors">Pourquoi ?</a>
+      <a href="#comment-ca-marche" class="hover:text-[var(--emerald)] transition-colors">Comment ça marche ?</a>
+      <a href="#comparatif" class="hover:text-[var(--emerald)] transition-colors">Comparatif</a>
+      <a href="#tarifs" class="hover:text-[var(--emerald)] transition-colors">Tarifs</a>
+    </div>
+
+    <div class="flex items-center gap-2.5">
+      <button id="theme-toggle" aria-label="Changer de thème" class="w-11 h-6 rounded-full border theme-border relative shrink-0 cursor-pointer" style="background: var(--bg);">
+        <span id="theme-track" class="absolute inset-0 flex items-center px-1">
+          <span id="theme-knob" class="w-4 h-4 rounded-full bg-gradient-to-tr from-accent-emerald to-accent-violet flex items-center justify-center relative">
+            <i data-lucide="moon" class="theme-icon-dark w-2.5 h-2.5 text-[#06110B] absolute"></i>
+            <i data-lucide="sun" class="theme-icon-light w-2.5 h-2.5 text-[#06110B] absolute"></i>
+          </span>
+        </span>
+      </button>
+      <a href="#tarifs" class="bg-accent-violet hover:opacity-90 text-white font-bold text-xs py-2.5 px-4 md:px-5 rounded-full transition-all shadow-md shadow-violet-500/20 hover:scale-105 active:scale-95">
+        Essayer 14 jours
+      </a>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ============================================================ -->
+  <!-- SECTION 1 · ACCROCHE (HERO)                                   -->
+  <!-- ============================================================ -->
+  <section class="relative min-h-screen pt-40 pb-20 px-4 md:px-8 flex items-center">
+    <div class="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-14 items-center">
+
+      <div class="lg:col-span-7 flex flex-col space-y-6">
+        <div class="reveal reveal-up inline-flex items-center gap-2 theme-badge border theme-border py-1.5 px-4 rounded-full w-fit" style="transition-delay:0ms">
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-emerald opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-accent-emerald"></span>
+          </span>
+          <span class="text-[10px] font-mono-data theme-text font-bold uppercase tracking-wider">14 jours gratuits · sans carte bancaire</span>
+        </div>
+
+        <h1 class="reveal reveal-blur text-4xl md:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight theme-text leading-[1.08]" style="transition-delay:70ms">
+          Tu vends tous les jours.<br />
+          Mais est-ce que tu <span class="font-serif-em italic accent-emerald font-normal">gagnes</span> ?
+        </h1>
+
+        <p class="reveal reveal-up text-base md:text-lg theme-text-muted leading-relaxed max-w-xl" style="transition-delay:140ms">
+          MoroCash te dit chaque soir ce que tu as vraiment gagné, ce qui te reste en stock, et qui te doit de l'argent. En 10 secondes par vente.
+        </p>
+
+        <div class="reveal reveal-up flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2" style="transition-delay:210ms">
+          <a href="#tarifs" class="bg-accent-violet hover:opacity-90 text-white font-extrabold text-sm py-4 px-8 rounded-2xl text-center shadow-lg shadow-violet-500/20 hover:-translate-y-0.5 transition-all">
+            Essayer gratuitement
+          </a>
+          <a href="#comment-ca-marche" class="border theme-border theme-card-hover theme-text font-bold text-sm py-4 px-8 rounded-2xl text-center transition-all flex items-center justify-center gap-2">
+            <i data-lucide="play-circle" class="w-4 h-4"></i> Voir comment ça marche
+          </a>
+        </div>
+
+        <div class="reveal reveal-up flex flex-wrap items-center gap-x-6 gap-y-2 text-xs theme-text-muted pt-2" style="transition-delay:280ms">
+          <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-4 h-4 accent-emerald"></i>Pas de carte bancaire</span>
+          <span class="flex items-center gap-1.5"><i data-lucide="wifi-off" class="w-4 h-4 accent-emerald"></i>Marche sans réseau</span>
+          <span class="flex items-center gap-1.5"><i data-lucide="zap" class="w-4 h-4 accent-emerald"></i>Prêt en 3 minutes</span>
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 flex justify-center items-center relative reveal reveal-zoom" style="transition-delay:200ms">
+        <div class="absolute -inset-6 bg-accent-violet/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="w-[280px] h-[580px] theme-card border-[6px] theme-border rounded-[2.6rem] shadow-2xl relative overflow-hidden floating-phone">
+          <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-4 rounded-b-xl z-20" style="background: var(--border);"></div>
+
+          <div class="w-full h-full flex flex-col pt-6 text-xs theme-text-muted">
+            <div class="p-4 border-b theme-border flex justify-between items-center">
+              <div>
+                <p class="text-[9px] uppercase font-mono-data font-bold tracking-wider accent-emerald">Bénéfice du jour</p>
+                <h4 class="text-lg font-extrabold theme-text font-mono-data" id="hero-counter">0 F CFA</h4>
+              </div>
+              <span class="bg-accent-emerald/10 accent-emerald font-mono-data text-[8px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <span class="h-1.5 w-1.5 rounded-full bg-accent-emerald animate-pulse"></span> Connecté
+              </span>
+            </div>
+
+            <div class="px-4 pt-4 flex items-end gap-1.5 h-16">
+              <div class="flex-1 rounded-t theme-card-hover bg-accent-violet/30" style="height:35%"></div>
+              <div class="flex-1 rounded-t theme-card-hover bg-accent-violet/30" style="height:55%"></div>
+              <div class="flex-1 rounded-t bg-accent-emerald/70" style="height:40%"></div>
+              <div class="flex-1 rounded-t theme-card-hover bg-accent-violet/30" style="height:70%"></div>
+              <div class="flex-1 rounded-t bg-accent-emerald" style="height:95%"></div>
+              <div class="flex-1 rounded-t theme-card-hover bg-accent-violet/30" style="height:50%"></div>
+            </div>
+
+            <div class="p-4 flex-1 flex flex-col gap-2.5 justify-end">
+              <p class="font-bold theme-text text-[11px]">Dernières ventes</p>
+              <div class="theme-badge border theme-border p-2.5 rounded-xl flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded bg-accent-emerald/10 flex items-center justify-center accent-emerald font-bold text-[10px]">3x</div>
+                  <p class="font-bold theme-text text-[10px]">Mèches Synthétiques</p>
+                </div>
+                <span class="font-mono-data theme-text font-bold text-[10px]">6 000 F</span>
+              </div>
+              <div class="theme-badge border theme-border p-2.5 rounded-xl flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded bg-accent-violet/10 flex items-center justify-center accent-violet font-bold text-[10px]">1x</div>
+                  <p class="font-bold theme-text text-[10px]">Crème de Soin</p>
+                </div>
+                <span class="font-mono-data theme-text font-bold text-[10px]">4 500 F</span>
+              </div>
+              <div class="bg-accent-emerald text-[#06110B] p-2.5 rounded-xl text-center font-extrabold flex items-center justify-center gap-1.5 mt-1">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Vente enregistrée
+              </div>
+            </div>
+
+            <div class="p-2 border-t theme-border flex justify-around text-[8px] theme-text-muted font-bold">
+              <span class="flex flex-col items-center gap-0.5 accent-emerald"><i data-lucide="shopping-cart" class="w-3 h-3"></i>Vendre</span>
+              <span class="flex flex-col items-center gap-0.5"><i data-lucide="package" class="w-3 h-3"></i>Stock</span>
+              <span class="flex flex-col items-center gap-0.5"><i data-lucide="users" class="w-3 h-3"></i>Clients</span>
+              <span class="flex flex-col items-center gap-0.5"><i data-lucide="pie-chart" class="w-3 h-3"></i>Rapports</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 2 · PAYS ET MOYENS DE PAIEMENT                        -->
+  <!-- ============================================================ -->
+  <section class="border-y theme-border py-9 theme-badge overflow-hidden">
+    <div class="max-w-6xl mx-auto space-y-4">
+      <p class="px-4 md:px-8 text-[10px] font-mono-data font-bold theme-text-muted uppercase tracking-widest">Disponible en Afrique de l'Ouest</p>
+      <div class="marquee-row overflow-hidden w-full">
+        <div class="marquee-track marquee-left gap-4 px-2">
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Côte d'Ivoire</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Sénégal</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Burkina Faso</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Mali</span>
+          <span class="marquee-pill inline-flex items-center gap-2 border border-dashed theme-border theme-text-muted px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i>Bénin (bientôt)</span>
+          <span class="marquee-pill inline-flex items-center gap-2 border border-dashed theme-border theme-text-muted px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i>Togo (bientôt)</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Côte d'Ivoire</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Sénégal</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Burkina Faso</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-violet/10 accent-violet border border-violet-500/20 px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>Mali</span>
+          <span class="marquee-pill inline-flex items-center gap-2 border border-dashed theme-border theme-text-muted px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i>Bénin (bientôt)</span>
+          <span class="marquee-pill inline-flex items-center gap-2 border border-dashed theme-border theme-text-muted px-4 py-2 rounded-full font-bold text-xs shrink-0"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i>Togo (bientôt)</span>
+        </div>
+      </div>
+
+      <p class="px-4 md:px-8 text-[10px] font-mono-data font-bold theme-text-muted uppercase tracking-widest pt-2">Tes clients paient comme ils veulent</p>
+      <div class="marquee-row overflow-hidden w-full">
+        <div class="marquee-track marquee-right gap-4 px-2">
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>Wave</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>Orange Money</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>MTN MoMo</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>Moov Money</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="banknote" class="w-3.5 h-3.5"></i>Espèces</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>Wave</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>Orange Money</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>MTN MoMo</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>Moov Money</span>
+          <span class="marquee-pill inline-flex items-center gap-2 bg-accent-emerald/10 accent-emerald border border-emerald-500/20 px-4 py-2 rounded-full font-extrabold text-xs shrink-0"><i data-lucide="banknote" class="w-3.5 h-3.5"></i>Espèces</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 3 · LE PROBLÈME                                       -->
+  <!-- ============================================================ -->
+  <section id="probleme" class="py-24 px-4 md:px-8 max-w-6xl mx-auto space-y-16">
+    <div class="text-center max-w-2xl mx-auto space-y-4">
+      <p class="reveal reveal-up text-xs font-mono-data font-bold accent-violet uppercase tracking-widest">Constat terrain</p>
+      <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">
+        Ton commerce marche. Mais tu <span class="font-serif-em italic accent-violet font-normal">pilotes à l'aveugle</span>.
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="reveal reveal-up theme-card border theme-border rounded-[2rem] p-8 hover:-translate-y-1 transition-transform duration-300 space-y-4" style="transition-delay:0ms">
+        <div class="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500"><i data-lucide="package-search" class="w-5 h-5"></i></div>
+        <h3 class="text-lg font-bold theme-text">Tu ne sais pas ce qui te reste</h3>
+        <p class="theme-text-muted text-xs leading-relaxed">Un client demande un article, tu vas voir au fond du magasin. Parfois il n'y en a plus depuis trois jours.</p>
+      </div>
+      <div class="reveal reveal-up theme-card border theme-border rounded-[2rem] p-8 hover:-translate-y-1 transition-transform duration-300 space-y-4" style="transition-delay:70ms">
+        <div class="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500"><i data-lucide="user-minus" class="w-5 h-5"></i></div>
+        <h3 class="text-lg font-bold theme-text">Tu ne sais plus qui te doit</h3>
+        <p class="theme-text-muted text-xs leading-relaxed">Tu fais crédit à des habitués sur WhatsApp. Six mois après, tu ne sais plus combien, ni depuis quand.</p>
+      </div>
+      <div class="reveal reveal-up theme-card border theme-border rounded-[2rem] p-8 hover:-translate-y-1 transition-transform duration-300 space-y-4" style="transition-delay:140ms">
+        <div class="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500"><i data-lucide="scale" class="w-5 h-5"></i></div>
+        <h3 class="text-lg font-bold theme-text">Tu confonds vendre et gagner</h3>
+        <p class="theme-text-muted text-xs leading-relaxed">La caisse est pleine le soir. Mais après les achats, le transport et le loyer, il reste quoi ?</p>
+      </div>
+      <div class="reveal reveal-up theme-card border theme-border rounded-[2rem] p-8 hover:-translate-y-1 transition-transform duration-300 space-y-4" style="transition-delay:210ms">
+        <div class="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500"><i data-lucide="book-x" class="w-5 h-5"></i></div>
+        <h3 class="text-lg font-bold theme-text">Ton cahier finit par se perdre</h3>
+        <p class="theme-text-muted text-xs leading-relaxed">Mouillé, déchiré, oublié chez toi. Et avec lui, tout l'historique de ton commerce.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 4 · AVANT / APRÈS                                     -->
+  <!-- ============================================================ -->
+  <section class="py-24 px-4 md:px-8 theme-badge border-y theme-border overflow-hidden">
+    <div class="max-w-6xl mx-auto space-y-16">
+      <div class="text-center max-w-2xl mx-auto space-y-4">
+        <span class="reveal reveal-up text-xs font-mono-data font-bold accent-emerald uppercase tracking-widest">La révolution</span>
+        <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">
+          Le même commerce. <span class="font-serif-em italic accent-emerald font-normal">Deux façons</span> de le tenir.
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+        <div class="reveal reveal-left theme-card border theme-border rounded-[2rem] p-8 lg:p-10 space-y-6">
+          <h3 class="text-xl font-bold text-red-500 flex items-center gap-2"><i data-lucide="book-x" class="w-5 h-5"></i> AVEC TON CAHIER</h3>
+          <div class="space-y-4 text-sm">
+            <div class="flex gap-3 items-start opacity-80"><i data-lucide="x" class="text-red-500 w-5 h-5 mt-0.5 shrink-0"></i><p class="theme-text">Tu comptes ta caisse le soir sans savoir si le compte est juste.</p></div>
+            <div class="flex gap-3 items-start opacity-80"><i data-lucide="x" class="text-red-500 w-5 h-5 mt-0.5 shrink-0"></i><p class="theme-text">Tu découvres une rupture quand le client est déjà devant toi.</p></div>
+            <div class="flex gap-3 items-start opacity-80"><i data-lucide="x" class="text-red-500 w-5 h-5 mt-0.5 shrink-0"></i><p class="theme-text">Tu oublies des crédits, parfois pendant des mois.</p></div>
+            <div class="flex gap-3 items-start opacity-80"><i data-lucide="x" class="text-red-500 w-5 h-5 mt-0.5 shrink-0"></i><p class="theme-text">Tu confonds ce que tu vends et ce que tu gagnes.</p></div>
+            <div class="flex gap-3 items-start opacity-80"><i data-lucide="x" class="text-red-500 w-5 h-5 mt-0.5 shrink-0"></i><p class="theme-text">Tu ne sais pas quel produit te rapporte vraiment.</p></div>
+            <div class="flex gap-3 items-start opacity-80"><i data-lucide="x" class="text-red-500 w-5 h-5 mt-0.5 shrink-0"></i><p class="theme-text">Ton vendeur note sur un bout de papier, ou pas du tout.</p></div>
+            <div class="flex gap-3 items-start opacity-80"><i data-lucide="x" class="text-red-500 w-5 h-5 mt-0.5 shrink-0"></i><p class="theme-text">Un cahier perdu, et tout l'historique disparaît.</p></div>
+          </div>
+        </div>
+
+        <div class="reveal reveal-right theme-card border-2 border-accent-emerald rounded-[2rem] p-8 lg:p-10 space-y-6" style="transition-delay:140ms; background: linear-gradient(135deg, color-mix(in srgb, var(--emerald) 6%, transparent), transparent 60%);">
+          <h3 class="text-xl font-bold accent-emerald flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5"></i> AVEC MOROCASH</h3>
+          <div class="space-y-4 text-sm">
+            <div class="flex gap-3 items-start"><i data-lucide="check" class="accent-emerald w-5 h-5 mt-0.5 shrink-0 bg-accent-emerald/10 rounded-full p-0.5"></i><p class="theme-text font-semibold">Tu sais au franc près ce que tu dois avoir en caisse.</p></div>
+            <div class="flex gap-3 items-start"><i data-lucide="check" class="accent-emerald w-5 h-5 mt-0.5 shrink-0 bg-accent-emerald/10 rounded-full p-0.5"></i><p class="theme-text font-semibold">Tu es prévenu avant la rupture, pas après.</p></div>
+            <div class="flex gap-3 items-start"><i data-lucide="check" class="accent-emerald w-5 h-5 mt-0.5 shrink-0 bg-accent-emerald/10 rounded-full p-0.5"></i><p class="theme-text font-semibold">Chaque crédit est noté, avec son ancienneté et un rappel WhatsApp.</p></div>
+            <div class="flex gap-3 items-start"><i data-lucide="check" class="accent-emerald w-5 h-5 mt-0.5 shrink-0 bg-accent-emerald/10 rounded-full p-0.5"></i><p class="theme-text font-semibold">Un seul chiffre chaque soir : ce que tu as réellement gagné.</p></div>
+            <div class="flex gap-3 items-start"><i data-lucide="check" class="accent-emerald w-5 h-5 mt-0.5 shrink-0 bg-accent-emerald/10 rounded-full p-0.5"></i><p class="theme-text font-semibold">Tu vois quel produit te fait gagner, et lequel te fait travailler.</p></div>
+            <div class="flex gap-3 items-start"><i data-lucide="check" class="accent-emerald w-5 h-5 mt-0.5 shrink-0 bg-accent-emerald/10 rounded-full p-0.5"></i><p class="theme-text font-semibold">Ton vendeur enregistre, sans jamais voir tes bénéfices.</p></div>
+            <div class="flex gap-3 items-start"><i data-lucide="check" class="accent-emerald w-5 h-5 mt-0.5 shrink-0 bg-accent-emerald/10 rounded-full p-0.5"></i><p class="theme-text font-semibold">Ton historique est en sécurité, et il t'appartient à vie.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 5 · COMMENT ÇA MARCHE (INTERACTIF)                    -->
+  <!-- ============================================================ -->
+  <section id="comment-ca-marche" class="py-24 px-4 md:px-8 max-w-6xl mx-auto space-y-16">
+    <div class="text-center max-w-2xl mx-auto space-y-4">
+      <span class="reveal reveal-up text-xs font-mono-data font-bold accent-violet uppercase tracking-widest">Fonctionnement</span>
+      <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">Trois étapes, et <span class="font-serif-em italic accent-violet font-normal">tu sais tout</span>.</h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <div class="lg:col-span-6 space-y-4">
+
+        <button type="button" data-step="1" class="step-btn reveal reveal-up w-full text-left p-6 rounded-[1.5rem] border theme-border theme-card theme-card-hover transition-all duration-300" style="transition-delay:0ms">
+          <div class="flex items-start gap-4">
+            <div class="step-num w-8 h-8 rounded-full font-mono-data font-bold flex items-center justify-center text-xs shrink-0 transition-colors duration-300 bg-accent-violet text-white">1</div>
+            <div class="space-y-1">
+              <h3 class="font-bold text-base theme-text">Tu enregistres ta vente</h3>
+              <p class="theme-text-muted text-xs leading-relaxed">Tu touches le produit, tu indiques combien le client t'a donné. Tu peux même scanner le code-barres. <span class="font-mono-data accent-emerald font-semibold">10s</span></p>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" data-step="2" class="step-btn reveal reveal-up w-full text-left p-6 rounded-[1.5rem] border theme-border theme-card theme-card-hover transition-all duration-300 opacity-60" style="transition-delay:70ms">
+          <div class="flex items-start gap-4">
+            <div class="step-num w-8 h-8 rounded-full font-mono-data font-bold flex items-center justify-center text-xs shrink-0 transition-colors duration-300" style="background: var(--border); color: var(--text-muted);">2</div>
+            <div class="space-y-1">
+              <h3 class="font-bold text-base theme-text">Tout se met à jour</h3>
+              <p class="theme-text-muted text-xs leading-relaxed">Le stock baisse, le client est créé, sa dette est notée, le reçu part sur WhatsApp.</p>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" data-step="3" class="step-btn reveal reveal-up w-full text-left p-6 rounded-[1.5rem] border theme-border theme-card theme-card-hover transition-all duration-300 opacity-60" style="transition-delay:140ms">
+          <div class="flex items-start gap-4">
+            <div class="step-num w-8 h-8 rounded-full font-mono-data font-bold flex items-center justify-center text-xs shrink-0 transition-colors duration-300" style="background: var(--border); color: var(--text-muted);">3</div>
+            <div class="space-y-1">
+              <h3 class="font-bold text-base theme-text">Tu vois ce que tu as gagné</h3>
+              <p class="theme-text-muted text-xs leading-relaxed">Chaque soir, un seul chiffre : ce qu'il te reste vraiment en poche, une fois le coût d'achat et les frais retirés.</p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div class="lg:col-span-6 flex justify-center reveal reveal-zoom" style="transition-delay:210ms">
+        <div class="w-[320px] h-[380px] theme-card border-2 theme-border rounded-[2rem] p-6 relative overflow-hidden shadow-xl">
+
+          <div class="step-panel h-full flex flex-col justify-between" data-panel="1">
+            <div class="space-y-2">
+              <p class="text-[10px] font-mono-data accent-violet font-bold uppercase tracking-wider">Panier en cours</p>
+              <div class="space-y-2 pt-2">
+                <div class="theme-badge border theme-border p-2.5 rounded-xl flex justify-between items-center text-xs">
+                  <span class="theme-text">3x Mèches Synthétiques</span>
+                  <span class="font-mono-data accent-emerald font-semibold">6 000 F</span>
+                </div>
+                <div class="theme-badge border theme-border p-2.5 rounded-xl flex justify-between items-center text-xs">
+                  <span class="theme-text">1x Crème de Soin</span>
+                  <span class="font-mono-data accent-emerald font-semibold">4 500 F</span>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div class="pt-4 border-t theme-border flex justify-between items-center">
+                <span class="text-xs theme-text-muted font-bold">Total :</span>
+                <span class="font-mono-data font-bold text-base accent-emerald">10 500 F</span>
+              </div>
+              <div class="bg-accent-violet text-white p-2.5 rounded-xl text-center font-extrabold text-xs">Encaisser</div>
+            </div>
+          </div>
+
+          <div class="step-panel h-full flex-col justify-between hidden" data-panel="2">
+            <div class="space-y-3">
+              <p class="text-[10px] font-mono-data accent-violet font-bold uppercase tracking-wider">Mises à jour instantanées</p>
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-semibold"><span class="theme-text">Mèches Synthétiques</span><span class="font-mono-data theme-text-muted">14 restants</span></div>
+                <div class="h-2 w-full rounded-full overflow-hidden theme-badge"><div class="stock-bar-fill h-full rounded-full bg-accent-violet" style="width:70%"></div></div>
+              </div>
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-semibold"><span class="theme-text">Crème de Soin</span><span class="font-mono-data theme-text-muted">8 restants</span></div>
+                <div class="h-2 w-full rounded-full overflow-hidden theme-badge"><div class="stock-bar-fill h-full rounded-full bg-accent-violet" style="width:40%"></div></div>
+              </div>
+            </div>
+            <div class="theme-badge border theme-border rounded-xl p-3 flex items-center gap-2 mt-4">
+              <i data-lucide="message-circle" class="w-4 h-4 accent-emerald shrink-0"></i>
+              <p class="text-[10px] theme-text font-semibold">Reçu envoyé à Awa T. sur WhatsApp</p>
+            </div>
+          </div>
+
+          <div class="step-panel h-full flex-col justify-between hidden" data-panel="3">
+            <div class="space-y-2">
+              <p class="text-[10px] font-mono-data accent-emerald font-bold uppercase tracking-wider">Rapport du soir</p>
+              <h4 class="font-bold theme-text text-xs">Ton bénéfice net :</h4>
+              <div class="bg-accent-emerald/5 border border-accent-emerald/20 rounded-2xl p-5 flex flex-col items-center gap-1 mt-2">
+                <span class="text-[10px] theme-text-muted uppercase font-bold">Ce que tu as gagné</span>
+                <span class="text-3xl font-extrabold accent-emerald font-mono-data" id="step3-counter">0 F</span>
+              </div>
+            </div>
+            <p class="text-[10px] text-center theme-text-muted leading-relaxed">Ventes 45 000 F − Achats 18 650 F − Dépenses 5 000 F</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 6 · CHIFFRES CLÉS                                     -->
+  <!-- ============================================================ -->
+  <section class="py-20 bg-accent-violet/5 border-y theme-border">
+    <div class="max-w-6xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-8">
+      <div class="reveal reveal-zoom text-center space-y-2" style="transition-delay:0ms">
+        <p class="text-4xl md:text-5xl font-extrabold accent-violet font-mono-data">10 s</p>
+        <p class="text-xs theme-text-muted font-bold">pour enregistrer une vente</p>
+      </div>
+      <div class="reveal reveal-zoom text-center space-y-2" style="transition-delay:70ms">
+        <p class="text-4xl md:text-5xl font-extrabold accent-violet font-mono-data">3 min</p>
+        <p class="text-xs theme-text-muted font-bold">pour être prêt à vendre</p>
+      </div>
+      <div class="reveal reveal-zoom text-center space-y-2" style="transition-delay:140ms">
+        <p class="text-4xl md:text-5xl font-extrabold accent-violet font-mono-data">0 F</p>
+        <p class="text-xs theme-text-muted font-bold">pendant 14 jours d'essai</p>
+      </div>
+      <div class="reveal reveal-zoom text-center space-y-2" style="transition-delay:210ms">
+        <p class="text-4xl md:text-5xl font-extrabold accent-violet font-mono-data">0</p>
+        <p class="text-xs theme-text-muted font-bold">carte bancaire demandée</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 7 · POURQUOI MOROCASH                                 -->
+  <!-- ============================================================ -->
+  <section id="pourquoi" class="py-24 px-4 md:px-8 max-w-6xl mx-auto space-y-16">
+    <div class="text-center max-w-2xl mx-auto space-y-4">
+      <span class="reveal reveal-up text-xs font-mono-data font-bold accent-emerald uppercase tracking-widest">Notre philosophie</span>
+      <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">Fait pour ton commerce, pas pour un <span class="font-serif-em italic accent-emerald font-normal">bureau climatisé</span>.</h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="reveal reveal-up theme-card border theme-border rounded-[2rem] p-8 hover:-translate-y-1 transition-transform duration-300 space-y-4" style="transition-delay:0ms">
+        <div class="w-10 h-10 rounded-2xl bg-accent-emerald/10 border border-emerald-500/20 flex items-center justify-center accent-emerald"><i data-lucide="wifi-off" class="w-5 h-5"></i></div>
+        <h3 class="text-lg font-bold theme-text">Le réseau coupe ? Tu continues à vendre.</h3>
+        <p class="theme-text-muted text-xs leading-relaxed">Tes commandes s'enregistrent sur ton téléphone même sans internet grâce à la technologie PWA. Tout se synchronise dès que le réseau revient.</p>
+      </div>
+      <div class="reveal reveal-up theme-card border theme-border rounded-[2rem] p-8 hover:-translate-y-1 transition-transform duration-300 space-y-4" style="transition-delay:70ms">
+        <div class="w-10 h-10 rounded-2xl bg-accent-violet/10 border border-violet-500/20 flex items-center justify-center accent-violet"><i data-lucide="message-square" class="w-5 h-5"></i></div>
+        <h3 class="text-lg font-bold theme-text">Si tu sais utiliser WhatsApp, tu sais utiliser MoroCash.</h3>
+        <p class="theme-text-muted text-xs leading-relaxed">Pas de jargon comptable. On écrit « ce que tu as gagné », jamais « bénéfice net d'exploitation ».</p>
+      </div>
+      <div class="reveal reveal-up theme-card border theme-border rounded-[2rem] p-8 hover:-translate-y-1 transition-transform duration-300 space-y-4" style="transition-delay:140ms">
+        <div class="w-10 h-10 rounded-2xl bg-accent-terre/10 border border-amber-500/20 flex items-center justify-center accent-terre"><i data-lucide="download-cloud" class="w-5 h-5"></i></div>
+        <h3 class="text-lg font-bold theme-text">Tes données sont à toi. Même si tu arrêtes.</h3>
+        <p class="theme-text-muted text-xs leading-relaxed">Exporte tout en Excel ou PDF quand tu veux. Si tu arrêtes de payer, tu gardes un accès en lecture seule à vie.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 8 · TÉMOIGNAGES LOCAUX                                -->
+  <!-- ============================================================ -->
+  <section id="temoignages" class="py-24 px-4 md:px-8 theme-badge border-y theme-border">
+    <div class="max-w-6xl mx-auto space-y-16">
+      <div class="text-center max-w-2xl mx-auto space-y-4">
+        <span class="reveal reveal-up text-xs font-mono-data font-bold accent-emerald uppercase tracking-widest">Avis commerçants</span>
+        <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">Recommandé par <span class="font-serif-em italic accent-emerald font-normal">ceux qui l'utilisent</span></h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="reveal reveal-up testimonial-card theme-card border theme-border rounded-[2rem] p-8 space-y-6" style="transition-delay:0ms">
+          <div class="space-y-4">
+            <div class="flex gap-1 star-row">
+              <i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i>
+            </div>
+            <p class="theme-text text-sm italic font-medium leading-relaxed">« Un client me devait 60 000 F depuis huit mois, je l'avais complètement oublié. Le jour où j'ai vu la liste, j'ai récupéré mon argent. »</p>
+          </div>
+          <div class="pt-4 border-t theme-border">
+            <p class="font-bold text-xs theme-text">Awa T.</p>
+            <p class="text-[10px] theme-text-muted">Cosmétiques, Yopougon</p>
+          </div>
+        </div>
+
+        <div class="reveal reveal-up testimonial-card theme-card border theme-border rounded-[2rem] p-8 space-y-6" style="transition-delay:70ms">
+          <div class="space-y-4">
+            <div class="flex gap-1 star-row">
+              <i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i>
+            </div>
+            <p class="theme-text text-sm italic font-medium leading-relaxed">« Le réseau coupe souvent à Adjamé. Je continue à enregistrer mes ventes, et quand ça revient, tout est là. »</p>
+          </div>
+          <div class="pt-4 border-t theme-border">
+            <p class="font-bold text-xs theme-text">Kouassi Y.</p>
+            <p class="text-[10px] theme-text-muted">Alimentation, Adjamé</p>
+          </div>
+        </div>
+
+        <div class="reveal reveal-up testimonial-card theme-card border theme-border rounded-[2rem] p-8 space-y-6" style="transition-delay:140ms">
+          <div class="space-y-4">
+            <div class="flex gap-1 star-row">
+              <i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i><i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400 star-pending"></i>
+            </div>
+            <p class="theme-text text-sm italic font-medium leading-relaxed">« Je croyais gagner beaucoup parce que la caisse était pleine. En vrai je perdais sur deux produits. »</p>
+          </div>
+          <div class="pt-4 border-t theme-border">
+            <p class="font-bold text-xs theme-text">Fatou D.</p>
+            <p class="text-[10px] theme-text-muted">Prêt-à-porter, Cocody</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 9 · COMPARATIF CAHIER / EXCEL / MOROCASH              -->
+  <!-- ============================================================ -->
+  <section id="comparatif" class="py-24 px-4 md:px-8 max-w-6xl mx-auto space-y-12">
+    <div class="text-center max-w-2xl mx-auto space-y-4">
+      <span class="reveal reveal-up text-xs font-mono-data font-bold accent-violet uppercase tracking-widest">Comparatif honnête</span>
+      <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">Cahier, Excel ou <span class="font-serif-em italic accent-violet font-normal">MoroCash</span> ?</h2>
+    </div>
+
+    <div class="reveal reveal-up overflow-x-auto rounded-[2rem] border theme-border shadow-2xl">
+      <table class="w-full text-left border-collapse min-w-[650px]">
+        <thead>
+          <tr class="theme-badge border-b theme-border text-xs font-bold uppercase tracking-wider theme-text">
+            <th class="p-5">Ce que tu veux savoir</th>
+            <th class="p-5 text-center">Cahier</th>
+            <th class="p-5 text-center">Excel</th>
+            <th class="p-5 text-center bg-accent-violet/5 relative overflow-hidden">
+              <div class="sweep-highlight absolute inset-y-0 left-0 w-1/3 pointer-events-none" style="background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--violet) 30%, transparent), transparent); transform: skewX(-12deg);"></div>
+              <span class="relative">MoroCash</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="text-xs font-medium theme-text-muted divide-y theme-border">
+          <tr><td class="p-4 font-bold theme-text">Enregistrer une vente en 10 secondes</td><td class="p-4 text-center accent-emerald font-bold">Oui</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Oui</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Alertes de rupture de stock automatiques</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center theme-text font-semibold">Non</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Automatique</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Masquer les bénéfices aux employés</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Oui</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Relancer une dette en 1 clic (WhatsApp)</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Oui</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Fonctionner 100% hors-ligne</td><td class="p-4 text-center accent-emerald font-bold">Oui</td><td class="p-4 text-center accent-emerald font-bold">Oui</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Oui</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Survivre au vol, au feu, à la pluie</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center theme-text font-semibold">Si sauvegardé</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Oui</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Envoyer un reçu automatique au client</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Sur WhatsApp</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Connaître son bénéfice net chaque soir</td><td class="p-4 text-center text-red-500 font-bold">Non</td><td class="p-4 text-center theme-text font-semibold">Si tu sais faire</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Chaque soir</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Historique client (qui doit, depuis quand)</td><td class="p-4 text-center theme-text font-semibold">Si tu y penses</td><td class="p-4 text-center theme-text font-semibold">À la main</td><td class="p-4 text-center bg-accent-violet/5 accent-emerald font-extrabold">Automatique</td></tr>
+          <tr><td class="p-4 font-bold theme-text">Coûter zéro franc</td><td class="p-4 text-center accent-emerald font-bold">Oui</td><td class="p-4 text-center accent-emerald font-bold">Oui</td><td class="p-4 text-center bg-accent-violet/5 text-red-500 font-bold">14j, puis payant</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="reveal reveal-up text-xs text-center theme-text-muted leading-relaxed max-w-xl mx-auto italic">« Ton cahier est rapide et gratuit. C'est vrai. Il ne te dira simplement jamais si tu gagnes de l'argent. »</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 10 · BENTO GRID : ADAPTATION MÉTIER                   -->
+  <!-- ============================================================ -->
+  <section id="solutions" class="py-24 px-4 md:px-8 max-w-6xl mx-auto space-y-16">
+    <div class="text-center max-w-2xl mx-auto space-y-4">
+      <span class="reveal reveal-up text-xs font-mono-data font-bold accent-emerald uppercase tracking-widest">Pour qui ?</span>
+      <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">MoroCash s'adapte à <span class="font-serif-em italic accent-emerald font-normal">ton métier</span>.</h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+      <!-- Persona 1 : La vendeuse WhatsApp (interactif) -->
+      <div class="reveal reveal-left md:col-span-7 theme-card border theme-border rounded-[2rem] p-8 flex flex-col gap-6" style="transition-delay:0ms">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="w-11 h-11 rounded-2xl bg-accent-emerald/10 border border-emerald-500/20 flex items-center justify-center accent-emerald mb-4"><i data-lucide="message-circle" class="w-5 h-5"></i></div>
+            <h3 class="text-lg font-bold theme-text">La vendeuse WhatsApp</h3>
+            <p class="theme-text-muted text-xs leading-relaxed max-w-xs mt-1">Awa prend ses commandes toute la journée sur WhatsApp. Un clic transforme le message en reçu propre.</p>
+          </div>
+          <button id="bento-extract-btn" type="button" class="shrink-0 bg-accent-emerald text-[#06110B] text-[11px] font-extrabold px-3.5 py-2 rounded-xl hover:opacity-90 transition-opacity">Transformer en reçu</button>
+        </div>
+
+        <div class="relative min-h-[150px]">
+          <div id="raw-message" class="raw-message theme-badge border theme-border rounded-2xl rounded-tl-sm p-4 text-xs theme-text max-w-sm">
+            <p class="font-semibold">Awa T. <span class="theme-text-muted font-normal">· 21:14</span></p>
+            <p class="mt-1 theme-text-muted">« Bjr Awa, tu me mets 2 mèches et 1 crème svp, je passe demain »</p>
+          </div>
+          <div id="receipt-panel" class="receipt-panel theme-badge border border-accent-emerald/30 rounded-2xl p-4 text-xs">
+            <p class="font-mono-data font-bold accent-emerald uppercase tracking-wider text-[10px] mb-2">Reçu MoroCash · #0231</p>
+            <div class="flex justify-between theme-text py-1"><span>2x Mèches Synthétiques</span><span class="font-mono-data">12 000 F</span></div>
+            <div class="flex justify-between theme-text py-1"><span>1x Crème de Soin</span><span class="font-mono-data">4 500 F</span></div>
+            <div class="flex justify-between font-bold theme-text pt-2 mt-2 border-t theme-border"><span>Total</span><span class="font-mono-data accent-emerald">16 500 F</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Persona 2 : Le boutiquier -->
+      <div class="reveal reveal-right md:col-span-5 theme-card border theme-border rounded-[2rem] p-8 flex flex-col gap-6" style="transition-delay:70ms">
+        <div class="w-11 h-11 rounded-2xl bg-accent-violet/10 border border-violet-500/20 flex items-center justify-center accent-violet"><i data-lucide="users" class="w-5 h-5"></i></div>
+        <div>
+          <h3 class="text-lg font-bold theme-text">Le boutiquier</h3>
+          <p class="theme-text-muted text-xs leading-relaxed mt-1">Il gère une équipe de vendeurs. Ils encaissent, mais ne voient jamais les marges.</p>
+        </div>
+        <div class="theme-badge border theme-border rounded-2xl p-4 space-y-2 text-xs">
+          <div class="flex justify-between items-center">
+            <span class="theme-text font-semibold">Vente de Kouadio</span>
+            <span class="font-mono-data theme-text">12 500 F</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="theme-text-muted flex items-center gap-1.5"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i>Marge réelle</span>
+            <span class="font-mono-data theme-text-muted">•••• masquée</span>
+          </div>
+          <div class="flex justify-between items-center pt-2 border-t theme-border">
+            <span class="accent-emerald font-semibold flex items-center gap-1.5"><i data-lucide="eye" class="w-3.5 h-3.5"></i>Toi, le patron</span>
+            <span class="font-mono-data accent-emerald font-bold">+3 200 F</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Persona 3 : Le prestataire -->
+      <div class="reveal reveal-up md:col-span-12 theme-card border theme-border rounded-[2rem] p-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-center" style="transition-delay:140ms">
+        <div>
+          <div class="w-11 h-11 rounded-2xl bg-accent-terre/10 border border-amber-500/20 flex items-center justify-center accent-terre mb-4"><i data-lucide="scissors" class="w-5 h-5"></i></div>
+          <h3 class="text-lg font-bold theme-text">Le prestataire</h3>
+          <p class="theme-text-muted text-xs leading-relaxed mt-1 max-w-sm">Coiffure, couture, réparation : pas de stock à gérer, juste des prestations encaissées en 10 secondes.</p>
+        </div>
+        <div class="theme-badge border theme-border rounded-2xl p-4 space-y-2 text-xs">
+          <div class="flex justify-between items-center"><span class="theme-text font-semibold">Coupe Homme</span><span class="font-mono-data accent-emerald">3 000 F</span></div>
+          <div class="flex justify-between items-center"><span class="theme-text font-semibold">Tresses Awalé</span><span class="font-mono-data accent-emerald">8 000 F</span></div>
+          <div class="flex justify-between items-center"><span class="theme-text font-semibold">Retouche express</span><span class="font-mono-data accent-emerald">1 500 F</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 11 · TARIFICATION TRANSPARENTE                        -->
+  <!-- ============================================================ -->
+  <section id="tarifs" class="py-24 px-4 md:px-8 max-w-6xl mx-auto space-y-16">
+    <div class="text-center max-w-2xl mx-auto space-y-4">
+      <span class="reveal reveal-up text-xs font-mono-data font-bold accent-emerald uppercase tracking-widest">Investissement rentable</span>
+      <h2 class="reveal reveal-up text-3xl md:text-4xl font-bold tracking-tight theme-text" style="transition-delay:70ms">Un tarif transparent en <span class="font-serif-em italic accent-emerald font-normal">Francs CFA</span>.</h2>
+
+      <div id="billing-switch" class="billing-monthly reveal reveal-up inline-flex items-center gap-3 pt-2" style="transition-delay:140ms">
+        <span id="label-monthly" class="text-xs font-bold theme-text">Mensuel</span>
+        <button id="billing-toggle" type="button" class="w-12 h-6 rounded-full relative theme-border border" style="background: var(--border);">
+          <span id="billing-knob" class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-accent-violet"></span>
+        </button>
+        <span id="label-yearly" class="text-xs font-bold theme-text-muted">Annuel <span class="accent-emerald">(2 mois offerts)</span></span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+      <div class="reveal reveal-zoom theme-card border theme-border rounded-[2rem] p-8 flex flex-col justify-between hover:border-accent-violet/30 transition-colors duration-300" style="transition-delay:0ms">
+        <div class="space-y-6">
+          <div>
+            <h3 class="text-xl font-bold theme-text">Formule Solo</h3>
+            <p class="theme-text-muted text-xs">Pour les entrepreneurs qui vendent seuls.</p>
+          </div>
+          <div class="flex items-baseline gap-1 font-mono-data">
+            <span class="text-4xl font-extrabold theme-text price-solo">15 000</span>
+            <span class="accent-emerald font-bold text-lg">FCFA</span>
+            <span class="theme-text-muted text-xs ml-1 price-period">/ mois</span>
+          </div>
+          <div class="h-px" style="background: var(--border);"></div>
+          <ul class="space-y-3 text-xs theme-text-muted">
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i><span class="theme-text font-semibold">1 compte administrateur</span></li>
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i>Historique de ventes illimité</li>
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i>Gestion complète des stocks & alertes</li>
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i>Suivi des dettes et relances WhatsApp</li>
+          </ul>
+        </div>
+        <a href="#top" class="mt-8 block w-full border theme-border theme-card-hover theme-text font-extrabold text-sm py-4 rounded-xl text-center transition-colors">Commencer mon essai libre</a>
+      </div>
+
+      <div class="reveal reveal-zoom theme-card border-2 border-accent-emerald rounded-[2rem] p-8 flex flex-col justify-between relative" style="transition-delay:70ms; background: linear-gradient(135deg, color-mix(in srgb, var(--emerald) 6%, transparent), transparent 60%);">
+        <div class="absolute top-4 right-4 bg-accent-emerald/10 accent-emerald font-mono-data text-[9px] font-extrabold px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-wider">Équipe & Vendeurs</div>
+        <div class="space-y-6">
+          <div>
+            <h3 class="text-xl font-bold theme-text">Formule Business</h3>
+            <p class="theme-text-muted text-xs">Pour les boutiques avec vendeurs et personnel.</p>
+          </div>
+          <div class="flex items-baseline gap-1 font-mono-data">
+            <span class="text-4xl font-extrabold theme-text price-business">20 000</span>
+            <span class="accent-emerald font-bold text-lg">FCFA</span>
+            <span class="theme-text-muted text-xs ml-1 price-period">/ mois</span>
+          </div>
+          <div class="h-px" style="background: var(--border);"></div>
+          <ul class="space-y-3 text-xs theme-text-muted">
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i><span class="theme-text font-semibold">Jusqu'à 5 vendeurs</span></li>
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i><span class="theme-text font-semibold">Bénéfices masqués aux vendeurs</span></li>
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i>Suivi et comparaison de performances</li>
+            <li class="flex items-center gap-2.5"><i data-lucide="check" class="accent-emerald w-4 h-4"></i>Export complet Excel & PDF en 1 clic</li>
+          </ul>
+        </div>
+        <a href="#top" class="mt-8 block w-full bg-accent-emerald text-[#06110B] font-extrabold text-sm py-4 rounded-xl text-center transition-transform hover:scale-[1.02]">Lancer mon essai gratuit</a>
+      </div>
+    </div>
+
+    <p class="reveal reveal-up text-center text-xs theme-text-muted max-w-lg mx-auto leading-relaxed">
+      <i data-lucide="lock" class="w-3.5 h-3.5 inline accent-emerald -mt-0.5 mr-1"></i>
+      Si l'abonnement expire, tes données passent en lecture seule. Tu ne perds jamais ton historique.
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 12 · APPEL FINAL                                      -->
+  <!-- ============================================================ -->
+  <section class="max-w-6xl mx-auto px-4 md:px-8 pb-28 pt-8">
+    <div class="reveal reveal-zoom rounded-[2.5rem] text-white p-12 lg:p-16 text-center relative overflow-hidden shadow-2xl animated-gradient" style="background-image: linear-gradient(120deg, #4F46E5, #7B61FF, #00E687, #7B61FF, #4F46E5);">
+      <div class="absolute -inset-4 bg-white/5 blur-3xl pointer-events-none"></div>
+      <div class="relative z-10 max-w-2xl mx-auto space-y-6">
+        <h2 class="text-3xl md:text-5xl font-extrabold tracking-tight">Ce soir, sais-tu ce que tu as <span class="font-serif-em italic font-normal">gagné aujourd'hui</span> ?</h2>
+        <p class="text-sm md:text-base text-white/85 leading-relaxed max-w-lg mx-auto">Essaie MoroCash gratuitement pendant 14 jours. Sans engagement, sans carte bancaire exigée.</p>
+        <div class="pt-2">
+          <a href="#tarifs" class="inline-block bg-white text-[#1C1917] font-extrabold text-base py-5 px-12 rounded-2xl shadow-lg transition-transform hover:scale-105 active:scale-95">Essayer gratuitement</a>
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/75 pt-2">
+          <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5"></i>Prêt en 3 minutes</span>
+          <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i>Sans carte bancaire</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================================================ -->
+<!-- PIED DE PAGE                                                  -->
+<!-- ============================================================ -->
+<footer class="border-t theme-border py-14 px-4 md:px-8">
+  <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 text-xs">
+    <div class="md:col-span-5 space-y-3">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-accent-emerald to-accent-violet flex items-center justify-center text-[#06110B] font-extrabold text-xs">M</div>
+        <span class="font-extrabold text-sm tracking-tight theme-text">Moro<span class="accent-emerald">Cash</span></span>
+      </div>
+      <p class="theme-text-muted leading-relaxed max-w-xs">Conçu pour les commerçants d'Afrique de l'Ouest. Suivi de caisse, stocks, clients et relances intelligentes.</p>
+    </div>
+    <div class="md:col-span-3 space-y-3">
+      <p class="theme-text font-bold text-[11px] uppercase tracking-wider">Produit</p>
+      <ul class="space-y-2 theme-text-muted">
+        <li><a href="#solutions" class="hover:text-[var(--emerald)] transition-colors">Pour qui ?</a></li>
+        <li><a href="#comment-ca-marche" class="hover:text-[var(--emerald)] transition-colors">Fonctionnement</a></li>
+        <li><a href="#tarifs" class="hover:text-[var(--emerald)] transition-colors">Tarifs</a></li>
+      </ul>
+    </div>
+    <div class="md:col-span-4 flex md:justify-end items-start">
+      <div class="theme-badge border theme-border py-1.5 px-4 rounded-full flex items-center gap-2">
+        <span class="h-1.5 w-1.5 rounded-full bg-accent-emerald animate-pulse"></span>
+        <span class="font-mono-data text-[9px] theme-text-muted">Système MoroCash Opérationnel</span>
+      </div>
+    </div>
+  </div>
+  <div class="max-w-6xl mx-auto h-px my-8" style="background: var(--border);"></div>
+  <p class="max-w-6xl mx-auto text-[10px] theme-text-muted text-center md:text-left">© 2026 MoroCash Technologies. Tous droits réservés.</p>
+</footer>
+
+<script>
+(function () {
+  /* ============================================================
+     0. THÈME — persistance + transition instantanée
+  ============================================================ */
+  var root = document.documentElement;
+  var stored = localStorage.getItem('morocash-theme');
+  if (stored === 'light') root.classList.add('light');
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    root.classList.toggle('light');
+    localStorage.setItem('morocash-theme', root.classList.contains('light') ? 'light' : 'dark');
+  });
+
+  /* ============================================================
+     1. ICÔNES LUCIDE — rendues une seule fois ; le thème (dont les
+        icônes lune/soleil) est ensuite géré à 100% en CSS, jamais en
+        recréant les SVG, pour éviter toute désynchronisation.
+  ============================================================ */
+  lucide.createIcons();
+
+  /* ============================================================
+     2. BARRE DE PROGRESSION DE SCROLL (scaleX, GPU only)
+  ============================================================ */
+  var progressBar = document.getElementById('scroll-progress');
+  function updateProgress() {
+    var h = document.documentElement;
+    var scrolled = h.scrollTop / (h.scrollHeight - h.clientHeight || 1);
+    progressBar.style.transform = 'scaleX(' + Math.min(Math.max(scrolled, 0), 1) + ')';
+  }
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  /* ============================================================
+     3. ÉASING PARTAGÉ cubic-bezier(.22,.68,0,1) — pour les compteurs JS
+  ============================================================ */
+  function makeCubicBezier(p1x, p1y, p2x, p2y) {
+    function A(a1, a2) { return 1 - 3 * a2 + 3 * a1; }
+    function B(a1, a2) { return 3 * a2 - 6 * a1; }
+    function C(a1) { return 3 * a1; }
+    function calc(t, a1, a2) { return ((A(a1, a2) * t + B(a1, a2)) * t + C(a1)) * t; }
+    function slope(t, a1, a2) { return 3 * A(a1, a2) * t * t + 2 * B(a1, a2) * t + C(a1); }
+    return function (x) {
+      var t = x;
+      for (var i = 0; i < 8; i++) {
+        var x2 = calc(t, p1x, p2x) - x;
+        var d = slope(t, p1x, p2x);
+        if (Math.abs(x2) < 1e-6 || Math.abs(d) < 1e-6) break;
+        t -= x2 / d;
+      }
+      return calc(t, p1y, p2y);
+    };
+  }
+  var ease = makeCubicBezier(0.22, 0.68, 0, 1);
+
+  function animateCount(el, target, duration, suffix) {
+    var start = null;
+    function frame(now) {
+      if (start === null) start = now;
+      var t = Math.min((now - start) / duration, 1);
+      var value = Math.round(ease(t) * target);
+      el.textContent = value.toLocaleString('fr-FR') + (suffix || '');
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ============================================================
+     4. INTERSECTION OBSERVER — révélations au scroll (une fois)
+  ============================================================ */
+  var heroCounterDone = false;
+  var revealObserver = new IntersectionObserver(function (entries, obs) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-visible');
+      obs.unobserve(entry.target);
+
+      if (entry.target.querySelector('#hero-counter') && !heroCounterDone) {
+        heroCounterDone = true;
+        setTimeout(function () {
+          animateCount(document.getElementById('hero-counter'), 21350, 1250, ' F CFA');
+        }, 150);
+      }
+
+      if (entry.target.classList.contains('testimonial-card')) {
+        var stars = entry.target.querySelectorAll('.star-pending');
+        stars.forEach(function (star, i) {
+          setTimeout(function () { star.classList.add('star-lit'); }, 200 + i * 70);
+        });
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(function (el) { revealObserver.observe(el); });
+
+  /* ============================================================
+     5. SECTION 5 — WIDGET INTERACTIF "COMMENT ÇA MARCHE"
+  ============================================================ */
+  var activeStep = 1;
+  var stockBarsFilled = false;
+  var step3Done = false;
+
+  function setStep(step) {
+    if (step === activeStep) return;
+    activeStep = step;
+
+    document.querySelectorAll('.step-btn').forEach(function (btn) {
+      var n = parseInt(btn.getAttribute('data-step'), 10);
+      var numEl = btn.querySelector('.step-num');
+      if (n === step) {
+        btn.classList.remove('opacity-60');
+        numEl.style.background = '';
+        numEl.style.color = '';
+        numEl.className = 'step-num w-8 h-8 rounded-full font-mono-data font-bold flex items-center justify-center text-xs shrink-0 transition-colors duration-300 ' +
+          (step === 3 ? 'bg-accent-emerald' : 'bg-accent-violet') + ' ' + (step === 3 ? 'text-[#06110B]' : 'text-white');
+      } else {
+        btn.classList.add('opacity-60');
+        numEl.className = 'step-num w-8 h-8 rounded-full font-mono-data font-bold flex items-center justify-center text-xs shrink-0 transition-colors duration-300';
+        numEl.style.background = 'var(--border)';
+        numEl.style.color = 'var(--text-muted)';
+      }
+    });
+
+    document.querySelectorAll('.step-panel').forEach(function (panel) {
+      var n = parseInt(panel.getAttribute('data-panel'), 10);
+      if (n === step) {
+        panel.classList.remove('hidden');
+        panel.classList.add('flex');
+      } else {
+        panel.classList.add('hidden');
+        panel.classList.remove('flex');
+      }
+    });
+
+    if (step === 2 && !stockBarsFilled) {
+      stockBarsFilled = true;
+      requestAnimationFrame(function () {
+        document.querySelectorAll('.stock-bar-fill').forEach(function (bar) {
+          bar.classList.add('filled');
+        });
+      });
+    }
+
+    if (step === 3 && !step3Done) {
+      step3Done = true;
+      animateCount(document.getElementById('step3-counter'), 21350, 1100, ' F');
+    }
+  }
+
+  document.querySelectorAll('.step-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setStep(parseInt(btn.getAttribute('data-step'), 10));
+    });
+  });
+
+  /* ============================================================
+     6. SECTION 10 — BENTO : SIMULATION D'EXTRACTION DE REÇU
+  ============================================================ */
+  var extractBtn = document.getElementById('bento-extract-btn');
+  var rawMessage = document.getElementById('raw-message');
+  var receiptPanel = document.getElementById('receipt-panel');
+  var extracted = false;
+  extractBtn.addEventListener('click', function () {
+    extracted = !extracted;
+    if (extracted) {
+      rawMessage.classList.add('hidden-msg');
+      receiptPanel.classList.add('shown');
+      extractBtn.textContent = 'Revenir au message';
+    } else {
+      rawMessage.classList.remove('hidden-msg');
+      receiptPanel.classList.remove('shown');
+      extractBtn.textContent = 'Transformer en reçu';
+    }
+  });
+
+  /* ============================================================
+     7. SECTION 11 — TOGGLE MENSUEL / ANNUEL
+  ============================================================ */
+  var billingSwitch = document.getElementById('billing-switch');
+  var billingToggle = document.getElementById('billing-toggle');
+  var labelMonthly = document.getElementById('label-monthly');
+  var labelYearly = document.getElementById('label-yearly');
+  var priceSoloEls = document.querySelectorAll('.price-solo');
+  var priceBusinessEls = document.querySelectorAll('.price-business');
+  var pricePeriodEls = document.querySelectorAll('.price-period');
+  var isYearly = false;
+
+  billingToggle.addEventListener('click', function () {
+    isYearly = !isYearly;
+    billingSwitch.classList.toggle('billing-yearly', isYearly);
+    labelMonthly.classList.toggle('theme-text', !isYearly);
+    labelMonthly.classList.toggle('theme-text-muted', isYearly);
+    labelYearly.classList.toggle('theme-text', isYearly);
+    labelYearly.classList.toggle('theme-text-muted', !isYearly);
+
+    priceSoloEls.forEach(function (el) { el.textContent = isYearly ? '150 000' : '15 000'; });
+    priceBusinessEls.forEach(function (el) { el.textContent = isYearly ? '200 000' : '20 000'; });
+    pricePeriodEls.forEach(function (el) { el.textContent = isYearly ? '/ an' : '/ mois'; });
+  });
+})();
+</script>
+
+</body>
+</html>

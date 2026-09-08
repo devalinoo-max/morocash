@@ -1,0 +1,26 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Plan {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  nom                 String
+  prixMensuel         Int
+  prixAnnuel          Int
+  maxUsers            Int
+  maxProduits         Int      // 0 = illimité
+  rapportsComparatifs Boolean  @default(false)
+  exportExcel         Boolean  @default(false)
+  employesAutorises   Boolean  @default(false)
+  actif               Boolean  @default(true)
+  baseline            String
+  aide                String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

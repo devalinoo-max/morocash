@@ -1,0 +1,447 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   MoroCash Landing — thème double "Midnight Obsidian / Afrique Premium"
+   Toutes les variables et classes ci-dessous sont scopées sous
+   .morocash-landing (posé une seule fois sur le conteneur racine de
+   LandingPage) pour ne jamais fuiter vers le reste de l'app (dashboard,
+   back-office), qui utilise ses propres couleurs directes (hex/slate/
+   indigo). Le thème sombre est la valeur par défaut ; .light bascule vers
+   la variante claire — les deux sont pilotées uniquement par ces variables
+   CSS pour un basculement instantané, sans re-render de layout.
+   ========================================================================== */
+.morocash-landing {
+  --bg: #080a10;
+  --card: #111524;
+  --card-hover: #171d31;
+  --border: #1f263e;
+  --text: #ffffff;
+  --text-muted: #8f9bba;
+  --badge-bg: rgba(255, 255, 255, 0.03);
+  --emerald: #00e687;
+  --violet: #7b61ff;
+  --terre: #f59e0b;
+  --landing-ease: cubic-bezier(0.22, 0.68, 0, 1);
+
+  position: relative;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  transition: background-color 0.5s var(--landing-ease), color 0.5s var(--landing-ease);
+}
+.morocash-landing.light {
+  --bg: #fffbf5;
+  --card: #ffffff;
+  --card-hover: #fff7ed;
+  --border: #fde8cd;
+  --text: #1c1917;
+  --text-muted: #78716c;
+  --badge-bg: #f5efeb;
+  --emerald: #009a66;
+  --violet: #7b61ff;
+  --terre: #c2540a;
+}
+
+.morocash-landing * {
+  transition-timing-function: var(--landing-ease);
+}
+
+.morocash-landing .font-serif-em {
+  font-family: 'Playfair Display', serif;
+}
+.morocash-landing .font-mono-data {
+  font-family: 'Space Mono', monospace;
+}
+
+.morocash-landing .theme-bg {
+  background-color: var(--bg);
+}
+.morocash-landing .theme-card {
+  background-color: var(--card);
+}
+.morocash-landing .theme-card-hover:hover {
+  background-color: var(--card-hover);
+}
+.morocash-landing .theme-border {
+  border-color: var(--border);
+}
+.morocash-landing .theme-text {
+  color: var(--text);
+}
+.morocash-landing .theme-text-muted {
+  color: var(--text-muted);
+}
+.morocash-landing .theme-badge {
+  background-color: var(--badge-bg);
+}
+.morocash-landing .accent-emerald {
+  color: var(--emerald);
+}
+.morocash-landing .bg-accent-emerald {
+  background-color: var(--emerald);
+}
+.morocash-landing .border-accent-emerald {
+  border-color: var(--emerald);
+}
+.morocash-landing .accent-violet {
+  color: var(--violet);
+}
+.morocash-landing .bg-accent-violet {
+  background-color: var(--violet);
+}
+.morocash-landing .accent-terre {
+  color: var(--terre);
+}
+.morocash-landing .bg-accent-terre {
+  background-color: var(--terre);
+}
+.morocash-landing .tint-emerald-5 {
+  background-color: color-mix(in srgb, var(--emerald) 5%, transparent);
+}
+.morocash-landing .tint-emerald-10 {
+  background-color: color-mix(in srgb, var(--emerald) 10%, transparent);
+}
+.morocash-landing .tint-violet-5 {
+  background-color: color-mix(in srgb, var(--violet) 5%, transparent);
+}
+.morocash-landing .tint-violet-10 {
+  background-color: color-mix(in srgb, var(--violet) 10%, transparent);
+}
+.morocash-landing .tint-terre-10 {
+  background-color: color-mix(in srgb, var(--terre) 10%, transparent);
+}
+.morocash-landing .border-emerald-tint-30 {
+  border-color: color-mix(in srgb, var(--emerald) 30%, transparent);
+}
+.morocash-landing .hover-border-violet-30:hover {
+  border-color: color-mix(in srgb, var(--violet) 30%, transparent);
+}
+
+.morocash-landing ::selection {
+  background: var(--emerald);
+  color: #06110b;
+}
+
+.morocash-landing ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.morocash-landing ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.morocash-landing ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+}
+.morocash-landing ::-webkit-scrollbar-thumb:hover {
+  background: var(--violet);
+}
+
+/* --- Bruit analogique global (0.04 d'opacité, jamais plus) --- */
+.morocash-landing .noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  opacity: 0.04;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --- Barre de progression de scroll : scaleX, jamais width --- */
+.morocash-landing .scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--violet), var(--emerald));
+  z-index: 90;
+  transition: transform 0.1s linear;
+}
+
+/* --- Système de révélation au scroll : transform + opacity uniquement --- */
+.morocash-landing .reveal {
+  opacity: 0;
+  transition: opacity 0.8s var(--landing-ease), transform 0.8s var(--landing-ease), filter 0.8s var(--landing-ease);
+  will-change: transform, opacity;
+}
+.morocash-landing .reveal-up {
+  transform: translateY(28px);
+}
+.morocash-landing .reveal-left {
+  transform: translateX(-40px);
+}
+.morocash-landing .reveal-right {
+  transform: translateX(40px);
+}
+.morocash-landing .reveal-zoom {
+  transform: scale(0.94);
+}
+.morocash-landing .reveal-blur {
+  transform: translateY(20px);
+  filter: blur(8px);
+}
+.morocash-landing .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .morocash-landing .reveal,
+  .morocash-landing .reveal.is-visible {
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .morocash-landing .floating-phone,
+  .morocash-landing .marquee-track,
+  .morocash-landing .animated-gradient,
+  .morocash-landing .sweep-highlight {
+    animation: none !important;
+  }
+}
+
+/* --- Flottement du mockup téléphone --- */
+@keyframes landingFloatPhone {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(-1.2deg);
+  }
+}
+.morocash-landing .floating-phone {
+  animation: landingFloatPhone 6.5s ease-in-out infinite;
+}
+
+/* --- Bandeaux défilants à l'infini --- */
+@keyframes landingScrollLeft {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes landingScrollRight {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.morocash-landing .marquee-track {
+  display: flex;
+  width: max-content;
+}
+.morocash-landing .marquee-left .marquee-track {
+  animation: landingScrollLeft 32s linear infinite;
+}
+.morocash-landing .marquee-right .marquee-track {
+  animation: landingScrollRight 26s linear infinite;
+}
+.morocash-landing .marquee-row:hover .marquee-track {
+  animation-play-state: paused;
+}
+.morocash-landing .marquee-pill {
+  transition: transform 0.25s var(--landing-ease);
+}
+.morocash-landing .marquee-pill:hover {
+  transform: translateY(-3px);
+}
+
+/* --- Barres de stock : scaleX, jamais width --- */
+.morocash-landing .stock-bar-fill {
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1s var(--landing-ease);
+}
+.morocash-landing .stock-bar-fill.filled {
+  transform: scaleX(1);
+}
+
+/* --- Reflet périodique sur la colonne MoroCash du comparatif --- */
+@keyframes landingSweep {
+  0% {
+    transform: translateX(-120%);
+    animation-timing-function: var(--landing-ease);
+  }
+  45% {
+    transform: translateX(220%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+.morocash-landing .sweep-highlight {
+  animation: landingSweep 4.5s infinite;
+}
+
+/* --- Étoiles des témoignages --- */
+.morocash-landing .star-pending {
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.4s var(--landing-ease), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.morocash-landing .star-lit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* --- Switch de thème (piste + bille en transform) --- */
+.morocash-landing .theme-knob {
+  transform: translateX(0);
+  transition: transform 0.4s var(--landing-ease);
+}
+.morocash-landing.light .theme-knob {
+  transform: translateX(20px);
+}
+.morocash-landing .theme-icon-dark,
+.morocash-landing .theme-icon-light {
+  transition: opacity 0.3s var(--landing-ease), transform 0.3s var(--landing-ease);
+}
+.morocash-landing .theme-icon-dark {
+  opacity: 1;
+  transform: scale(1);
+}
+.morocash-landing .theme-icon-light {
+  opacity: 0;
+  transform: scale(0.5);
+}
+.morocash-landing.light .theme-icon-dark {
+  opacity: 0;
+  transform: scale(0.5);
+}
+.morocash-landing.light .theme-icon-light {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* --- Toggle mensuel/annuel --- */
+.morocash-landing .billing-knob {
+  transform: translateX(0);
+  transition: transform 0.4s var(--landing-ease);
+}
+.morocash-landing .billing-yearly .billing-knob {
+  transform: translateX(24px);
+}
+
+/* --- Panneau reçu WhatsApp (bento) : les deux états se superposent en
+   position absolue pour un fondu croisé sans à-coup de mise en page. --- */
+.morocash-landing .raw-message,
+.morocash-landing .receipt-panel {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.5s var(--landing-ease), transform 0.5s var(--landing-ease);
+}
+.morocash-landing .raw-message.hidden-msg {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  pointer-events: none;
+}
+.morocash-landing .receipt-panel {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  pointer-events: none;
+}
+.morocash-landing .receipt-panel.shown {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom scrollbars for clean UI */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Hide scrollbar for tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Thermal receipt print format */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #thermal-receipt, #thermal-receipt * {
+    visibility: visible;
+  }
+  #thermal-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 10px;
+    background: white;
+    color: black;
+  }
+}
+
+/* Pulsation lente et discrète de la bordure gauche client */
+@keyframes clientBorderPulse {
+  0%, 100% {
+    border-left-color: rgba(245, 158, 11, 1);
+  }
+  50% {
+    border-left-color: rgba(245, 158, 11, 0.55);
+  }
+}
+
+.pulse-border-amber {
+  animation: clientBorderPulse 2s ease-in-out infinite;
+}
+
+/* Dégradé animé du bandeau d'appel final de la landing */
+@keyframes landingGradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.morocash-landing .animated-gradient {
+  background-size: 200% 200%;
+  animation: landingGradientMove 12s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .morocash-landing .animated-gradient {
+    animation: none !important;
+  }
+}
