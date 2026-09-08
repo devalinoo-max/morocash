@@ -48,7 +48,10 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
     ctx.businessId,
     async (tx) => {
       // 1. Idempotence
-      const existing = await tx.order.findUnique({ where: { clientUuid: input.clientUuid } });
+      const existing = await tx.order.findUnique({
+        where: { clientUuid: input.clientUuid },
+        include: { items: true, payments: true },
+      });
       if (existing) {
         return { status: 'DUPLICATE' as const, order: existing };
       }
@@ -159,6 +162,7 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
           statutPaiement,
           items: { create: lines },
         },
+        include: { items: true },
       });
 
       // 6. Créer Payment si montantRecu > 0
@@ -237,7 +241,15 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
         },
       });
 
-      return { status: 'CREATED' as const, order, payment, cashMovement };
+      // Le client (toFrontendSale) déréférence order.items et order.payments
+      // sans garde pour construire le reçu tout de suite après la création —
+      // les renvoyer ici évite un aller-retour GET /orders juste pour ça.
+      return {
+        status: 'CREATED' as const,
+        order: { ...order, payments: payment ? [payment] : [] },
+        payment,
+        cashMovement,
+      };
     },
     { isolationLevel: 'Serializable' }
   );

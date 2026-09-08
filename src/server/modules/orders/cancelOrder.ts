@@ -89,6 +89,7 @@ export async function cancelOrder(
         annuleeParId: ctx.userId,
         annuleeLe: new Date(),
       },
+      include: { items: true, payments: true },
     });
 
     await applyDailyStatsDelta(
