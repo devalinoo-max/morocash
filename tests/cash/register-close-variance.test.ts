@@ -23,7 +23,13 @@ describe('Étape 8 — clôture de caisse et écart', () => {
       {}
     );
 
-    const ctx = { businessId: business.id, userId: owner.id, role: 'OWNER' as const, remiseMaxVendeur: 0 };
+    const ctx = {
+      businessId: business.id,
+      userId: owner.id,
+      role: 'OWNER' as const,
+      remiseMaxVendeur: 0,
+      cashRegisterMode: business.cashRegisterMode,
+    };
 
     const register = await openRegister(ctx, { clientUuid: randomUUID(), fondDepart: 5000 });
 

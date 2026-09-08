@@ -118,6 +118,16 @@ enum RegisterStatus {
   FERMEE
 }
 
+// LIBRE (défaut) : aucune notion d'ouverte/fermée pour le commerçant — un
+// encaissement ouvre silencieusement une caisse "virtuelle" s'il n'en existe
+// pas déjà une, sans jamais bloquer ni exiger de cérémonie d'ouverture. STRICT :
+// comportement historique (spec §7.4) — un paiement encaissé exige une caisse
+// explicitement ouverte, sinon CASH_REGISTER_CLOSED.
+enum CashRegisterMode {
+  LIBRE
+  STRICT
+}
+
 enum CategoryType {
   PRODUIT
   DEPENSE
@@ -172,6 +182,7 @@ model Business {
   subscriptionEndsAt DateTime?
   remiseMaxVendeur   Int            @default(0)   // en %, 0 = interdit
   seuilEcartComptage Int            @default(5)   // en unités
+  cashRegisterMode   CashRegisterMode @default(LIBRE)
   createdAt          DateTime       @default(now())
   deletedAt          DateTime?
 

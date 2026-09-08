@@ -55,7 +55,12 @@ describe('Étape 10 — idempotence du push de synchronisation', () => {
       createdAt: new Date(),
     }));
 
-    const ctx = { businessId: business.id, userId: owner.id, role: 'OWNER' as const };
+    const ctx = {
+      businessId: business.id,
+      userId: owner.id,
+      role: 'OWNER' as const,
+      cashRegisterMode: business.cashRegisterMode,
+    };
     const results = await pushSyncOperations(ctx, operations);
 
     expect(results).toHaveLength(20);

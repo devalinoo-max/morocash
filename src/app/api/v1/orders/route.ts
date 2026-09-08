@@ -31,6 +31,7 @@ export async function POST(request: Request) {
         userId: ctx.userId,
         role: ctx.role,
         remiseMaxVendeur: ctx.business.remiseMaxVendeur,
+        cashRegisterMode: ctx.business.cashRegisterMode,
       },
       parsed.data
     );

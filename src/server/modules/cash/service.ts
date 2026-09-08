@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Prisma, CashRegisterMode } from '@prisma/client';
 import { runInTenantTransaction, scoped } from '@/server/repositories/base';
 import { AppError } from '@/server/shared/errors';
 
@@ -55,6 +56,35 @@ export async function openRegister(
   });
 }
 
+/**
+ * Trouve la caisse ouverte, ou — en mode LIBRE (défaut, spec produit : le
+ * commerçant n'a pas à gérer une cérémonie d'ouverture/fermeture) — en ouvre
+ * une "virtuelle" silencieusement, sans que personne ne l'ait demandé. En
+ * mode STRICT (comportement historique, spec §7.4), une caisse fermée reste
+ * bloquante : CASH_REGISTER_CLOSED.
+ */
+export async function ensureOpenRegisterForPayment(
+  tx: Prisma.TransactionClient,
+  ctx: { businessId: string; userId: string; cashRegisterMode: CashRegisterMode }
+) {
+  const open = await tx.cashRegister.findFirst({
+    where: { businessId: ctx.businessId, statut: 'OUVERTE' },
+  });
+  if (open) return open;
+
+  if (ctx.cashRegisterMode === 'STRICT') {
+    throw new AppError('CASH_REGISTER_CLOSED', 'Aucune caisse ouverte pour encaisser ce paiement.');
+  }
+
+  return tx.cashRegister.create({
+    data: {
+      businessId: ctx.businessId,
+      ouverteParId: ctx.userId,
+      fondDepart: 0,
+    },
+  });
+}
+
 export async function getCurrentRegister(businessId: string) {
   const repo = scoped(businessId);
   return repo.cash.currentRegister();
@@ -78,7 +108,7 @@ export async function getHistory(businessId: string) {
  * APPORT = ENTREE, RETRAIT = SORTIE (spec §7.4).
  */
 export async function createManualMovement(
-  ctx: { businessId: string; userId: string },
+  ctx: { businessId: string; userId: string; cashRegisterMode: CashRegisterMode },
   input: ManualMovementInput
 ) {
   return runInTenantTransaction(ctx.businessId, async (tx) => {
@@ -87,12 +117,7 @@ export async function createManualMovement(
       return { status: 'DUPLICATE' as const, movement: existing };
     }
 
-    const register = await tx.cashRegister.findFirst({
-      where: { businessId: ctx.businessId, statut: 'OUVERTE' },
-    });
-    if (!register) {
-      throw new AppError('CASH_REGISTER_CLOSED', 'Aucune caisse ouverte pour ce mouvement.');
-    }
+    const register = await ensureOpenRegisterForPayment(tx, ctx);
 
     const movement = await tx.cashMovement.create({
       data: {

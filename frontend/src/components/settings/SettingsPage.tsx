@@ -52,6 +52,7 @@ export const SettingsPage: React.FC = () => {
   const {
     settings,
     updateSettings,
+    updateCashRegisterMode,
     products,
     expenses,
     showToast,
@@ -108,6 +109,16 @@ export const SettingsPage: React.FC = () => {
   const handleFieldSave = (key: keyof typeof settings, value: any, fieldKey: string) => {
     updateSettings({ [key]: value });
     triggerSavedFeedback(fieldKey);
+  };
+
+  // Contrairement à handleFieldSave (purement local), le mode de caisse est
+  // réellement persisté côté serveur (createOrder/createManualMovement en
+  // dépendent) — le badge "enregistré" n'apparaît qu'après confirmation.
+  const handleCashRegisterModeSave = async (mode: 'LIBRE' | 'STRICT') => {
+    const success = await updateCashRegisterMode(mode);
+    if (success) {
+      triggerSavedFeedback('cashRegisterMode');
+    }
   };
 
   // Nested receipt settings helper
@@ -1206,28 +1217,69 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 6. Rappel fermeture caisse */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* 6. Mode de caisse */}
+                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <label className="text-xs font-bold text-slate-900">
-                        Me rappeler de fermer ma caisse le soir
+                        Mode de caisse
                       </label>
-                      <SavedBadge fieldKey="rappelFermetureCaisse" />
+                      <SavedBadge fieldKey="cashRegisterMode" />
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Notification d'alerte pour clôturer les espèces avant de quitter la boutique.
+                      Libre : tu encaisses directement, sans jamais ouvrir/fermer ta caisse. Stricte : tu dois l'ouvrir le matin et la fermer le soir avant de pouvoir encaisser un paiement.
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="time"
-                      defaultValue={settings.rappelFermetureCaisse || '20:00'}
-                      onBlur={(e) => handleFieldSave('rappelFermetureCaisse', e.target.value, 'rappelFermetureCaisse')}
-                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCashRegisterModeSave('LIBRE')}
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
+                        (settings.cashRegisterMode ?? 'LIBRE') === 'LIBRE'
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Libre (recommandé)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCashRegisterModeSave('STRICT')}
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
+                        settings.cashRegisterMode === 'STRICT'
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      Stricte (ouverture/fermeture)
+                    </button>
                   </div>
                 </div>
+
+                {/* 7. Rappel fermeture caisse — pertinent seulement en mode Stricte */}
+                {settings.cashRegisterMode === 'STRICT' && (
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-900">
+                          Me rappeler de fermer ma caisse le soir
+                        </label>
+                        <SavedBadge fieldKey="rappelFermetureCaisse" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Notification d'alerte pour clôturer les espèces avant de quitter la boutique.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="time"
+                        defaultValue={settings.rappelFermetureCaisse || '20:00'}
+                        onBlur={(e) => handleFieldSave('rappelFermetureCaisse', e.target.value, 'rappelFermetureCaisse')}
+                        className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
           )}

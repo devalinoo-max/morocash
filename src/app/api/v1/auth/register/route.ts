@@ -33,6 +33,7 @@ export async function POST(request: Request) {
           subscriptionEndsAt: business.subscriptionEndsAt,
           trialDaysLeft: getTrialDaysLeft(business),
           locked: false,
+          cashRegisterMode: business.cashRegisterMode,
         },
         user: { id: owner.id, nom: owner.nom, telephone: owner.telephone, role: owner.role },
       },

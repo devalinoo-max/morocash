@@ -24,6 +24,7 @@ export interface ApiBusiness {
   subscriptionEndsAt?: string | null;
   trialDaysLeft?: number | null;
   locked?: boolean;
+  cashRegisterMode?: 'LIBRE' | 'STRICT';
 }
 
 export interface MeResponse {

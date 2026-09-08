@@ -48,6 +48,7 @@ describe('Idempotence — commandes', () => {
       userId: owner.id,
       role: 'OWNER' as const,
       remiseMaxVendeur: 0,
+      cashRegisterMode: business.cashRegisterMode,
     };
 
     const results = [];

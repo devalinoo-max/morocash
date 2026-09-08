@@ -203,6 +203,12 @@ export const NewSaleModal: React.FC = () => {
 
   const remainingDebt = Math.max(0, finalTotal - actualPaid);
 
+  // Mode LIBRE (défaut, réglable dans Paramètres) : pas de notion d'ouverte/
+  // fermée, jamais bloquant — une caisse virtuelle s'ouvre silencieusement
+  // côté serveur au premier encaissement. Seul le mode STRICT exige une
+  // caisse explicitement ouverte avant d'encaisser un paiement.
+  const cashRegisterBlocksPayment = settings.cashRegisterMode === 'STRICT' && !activeCashSession;
+
   // Synchronize customPaidAmount when total changes and payment is full
   useEffect(() => {
     if (paymentType === 'FULL') {
@@ -210,15 +216,16 @@ export const NewSaleModal: React.FC = () => {
     }
   }, [finalTotal, paymentType]);
 
-  // Caisse fermée à l'arrivée sur l'étape paiement : basculer sur "il paie
-  // plus tard" (seule option possible sans caisse ouverte) plutôt que de
-  // laisser "Il paie tout" pré-sélectionné mais désactivé sans explication.
+  // Caisse fermée (mode STRICT) à l'arrivée sur l'étape paiement : basculer
+  // sur "il paie plus tard" (seule option possible sans caisse ouverte)
+  // plutôt que de laisser "Il paie tout" pré-sélectionné mais désactivé sans
+  // explication.
   useEffect(() => {
-    if (step === 'PAYMENT' && !activeCashSession && paymentType !== 'CREDIT') {
+    if (step === 'PAYMENT' && cashRegisterBlocksPayment && paymentType !== 'CREDIT') {
       setPaymentType('CREDIT');
       setCustomPaidAmount(0);
     }
-  }, [step, activeCashSession, paymentType]);
+  }, [step, cashRegisterBlocksPayment, paymentType]);
 
   if (!isNewSaleOpen) return null;
 
@@ -247,10 +254,11 @@ export const NewSaleModal: React.FC = () => {
       return;
     }
 
-    // Encaisser de l'argent exige une caisse ouverte (le serveur le refuse
-    // de toute façon, CASH_REGISTER_CLOSED) — on le vérifie avant de faire
-    // remplir tout le formulaire de paiement pour rien.
-    if (actualPaid > 0 && !activeCashSession) {
+    // Mode STRICT uniquement : encaisser de l'argent exige une caisse ouverte
+    // (le serveur le refuse de toute façon, CASH_REGISTER_CLOSED) — vérifié
+    // avant de faire remplir tout le formulaire de paiement pour rien. En
+    // mode LIBRE (défaut), le serveur ouvre une caisse virtuelle tout seul.
+    if (actualPaid > 0 && cashRegisterBlocksPayment) {
       showToast(
         "Caisse fermée : ouvre-la avant d'encaisser un paiement, ou choisis \"Il paie plus tard\".",
         'error'
@@ -1048,10 +1056,11 @@ export const NewSaleModal: React.FC = () => {
                 </p>
               </div>
 
-              {/* Caisse fermée : impossible d'encaisser de l'argent (seul "il
-                  paie plus tard" / dette reste possible) — prévenu avant de
-                  remplir le formulaire plutôt qu'au clic final sur Valider. */}
-              {!activeCashSession && (
+              {/* Caisse fermée (mode STRICT uniquement) : impossible d'encaisser
+                  de l'argent (seul "il paie plus tard" / dette reste possible) —
+                  prévenu avant de remplir le formulaire plutôt qu'au clic final
+                  sur Valider. */}
+              {cashRegisterBlocksPayment && (
                 <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <p className="text-xs font-semibold text-rose-900">
@@ -1067,13 +1076,13 @@ export const NewSaleModal: React.FC = () => {
                 <button
                   id="btn-pay-full"
                   type="button"
-                  disabled={!activeCashSession}
+                  disabled={cashRegisterBlocksPayment}
                   onClick={() => {
                     setPaymentType('FULL');
                     setCustomPaidAmount(finalTotal);
                   }}
                   className={`py-4 px-2 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                    !activeCashSession
+                    cashRegisterBlocksPayment
                       ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
                       : paymentType === 'FULL'
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-600/25 scale-[1.02] cursor-pointer'
@@ -1089,13 +1098,13 @@ export const NewSaleModal: React.FC = () => {
                 <button
                   id="btn-pay-partial"
                   type="button"
-                  disabled={!activeCashSession}
+                  disabled={cashRegisterBlocksPayment}
                   onClick={() => {
                     setPaymentType('PARTIAL');
                     setCustomPaidAmount(Math.round(finalTotal / 2));
                   }}
                   className={`py-4 px-2 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                    !activeCashSession
+                    cashRegisterBlocksPayment
                       ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
                       : paymentType === 'PARTIAL'
                       ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-lg shadow-amber-500/25 scale-[1.02] cursor-pointer'

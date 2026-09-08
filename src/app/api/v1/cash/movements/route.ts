@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     }
 
     const result = await createManualMovement(
-      { businessId: ctx.businessId, userId: ctx.userId },
+      { businessId: ctx.businessId, userId: ctx.userId, cashRegisterMode: ctx.business.cashRegisterMode },
       parsed.data
     );
 

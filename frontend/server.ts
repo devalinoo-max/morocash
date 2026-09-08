@@ -16,6 +16,7 @@ const PORT = 5173;
 const BACKEND_ORIGIN = 'http://localhost:3000';
 const PROXIED_PREFIXES = [
   '/api/v1/auth',
+  '/api/v1/business',
   '/api/v1/categories',
   '/api/v1/products',
   '/api/v1/customers',

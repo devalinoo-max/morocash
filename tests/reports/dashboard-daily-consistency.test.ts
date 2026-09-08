@@ -40,7 +40,13 @@ describe('Étape 9 — cohérence dashboard/reports daily', () => {
     });
     const customer = await createCustomer(business.id, { nom: 'Client Stage9' });
 
-    const ctx = { businessId: business.id, userId: owner.id, role: 'OWNER' as const, remiseMaxVendeur: 0 };
+    const ctx = {
+      businessId: business.id,
+      userId: owner.id,
+      role: 'OWNER' as const,
+      remiseMaxVendeur: 0,
+      cashRegisterMode: business.cashRegisterMode,
+    };
     await createOrder(ctx, {
       clientUuid: randomUUID(),
       customerId: customer.id,

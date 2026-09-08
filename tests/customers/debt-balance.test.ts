@@ -43,7 +43,13 @@ describe('Étape 6 — solde débiteur client', () => {
 
     const customer = await createCustomer(business.id, { nom: 'Client Débiteur Test' });
 
-    const ctx = { businessId: business.id, userId: owner.id, role: 'OWNER' as const, remiseMaxVendeur: 0 };
+    const ctx = {
+      businessId: business.id,
+      userId: owner.id,
+      role: 'OWNER' as const,
+      remiseMaxVendeur: 0,
+      cashRegisterMode: business.cashRegisterMode,
+    };
 
     // Commande 1 : payée intégralement (5000 FCFA reçus)
     await createOrder(ctx, {

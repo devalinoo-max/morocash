@@ -218,6 +218,10 @@ export interface ShopSettings {
   fuseauHoraire?: string;
   receiptSettings?: ReceiptSettings;
   remiseMaxVendeur?: number;
+  // LIBRE (défaut) : aucune notion d'ouverte/fermée, jamais bloquant. STRICT :
+  // le commerçant doit explicitement ouvrir/fermer sa caisse (comportement
+  // historique) — un paiement encaissé sans caisse ouverte est refusé.
+  cashRegisterMode?: 'LIBRE' | 'STRICT';
   autoriserStockNegatif?: boolean;
   seuilEcartComptage?: number;
   depenseAutoReception?: boolean;

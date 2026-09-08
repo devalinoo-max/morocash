@@ -76,7 +76,13 @@ describe('Sérialisation par rôle — commandes', () => {
     const customer = await createCustomer(business.id, { nom: 'Client Test Orders' });
 
     const { order } = await createOrder(
-      { businessId: business.id, userId: owner.id, role: 'SELLER', remiseMaxVendeur: 0 },
+      {
+        businessId: business.id,
+        userId: owner.id,
+        role: 'SELLER',
+        remiseMaxVendeur: 0,
+        cashRegisterMode: business.cashRegisterMode,
+      },
       {
         clientUuid: randomUUID(),
         customerId: customer.id,

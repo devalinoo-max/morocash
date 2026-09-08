@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { runInTenantTransaction } from '@/server/repositories/base';
 import { AppError } from '@/server/shared/errors';
 import { upsertDailyStatsForOrder } from '@/server/modules/reports/dailyStats';
-import type { UserRole } from '@prisma/client';
+import { ensureOpenRegisterForPayment } from '@/server/modules/cash/service';
+import type { UserRole, CashRegisterMode } from '@prisma/client';
 
 export const orderItemInputSchema = z.object({
   productId: z.string().cuid(),
@@ -28,6 +29,7 @@ export interface CreateOrderContext {
   userId: string;
   role: UserRole;
   remiseMaxVendeur: number;
+  cashRegisterMode: CashRegisterMode;
 }
 
 function formatOrderNumero(date: Date, sequence: number): string {
@@ -123,17 +125,14 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
       const statutPaiement =
         input.montantRecu === 0 ? 'CREDIT' : input.montantRecu >= total ? 'PAYEE' : 'PARTIELLE';
 
-      // Un paiement encaissé exige une caisse ouverte, puisque le CashMovement
-      // qu'il déclenche (étape 9) référence obligatoirement une caisse — vérifié
-      // avant toute écriture pour échouer proprement (spec §7.4, erreur dédiée).
+      // Un paiement encaissé exige une caisse, puisque le CashMovement qu'il
+      // déclenche (étape 9) référence obligatoirement une caisse. En mode
+      // LIBRE (défaut), ensureOpenRegisterForPayment en ouvre une virtuelle
+      // silencieusement si besoin ; en mode STRICT, elle reste bloquante
+      // (spec §7.4, CASH_REGISTER_CLOSED) si aucune caisse n'est ouverte.
       let openRegister = null;
       if (input.montantRecu > 0) {
-        openRegister = await tx.cashRegister.findFirst({
-          where: { businessId: ctx.businessId, statut: 'OUVERTE' },
-        });
-        if (!openRegister) {
-          throw new AppError('CASH_REGISTER_CLOSED', "Aucune caisse ouverte pour encaisser ce paiement.");
-        }
+        openRegister = await ensureOpenRegisterForPayment(tx, ctx);
       }
 
       const startOfDay = new Date();

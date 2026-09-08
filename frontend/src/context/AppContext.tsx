@@ -47,6 +47,7 @@ import {
 import confetti from 'canvas-confetti';
 import { PLANS } from '../data/plans';
 import * as authApi from '../api/auth';
+import * as businessApi from '../api/business';
 import * as productsApi from '../api/products';
 import * as customersApi from '../api/customers';
 import * as ordersApi from '../api/orders';
@@ -84,6 +85,7 @@ interface AppContextType {
   setUiState: (state: UIState) => void;
   settings: ShopSettings;
   updateSettings: (newSettings: Partial<ShopSettings>) => void;
+  updateCashRegisterMode: (mode: 'LIBRE' | 'STRICT') => Promise<boolean>;
   products: Product[];
   customers: Customer[];
   sales: Sale[];
@@ -664,6 +666,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
+  // Contrairement au reste de updateSettings (purement local, jamais persisté
+  // côté serveur — limite pré-existante de ce prototype), le mode de caisse a
+  // un vrai impact serveur (createOrder/createManualMovement en dépendent) :
+  // il doit donc être écrit en base, pas seulement en mémoire locale.
+  const updateCashRegisterMode = async (mode: 'LIBRE' | 'STRICT'): Promise<boolean> => {
+    try {
+      const business = await businessApi.updateBusinessSettings({ cashRegisterMode: mode });
+      updateSettings({ cashRegisterMode: business.cashRegisterMode });
+      showToast(
+        business.cashRegisterMode === 'LIBRE'
+          ? 'Caisse libre : plus besoin d’ouvrir/fermer, tu encaisses directement.'
+          : 'Caisse stricte : ouverture/fermeture requises avant tout encaissement.',
+        'success'
+      );
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
+  };
+
   /**
    * Porte d'entrée unique pour ouvrir "Nouvelle vente" (TopBar, BottomNav,
    * tableau de bord) — bloque et redirige vers l'Abonnement si le compte est
@@ -815,6 +838,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       planStatus,
       trialDaysLeft,
       quotaMaxProducts,
+      cashRegisterMode: session.business.cashRegisterMode ?? 'LIBRE',
     });
     setAuthStatus('authenticated');
     await loadRealData(session.user.nom);
@@ -1763,6 +1787,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setUiState,
         settings,
         updateSettings,
+        updateCashRegisterMode,
         products,
         customers,
         sales,

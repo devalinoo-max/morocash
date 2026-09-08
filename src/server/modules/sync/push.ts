@@ -12,7 +12,7 @@ import {
 } from '@/server/modules/stock/movements';
 import { createStockCount, stockCountSchema } from '@/server/modules/stock/counts';
 import { createManualMovement, manualMovementSchema } from '@/server/modules/cash/service';
-import type { UserRole } from '@prisma/client';
+import type { UserRole, CashRegisterMode } from '@prisma/client';
 
 /**
  * Le cahier des charges (§9) définit le contrat de `/sync/push` (clientUuid,
@@ -55,7 +55,7 @@ export interface SyncResult {
   error?: { code: string; message: string };
 }
 
-type Ctx = { businessId: string; userId: string; role: UserRole };
+type Ctx = { businessId: string; userId: string; role: UserRole; cashRegisterMode: CashRegisterMode };
 
 async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
   // Le clientUuid de l'enveloppe fait foi — il prime sur un éventuel clientUuid
@@ -67,7 +67,13 @@ async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
       case 'CREATE_SALE': {
         const parsed = createOrderSchema.parse(payload);
         const result = await createOrder(
-          { businessId: ctx.businessId, userId: ctx.userId, role: ctx.role, remiseMaxVendeur: 0 },
+          {
+            businessId: ctx.businessId,
+            userId: ctx.userId,
+            role: ctx.role,
+            remiseMaxVendeur: 0,
+            cashRegisterMode: ctx.cashRegisterMode,
+          },
           parsed
         );
         return { clientUuid: op.clientUuid, status: result.status === 'DUPLICATE' ? 'DUPLICATE' : 'SYNCED' };
@@ -121,7 +127,10 @@ async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
       }
       case 'CASH_MOVEMENT': {
         const parsed = manualMovementSchema.parse(payload);
-        const result = await createManualMovement({ businessId: ctx.businessId, userId: ctx.userId }, parsed);
+        const result = await createManualMovement(
+          { businessId: ctx.businessId, userId: ctx.userId, cashRegisterMode: ctx.cashRegisterMode },
+          parsed
+        );
         if (result.status === 'CREATED') {
           await auditable(ctx, {
             action: 'CASH_MOVEMENT_CREATED',

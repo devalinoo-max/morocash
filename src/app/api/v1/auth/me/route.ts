@@ -32,6 +32,7 @@ export async function GET() {
         subscriptionEndsAt: ctx.business.subscriptionEndsAt,
         trialDaysLeft: getTrialDaysLeft(ctx.business),
         locked: isBusinessLocked(ctx.business),
+        cashRegisterMode: ctx.business.cashRegisterMode,
       },
     });
   } catch (error) {

@@ -58,7 +58,13 @@ describe('Étape 7 — profit DailyStats vérifiable à la main', () => {
 
     const customer = await createCustomer(business.id, { nom: 'Client Stage7' });
 
-    const ctx = { businessId: business.id, userId: owner.id, role: 'OWNER' as const, remiseMaxVendeur: 0 };
+    const ctx = {
+      businessId: business.id,
+      userId: owner.id,
+      role: 'OWNER' as const,
+      remiseMaxVendeur: 0,
+      cashRegisterMode: business.cashRegisterMode,
+    };
 
     // Commande payée intégralement : 2 x 5000 = 10000 vendu, coût 2 x 3000 = 6000.
     await createOrder(ctx, {
