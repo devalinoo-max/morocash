@@ -26,6 +26,7 @@ import {
 import { formatMoney, formatDate, getTerminology } from '../../utils/formatters';
 import { getPeriodRange, getPreviousPeriodRange, isWithinRange, percentChange, SimplePeriod } from '../../utils/period';
 import { PaywallOverlay } from '../common/PaywallOverlay';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 const WEEKDAYS_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -45,6 +46,7 @@ export const DashboardTab: React.FC = () => {
     activeCashSession,
     cashMovements,
     attemptNewSale,
+    isWriteLocked,
     setActiveTab,
     setActiveMoreSubTab,
     setCustomersDebtorsFilter,
@@ -375,7 +377,7 @@ export const DashboardTab: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={attemptNewSale}
-                className="px-4 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                className={`px-4 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
               >
                 <Plus className="w-4 h-4" />
                 <span>Nouvelle vente</span>

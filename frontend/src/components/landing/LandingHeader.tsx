@@ -1,5 +1,5 @@
 import React from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, LayoutDashboard } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import type { LandingTheme } from './useLandingTheme';
 
@@ -8,6 +8,8 @@ interface LandingHeaderProps {
   onToggleTheme: () => void;
   onLogin: () => void;
   onStartTrial: () => void;
+  isAuthenticated?: boolean;
+  onOpenDashboard?: () => void;
 }
 
 const NAV_LINKS = [
@@ -21,7 +23,14 @@ const NAV_LINKS = [
 // Navbar flottante ("l'île flottante") : reste ancrée en haut, jamais liée
 // au scroll (pas de shrink/hide-on-scroll) pour une identité stable pendant
 // toute la traversée des 12 sections.
-export const LandingHeader: React.FC<LandingHeaderProps> = ({ theme, onToggleTheme, onLogin, onStartTrial }) => {
+export const LandingHeader: React.FC<LandingHeaderProps> = ({
+  theme,
+  onToggleTheme,
+  onLogin,
+  onStartTrial,
+  isAuthenticated = false,
+  onOpenDashboard,
+}) => {
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
@@ -62,21 +71,34 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ theme, onToggleThe
               </span>
             </span>
           </button>
-          <button
-            type="button"
-            onClick={onLogin}
-            className="theme-text-muted hover:text-[var(--emerald)] font-semibold text-xs px-2 transition-colors cursor-pointer hidden sm:inline-block"
-          >
-            Se connecter
-          </button>
-          <button
-            type="button"
-            onClick={onStartTrial}
-            className="bg-accent-violet hover:opacity-90 text-white font-bold text-xs py-2.5 px-4 md:px-5 rounded-full transition-all shadow-md shadow-violet-500/20 hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
-          >
-            <span className="hidden sm:inline">Essayer 14 jours</span>
-            <span className="sm:hidden">Essayer</span>
-          </button>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={onOpenDashboard}
+              className="bg-accent-violet hover:opacity-90 text-white font-bold text-xs py-2.5 px-4 md:px-5 rounded-full transition-all shadow-md shadow-violet-500/20 hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>Mon dashboard</span>
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onLogin}
+                className="theme-text-muted hover:text-[var(--emerald)] font-semibold text-xs px-2 transition-colors cursor-pointer hidden sm:inline-block"
+              >
+                Se connecter
+              </button>
+              <button
+                type="button"
+                onClick={onStartTrial}
+                className="bg-accent-violet hover:opacity-90 text-white font-bold text-xs py-2.5 px-4 md:px-5 rounded-full transition-all shadow-md shadow-violet-500/20 hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <span className="hidden sm:inline">Essayer 14 jours</span>
+                <span className="sm:hidden">Essayer</span>
+              </button>
+            </>
+          )}
         </div>
       </nav>
     </header>

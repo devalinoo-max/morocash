@@ -41,6 +41,7 @@ import { MoneyInput } from '../common/UIStates';
 import { SubscriptionView } from '../subscription/SubscriptionView';
 import { ReportsTab } from '../reports/ReportsTab';
 import { SettingsPage } from '../settings/SettingsPage';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 export const MoreTab: React.FC = () => {
   const {
@@ -65,6 +66,8 @@ export const MoreTab: React.FC = () => {
     fetchEmployees,
     addEmployee,
     setEmployeeActive,
+    isWriteLocked,
+    gateWrite,
   } = useApp();
 
   const isOwner = settings.role === 'OWNER';
@@ -176,8 +179,8 @@ export const MoreTab: React.FC = () => {
           </button>
           {isOwner && (
             <button
-              onClick={() => setIsAddEmployeeOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+              onClick={() => gateWrite(() => setIsAddEmployeeOpen(true))}
+              className={`px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               <UserPlus className="w-4 h-4" />
               <span>Ajouter une personne</span>
@@ -461,8 +464,8 @@ export const MoreTab: React.FC = () => {
             <span>Retour menu</span>
           </button>
           <button
-            onClick={() => setIsAddExpenseOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-[#4F46E5] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+            onClick={() => gateWrite(() => setIsAddExpenseOpen(true))}
+            className={`px-3.5 py-2 rounded-xl bg-[#4F46E5] text-white text-xs font-bold flex items-center gap-1 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <Plus className="w-4 h-4" />
             <span>Saisir une dépense</span>

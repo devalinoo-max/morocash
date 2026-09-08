@@ -13,6 +13,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { SyncStatusBadge } from '../common/UIStates';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 interface TopBarProps {
   isMobileFrame: boolean;
@@ -26,6 +27,7 @@ export const TopBar: React.FC<TopBarProps> = ({ isMobileFrame, setIsMobileFrame,
     activeMoreSubTab,
     settings,
     attemptNewSale,
+    isWriteLocked,
     customers,
     products,
     setActiveTab,
@@ -181,7 +183,7 @@ export const TopBar: React.FC<TopBarProps> = ({ isMobileFrame, setIsMobileFrame,
         <button
           id="btn-topbar-new-sale"
           onClick={attemptNewSale}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-extrabold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-extrabold shadow-md shadow-indigo-600/20 transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>Nouvelle commande</span>

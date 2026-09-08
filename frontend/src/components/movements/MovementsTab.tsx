@@ -26,11 +26,12 @@ import { BreakageModal } from './BreakageModal';
 import { LossModal } from './LossModal';
 import { StockCountModal } from './StockCountModal';
 import { MovementDetailModal } from './MovementDetailModal';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 type PeriodFilter = 'TODAY' | '7D' | '30D' | 'THIS_MONTH' | 'CUSTOM';
 
 export const MovementsTab: React.FC = () => {
-  const { stockMovements, stockCounts, products, settings } = useApp();
+  const { stockMovements, stockCounts, products, settings, isWriteLocked, gateWrite } = useApp();
 
   const isVendeur = settings.role === 'SELLER';
 
@@ -328,8 +329,8 @@ export const MovementsTab: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Action A: Marchandise reçue */}
           <button
-            onClick={() => setIsReceptionOpen(true)}
-            className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm shadow-emerald-700/20 transition-all flex items-center gap-1.5 cursor-pointer"
+            onClick={() => gateWrite(() => setIsReceptionOpen(true))}
+            className={`px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm shadow-emerald-700/20 transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <Truck className="w-4 h-4" />
             <span>+ Marchandise reçue</span>
@@ -337,8 +338,8 @@ export const MovementsTab: React.FC = () => {
 
           {/* Action B: Cassé ou abîmé */}
           <button
-            onClick={() => setIsBreakageOpen(true)}
-            className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            onClick={() => gateWrite(() => setIsBreakageOpen(true))}
+            className={`px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <AlertTriangle className="w-4 h-4 text-slate-950" />
             <span>Cassé ou abîmé</span>
@@ -346,8 +347,8 @@ export const MovementsTab: React.FC = () => {
 
           {/* Action C: Perdu ou volé */}
           <button
-            onClick={() => setIsLossOpen(true)}
-            className="px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-sm shadow-rose-700/20 transition-all flex items-center gap-1.5 cursor-pointer"
+            onClick={() => gateWrite(() => setIsLossOpen(true))}
+            className={`px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-sm shadow-rose-700/20 transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <ShieldAlert className="w-4 h-4" />
             <span>Perdu ou volé</span>
@@ -355,8 +356,8 @@ export const MovementsTab: React.FC = () => {
 
           {/* Action D: Faire un comptage */}
           <button
-            onClick={() => setIsCountOpen(true)}
-            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            onClick={() => gateWrite(() => setIsCountOpen(true))}
+            className={`px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <ClipboardList className="w-4 h-4 text-indigo-300" />
             <span>Faire un comptage</span>
@@ -751,8 +752,8 @@ export const MovementsTab: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={() => setIsCountOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+              onClick={() => gateWrite(() => setIsCountOpen(true))}
+              className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               Nouveau comptage
             </button>

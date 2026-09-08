@@ -21,6 +21,7 @@ import { ProductFormModal } from './ProductFormModal';
 import { LabelPrintModal } from './LabelPrintModal';
 import { InventoryScanModal } from './InventoryScanModal';
 import { BarcodeScannerModal } from '../pos/BarcodeScannerModal';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 export const ProductsTab: React.FC = () => {
   const {
@@ -30,6 +31,8 @@ export const ProductsTab: React.FC = () => {
     settings,
     showToast,
     findProductByCode,
+    isWriteLocked,
+    gateWrite,
   } = useApp();
 
   const terminology = getTerminology(settings.activityType);
@@ -174,8 +177,8 @@ export const ProductsTab: React.FC = () => {
           {/* Continuous inventory button */}
           <button
             id="btn-open-inventory-scan"
-            onClick={() => setIsInventoryOpen(true)}
-            className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+            onClick={() => gateWrite(() => setIsInventoryOpen(true))}
+            className={`px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             title="Faire un inventaire physique en scannant les rayons"
           >
             <ClipboardCheck className="w-4 h-4 text-emerald-600" />
@@ -186,8 +189,8 @@ export const ProductsTab: React.FC = () => {
           {/* Create Product button */}
           <button
             id="btn-add-new-product"
-            onClick={() => handleOpenCreate()}
-            className="px-4 py-2.5 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+            onClick={() => gateWrite(() => handleOpenCreate())}
+            className={`px-4 py-2.5 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <Plus className="w-4 h-4" />
             <span>Ajouter {terminology.itemSingular.toLowerCase()}</span>

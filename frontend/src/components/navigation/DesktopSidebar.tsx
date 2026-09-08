@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 import { NavigationTab } from '../../types';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 interface DesktopSidebarProps {
   onOpenSearch?: () => void;
@@ -40,6 +41,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
     activeMoreSubTab,
     setActiveMoreSubTab,
     attemptNewSale,
+    isWriteLocked,
     setSelectedSaleForReceipt,
     products,
     customers,
@@ -195,7 +197,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
             <button
               onClick={attemptNewSale}
               title="Nouvelle commande"
-              className="w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] text-[#C6C2E4] hover:bg-[#232141] hover:text-white transition-all cursor-pointer group"
+              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] text-[#C6C2E4] hover:bg-[#232141] hover:text-white transition-all cursor-pointer group ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               <span className="flex items-center gap-[10px] truncate">
                 <PlusCircle className="w-[17px] h-[17px] text-indigo-400 group-hover:scale-110 transition-transform shrink-0" />

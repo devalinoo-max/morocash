@@ -17,6 +17,7 @@ import {
 import { formatMoney, formatDate } from '../../utils/formatters';
 import { Customer, PaymentMethod } from '../../types';
 import { MoneyInput } from '../common/UIStates';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 export const CustomersTab: React.FC = () => {
   const {
@@ -28,6 +29,8 @@ export const CustomersTab: React.FC = () => {
     showToast,
     customersDebtorsFilter: filterDebtorsOnly,
     setCustomersDebtorsFilter: setFilterDebtorsOnly,
+    isWriteLocked,
+    gateWrite,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,8 +132,8 @@ export const CustomersTab: React.FC = () => {
         </div>
         <button
           id="btn-open-add-customer"
-          onClick={() => setIsAddCustomerOpen(true)}
-          className="px-4 py-2.5 rounded-2xl bg-[#5B4DFB] hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer self-start sm:self-auto"
+          onClick={() => gateWrite(() => setIsAddCustomerOpen(true))}
+          className={`px-4 py-2.5 rounded-2xl bg-[#5B4DFB] hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer self-start sm:self-auto ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
         >
           <Plus className="w-4 h-4" />
           <span>Ajouter un client</span>
@@ -284,11 +287,11 @@ export const CustomersTab: React.FC = () => {
                             )}
                             {hasDebt && (
                               <button
-                                onClick={() => {
+                                onClick={() => gateWrite(() => {
                                   setRepayingCustomer(cust);
                                   setRepayAmount(cust.totalDebt);
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-[#4F46E5] hover:bg-indigo-700 text-white font-extrabold text-[11px] transition-colors cursor-pointer shadow-xs"
+                                })}
+                                className={`px-2.5 py-1 rounded-lg bg-[#4F46E5] hover:bg-indigo-700 text-white font-extrabold text-[11px] transition-colors cursor-pointer shadow-xs ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
                               >
                                 Encaisser
                               </button>
@@ -387,11 +390,11 @@ export const CustomersTab: React.FC = () => {
                       {hasDebt && (
                         <button
                           id={`btn-repay-${cust.id}`}
-                          onClick={() => {
+                          onClick={() => gateWrite(() => {
                             setRepayingCustomer(cust);
                             setRepayAmount(cust.totalDebt);
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+                          })}
+                          className={`px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center gap-1 shadow-sm transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                           <span>Encaisser remboursement</span>

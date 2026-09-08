@@ -25,6 +25,7 @@ import {
 import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
 import { PaymentMethod, CashMovement } from '../../types';
 import { getPeriodRange, isWithinRange, SimplePeriod } from '../../utils/period';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 export const CashRegisterTab: React.FC = () => {
   const {
@@ -42,6 +43,8 @@ export const CashRegisterTab: React.FC = () => {
     setActiveMoreSubTab,
     setCustomersDebtorsFilter,
     showToast,
+    isWriteLocked,
+    gateWrite,
   } = useApp();
 
   // Modals state
@@ -268,19 +271,19 @@ export const CashRegisterTab: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {activeCashSession ? (
             <button
-              onClick={() => {
+              onClick={() => gateWrite(() => {
                 setCountedAmount(montantAttendu);
                 setIsCloseModalOpen(true);
-              }}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-all"
+              })}
+              className={`px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               <Lock className="w-3.5 h-3.5" />
               <span>Fermer la caisse et compter</span>
             </button>
           ) : (
             <button
-              onClick={() => setIsOpenModalOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-all"
+              onClick={() => gateWrite(() => setIsOpenModalOpen(true))}
+              className={`px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               <Unlock className="w-3.5 h-3.5" />
               <span>Ouvrir la caisse</span>
@@ -326,11 +329,11 @@ export const CashRegisterTab: React.FC = () => {
 
           <div className="space-y-2 pt-2">
             <button
-              onClick={() => {
+              onClick={() => gateWrite(() => {
                 setCountedAmount(montantAttendu);
                 setIsCloseModalOpen(true);
-              }}
-              className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-black text-white font-extrabold text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
+              })}
+              className={`w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-black text-white font-extrabold text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               <Lock className="w-4 h-4" />
               <span>Fermer la caisse et compter</span>
@@ -536,12 +539,12 @@ export const CashRegisterTab: React.FC = () => {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button
-            onClick={() => {
+            onClick={() => gateWrite(() => {
               setIsActionModalOpen('WITHDRAW');
               setActionAmount(0);
               setActionReason('');
-            }}
-            className="p-4 rounded-2xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 text-left transition-all cursor-pointer group flex items-start gap-3"
+            })}
+            className={`p-4 rounded-2xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 text-left transition-all cursor-pointer group flex items-start gap-3 ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
               <Minus className="w-5 h-5" />
@@ -557,12 +560,12 @@ export const CashRegisterTab: React.FC = () => {
           </button>
 
           <button
-            onClick={() => {
+            onClick={() => gateWrite(() => {
               setIsActionModalOpen('DEPOSIT');
               setActionAmount(0);
               setActionReason('');
-            }}
-            className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 text-left transition-all cursor-pointer group flex items-start gap-3"
+            })}
+            className={`p-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 text-left transition-all cursor-pointer group flex items-start gap-3 ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
               <Plus className="w-5 h-5" />

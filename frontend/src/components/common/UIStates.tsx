@@ -10,7 +10,8 @@ import {
   AlertCircle,
   X,
   UploadCloud,
-  ChevronRight,
+  Crown,
+  ArrowRight,
 } from 'lucide-react';
 
 export const OfflineBanner: React.FC = () => {
@@ -184,27 +185,50 @@ export const ReadOnlyBanner: React.FC = () => {
 
 export const TrialBanner: React.FC = () => {
   const { settings, setActiveTab, setActiveMoreSubTab } = useApp();
+  const [dismissed, setDismissed] = useState(false);
 
-  if (settings.planStatus !== 'TRIAL') return null;
+  if (settings.planStatus !== 'TRIAL' || dismissed) return null;
+
+  const goToOffers = () => {
+    setActiveTab('more');
+    setActiveMoreSubTab('subscription');
+  };
 
   return (
     <div
       id="banner-trial"
-      onClick={() => {
-        setActiveTab('more');
-        setActiveMoreSubTab('subscription');
-      }}
-      className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 border-b border-indigo-100 px-4 py-2 flex items-center justify-between text-xs text-indigo-950 cursor-pointer hover:bg-indigo-50/80 transition-all"
+      className="mx-3 sm:mx-4 my-2.5 flex items-center justify-between gap-3 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-amber-50/60 to-white px-3.5 sm:px-4 py-3 shadow-xs"
     >
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-        <span className="font-semibold text-indigo-900">
-          Période d'essai gratuit active — {settings.trialDaysLeft} jours restants
-        </span>
+      <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={goToOffers}>
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30">
+          <Crown className="w-5 h-5 text-white" fill="currentColor" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-extrabold text-slate-900 truncate">Passez en Premium</p>
+          <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+            <span className="hidden sm:inline">Plus de produits, plus de ventes, et toutes les fonctionnalités avancées. · </span>
+            {settings.trialDaysLeft} {settings.trialDaysLeft > 1 ? 'jours' : 'jour'} d'essai restants
+          </p>
+        </div>
       </div>
-      <div className="flex items-center gap-1 font-bold text-indigo-600 text-[11px] hover:underline">
-        <span>Gérer l'offre</span>
-        <ChevronRight className="w-3.5 h-3.5" />
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <button
+          id="btn-trial-see-offers"
+          onClick={goToOffers}
+          className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-full bg-slate-900 hover:bg-black active:scale-95 text-white text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
+        >
+          <span className="hidden sm:inline">Voir les offres</span>
+          <span className="sm:hidden">Offres</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+        <button
+          id="btn-trial-dismiss"
+          onClick={() => setDismissed(true)}
+          aria-label="Fermer"
+          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-900/5 transition-all cursor-pointer shrink-0"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

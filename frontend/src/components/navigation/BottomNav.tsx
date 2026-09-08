@@ -9,6 +9,7 @@ import {
   Scissors,
 } from 'lucide-react';
 import { getTerminology } from '../../utils/formatters';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 export const BottomNav: React.FC = () => {
   const {
@@ -16,6 +17,7 @@ export const BottomNav: React.FC = () => {
     setActiveTab,
     setActiveMoreSubTab,
     attemptNewSale,
+    isWriteLocked,
     sales,
     customers,
     products,
@@ -82,7 +84,7 @@ export const BottomNav: React.FC = () => {
             id="btn-floating-new-sale"
             onClick={attemptNewSale}
             aria-label="Nouvelle commande"
-            className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#4F46E5] via-[#6366F1] to-[#9333EA] text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer ring-4 ring-white"
+            className={`w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#4F46E5] via-[#6366F1] to-[#9333EA] text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer ring-4 ring-white ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <Plus className="w-7 h-7 stroke-[3]" />
           </button>

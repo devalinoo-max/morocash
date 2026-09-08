@@ -109,6 +109,14 @@ interface AppContextType {
   // Ouvre la vente sauf abonnement expiré — redirige alors vers l'écran
   // d'abonnement au lieu d'ouvrir la modale (§ paywall).
   attemptNewSale: () => void;
+  // true dès que l'abonnement est expiré : sert à griser (visuellement) tous
+  // les boutons d'action qui créent/modifient des données, sans les cacher —
+  // l'utilisateur doit voir qu'ils existent mais comprendre qu'ils sont bloqués.
+  isWriteLocked: boolean;
+  // Porte générique pour toute action de création/modification (ouvrir un
+  // produit, une réception, la caisse, etc.) : bloque et redirige vers
+  // l'abonnement si l'essai/l'abonnement est expiré, sinon exécute l'action.
+  gateWrite: (action: () => void) => void;
   selectedSaleForReceipt: Sale | null;
   setSelectedSaleForReceipt: (sale: Sale | null) => void;
   saleSuccessReceipt: Sale | null;
@@ -661,15 +669,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * tableau de bord) — bloque et redirige vers l'Abonnement si le compte est
    * en lecture seule, au lieu de laisser la modale s'ouvrir sans effet réel.
    */
-  const attemptNewSale = () => {
-    if (settings.planStatus === 'EXPIRED') {
-      showToast("Abonnement expiré : réactive ton compte pour enregistrer de nouvelles ventes.", 'warning');
+  const isWriteLocked = settings.planStatus === 'EXPIRED';
+
+  const gateWrite = (action: () => void) => {
+    if (isWriteLocked) {
+      showToast("Abonnement expiré : réactive ton compte pour continuer à enregistrer des données.", 'warning');
       setActiveTab('more');
       setActiveMoreSubTab('subscription');
       return;
     }
-    setIsNewSaleOpen(true);
+    action();
   };
+
+  const attemptNewSale = () => gateWrite(() => setIsNewSaleOpen(true));
 
   /**
    * Recharge produits/clients/commandes/caisse depuis le vrai backend et
@@ -1731,6 +1743,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isNewSaleOpen,
         setIsNewSaleOpen,
         attemptNewSale,
+        isWriteLocked,
+        gateWrite,
         selectedSaleForReceipt,
         setSelectedSaleForReceipt,
         saleSuccessReceipt,

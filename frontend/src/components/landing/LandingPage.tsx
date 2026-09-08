@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '../../context/AppContext';
 import { useLandingTheme } from './useLandingTheme';
 import { ScrollProgressBar } from './ScrollProgressBar';
 import { LandingHeader } from './LandingHeader';
@@ -24,12 +25,15 @@ const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ b
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
   const { theme, toggleTheme } = useLandingTheme();
+  const { authStatus } = useApp();
+  const isAuthenticated = authStatus === 'authenticated';
 
   const handleSelectPlan = (_plan: 'solo' | 'business') => {
     onOpenApp('register');
   };
   const handleStartTrial = () => onOpenApp('register');
   const handleLogin = () => onOpenApp('login');
+  const handleOpenDashboard = () => onOpenApp();
 
   return (
     <div className={`morocash-landing ${theme === 'light' ? 'light' : ''} relative min-h-screen overflow-x-clip`}>
@@ -54,7 +58,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
         style={{ background: 'radial-gradient(circle, var(--violet) 0%, transparent 70%)', opacity: 0.1, filter: 'blur(120px)' }}
       />
 
-      <LandingHeader theme={theme} onToggleTheme={toggleTheme} onLogin={handleLogin} onStartTrial={handleStartTrial} />
+      <LandingHeader
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogin={handleLogin}
+        onStartTrial={handleStartTrial}
+        isAuthenticated={isAuthenticated}
+        onOpenDashboard={handleOpenDashboard}
+      />
 
       <main id="top">
         <HeroSection onScrollToPricing={() => scrollTo('tarifs')} onScrollToHowItWorks={() => scrollTo('comment-ca-marche')} />
