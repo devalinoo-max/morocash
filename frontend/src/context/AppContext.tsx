@@ -701,7 +701,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cashApi.listMovements(),
       ]);
 
-      setProducts(apiProducts.map(productsApi.toFrontendProduct));
+      const productCategories = await productsApi.listProductCategories().catch(() => []);
+      const productCategoryName = (id: string | null) =>
+        productCategories.find((c) => c.id === id)?.nom ?? 'Général';
+      setProducts(apiProducts.map((p) => productsApi.toFrontendProduct(p, productCategoryName(p.categoryId))));
 
       const balances = await Promise.all(
         apiCustomers.map((c) => customersApi.fetchCustomerBalance(c.id).catch(() => 0))
@@ -1039,10 +1042,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     productData: Omit<Product, 'id' | 'salesCount' | 'createdAt'>
   ): Promise<Product | null> => {
     try {
-      const created = await productsApi.createProduct(productsApi.toCreateProductInput(productData));
-      const product = productsApi.toFrontendProduct(created);
+      const categoryName = productData.category?.trim();
+      const categoryId = categoryName ? await productsApi.resolveProductCategoryId(categoryName) : undefined;
+      const created = await productsApi.createProduct(
+        productsApi.toCreateProductInput({ ...productData, categoryId })
+      );
+      const product = productsApi.toFrontendProduct(created, categoryName || 'Général');
+      // Le produit créé contient déjà tout ce qu'il faut : on l'ajoute
+      // directement à la liste plutôt que de recharger tout loadRealData()
+      // (produits + clients + commandes + caisse + dépenses + stock...), qui
+      // ajoutait ~1s de latence perceptible pour un simple ajout de produit.
+      setProducts((prev) => [product, ...prev]);
       showToast(`${productData.name} ajouté au catalogue`, 'success');
-      await loadRealData(currentUser?.nom ?? 'Vendeur');
       return product;
     } catch (error) {
       showToast(apiErrorMessage(error), 'error');
@@ -1052,6 +1063,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     try {
+      const categoryName = updates.category?.trim();
+      const categoryId = categoryName ? await productsApi.resolveProductCategoryId(categoryName) : undefined;
       await productsApi.updateProduct(id, {
         ...(updates.name !== undefined ? { nom: updates.name } : {}),
         ...(updates.salePrice !== undefined ? { prixVente: updates.salePrice } : {}),
@@ -1060,6 +1073,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...(updates.alertThreshold !== undefined ? { seuilAlerte: updates.alertThreshold } : {}),
         ...(updates.unit !== undefined ? { unite: updates.unit } : {}),
         ...(updates.isService !== undefined ? { type: updates.isService ? 'SERVICE' : 'PRODUIT' } : {}),
+        ...(categoryId ? { categoryId } : {}),
       });
       showToast('Produit mis à jour', 'success');
       await loadRealData(currentUser?.nom ?? 'Vendeur');

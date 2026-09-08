@@ -250,10 +250,15 @@ export const ReceiptsTab: React.FC = () => {
   const handlePrintSingle = async (sale: Sale) => {
     setIsProcessingPdf(true);
     try {
-      await printReceiptsPdf([sale], settings, false, (canal) => {
+      const result = await printReceiptsPdf([sale], settings, false, (canal) => {
         recordReceiptDelivery(sale.id, canal, sale.reference);
       });
-      showToast('Reçu PDF envoyé à l’impression', 'info');
+      showToast(
+        result === 'opened'
+          ? 'Reçu PDF envoyé à l’impression'
+          : 'Le navigateur a bloqué l’ouverture : le reçu a été téléchargé',
+        'info'
+      );
     } catch (err) {
       console.error(err);
       showToast('Erreur lors de l’impression du reçu', 'error');
@@ -282,10 +287,15 @@ export const ReceiptsTab: React.FC = () => {
     if (selectedSalesList.length === 0) return;
     setIsProcessingPdf(true);
     try {
-      await printReceiptsPdf(selectedSalesList, settings, false, (canal) => {
+      const result = await printReceiptsPdf(selectedSalesList, settings, false, (canal) => {
         selectedSalesList.forEach((s) => recordReceiptDelivery(s.id, canal, s.reference));
       });
-      showToast(`${selectedSalesList.length} reçus envoyés à l’impression`, 'success');
+      showToast(
+        result === 'opened'
+          ? `${selectedSalesList.length} reçus envoyés à l’impression`
+          : 'Le navigateur a bloqué l’ouverture : les reçus ont été téléchargés',
+        'success'
+      );
     } catch (err) {
       console.error(err);
       showToast('Erreur lors de l’impression groupée', 'error');

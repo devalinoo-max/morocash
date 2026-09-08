@@ -16,6 +16,7 @@ import { MoneyInput } from '../common/UIStates';
 import { ProductCodeSection } from './ProductCodeSection';
 import { AddCodeModal } from './AddCodeModal';
 import { ProductPhotoUploader } from './ProductPhotoUploader';
+import { CategoryCombobox } from './CategoryCombobox';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -286,13 +287,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Catégorie
                     </label>
-                    <input
-                      type="text"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      placeholder="Alimentation, Boissons, etc."
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold"
-                    />
+                    <CategoryCombobox value={category} onChange={setCategory} />
                   </div>
 
                   <div>

@@ -133,22 +133,37 @@ export async function printReceiptsPdf(
   settings: ShopSettings,
   isMerchantCopy: boolean = false,
   onDelivered?: (canal: ReceiptDeliveryChannel) => void
-): Promise<void> {
-  try {
-    const blob = await fetchReceiptsPdfBlob(sales, settings, isMerchantCopy);
-    const blobUrl = URL.createObjectURL(blob);
-    window.open(blobUrl, '_blank');
-    if (onDelivered) {
-      onDelivered('IMPRESSION');
-    }
-  } catch (err) {
-    console.error('Erreur impression PDF:', err);
-    // Fallback window.print
-    window.print();
-    if (onDelivered) {
-      onDelivered('IMPRESSION');
-    }
+): Promise<'opened' | 'downloaded'> {
+  const blob = await fetchReceiptsPdfBlob(sales, settings, isMerchantCopy);
+  const blobUrl = URL.createObjectURL(blob);
+
+  // window.open() intervient après un `await` réseau : la plupart des
+  // navigateurs ne le considèrent alors plus comme déclenché directement par
+  // le clic utilisateur et le bloquent silencieusement (pas d'exception, pas
+  // de nouvel onglet — le bouton "Imprimer" semblait ne rien faire). On
+  // détecte ce blocage via la valeur de retour et on bascule sur un
+  // téléchargement direct, comme le fait déjà LabelPrintModal.
+  const newTab = window.open(blobUrl, '_blank');
+  let result: 'opened' | 'downloaded';
+  if (newTab) {
+    result = 'opened';
+  } else {
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download =
+      sales.length === 1
+        ? `recu-${sales[0].reference}.pdf`
+        : `recus-groupes-${sales.length}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    result = 'downloaded';
   }
+
+  if (onDelivered) {
+    onDelivered('IMPRESSION');
+  }
+  return result;
 }
 
 export async function downloadReceiptsPdf(

@@ -1,4 +1,5 @@
 import { api, ApiError } from './client';
+import { listCategories, createCategory } from './expenses';
 import type { Product } from '../types';
 
 export interface ApiProduct {
@@ -61,10 +62,14 @@ export async function deleteOrDeactivateProduct(id: string): Promise<'DELETED' |
 
 /**
  * Champs absents pour l'instant de ce passage (étape 13, "parcours complet
- * d'abord") : codes-barres/QR (productCodes), photos, catégorie — la gestion
- * complète des codes reste sur les données locales du prototype.
+ * d'abord") : codes-barres/QR (productCodes), photos — la gestion complète
+ * des codes reste sur les données locales du prototype.
+ *
+ * `categoryName` est résolu par l'appelant (le payload produit ne contient
+ * que categoryId, jamais le nom lisible) à partir de la liste des catégories
+ * PRODUIT — voir resolveProductCategoryId / listProductCategories ci-dessous.
  */
-export function toFrontendProduct(p: ApiProduct): Product {
+export function toFrontendProduct(p: ApiProduct, categoryName?: string): Product {
   return {
     id: p.id,
     name: p.nom,
@@ -72,7 +77,7 @@ export function toFrontendProduct(p: ApiProduct): Product {
     purchasePrice: p.prixAchat ?? 0,
     stock: p.stock,
     alertThreshold: p.seuilAlerte,
-    category: p.categoryId ?? 'Général',
+    category: categoryName ?? 'Général',
     unit: p.unite,
     isService: p.type === 'SERVICE',
     salesCount: 0,
@@ -89,6 +94,7 @@ export function toCreateProductInput(product: {
   alertThreshold: number;
   unit: string;
   isService?: boolean;
+  categoryId?: string;
 }): CreateProductInput {
   return {
     nom: product.name,
@@ -98,5 +104,24 @@ export function toCreateProductInput(product: {
     stock: product.stock,
     seuilAlerte: product.alertThreshold,
     unite: product.unit,
+    ...(product.categoryId ? { categoryId: product.categoryId } : {}),
   };
+}
+
+export function listProductCategories() {
+  return listCategories('PRODUIT');
+}
+
+/**
+ * Le formulaire produit ne propose qu'un nom de catégorie en clair (combobox
+ * texte + choix parmi l'existant) — on résout ce nom vers une vraie catégorie
+ * PRODUIT existante, ou on la crée à la volée si absente (même logique que
+ * resolveExpenseCategoryId pour les dépenses).
+ */
+export async function resolveProductCategoryId(nom: string): Promise<string> {
+  const categories = await listCategories('PRODUIT');
+  const existing = categories.find((c) => c.nom.toLowerCase() === nom.toLowerCase());
+  if (existing) return existing.id;
+  const created = await createCategory(nom, 'PRODUIT');
+  return created.id;
 }

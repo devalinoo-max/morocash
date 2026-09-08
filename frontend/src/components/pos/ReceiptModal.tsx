@@ -72,10 +72,15 @@ export const ReceiptModal: React.FC = () => {
   const handlePrint = async () => {
     setIsGeneratingPdf(true);
     try {
-      await printReceiptsPdf([sale], settings, isMerchantCopy, (canal) => {
+      const result = await printReceiptsPdf([sale], settings, isMerchantCopy, (canal) => {
         recordReceiptDelivery(sale.id, canal, sale.reference);
       });
-      showToast('Reçu PDF envoyé à l’impression', 'info');
+      showToast(
+        result === 'opened'
+          ? 'Reçu PDF envoyé à l’impression'
+          : 'Le navigateur a bloqué l’ouverture : le reçu a été téléchargé',
+        'info'
+      );
     } catch (err) {
       console.error(err);
       showToast('Erreur lors de l’impression du reçu', 'error');
