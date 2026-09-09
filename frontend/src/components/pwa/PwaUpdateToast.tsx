@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { RefreshCw, CloudCheck } from 'lucide-react';
+import { CloudCheck } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 
 /**
  * Le Service Worker se télécharge et se met en cache tout seul dès qu'une
- * nouvelle version est déployée (aucune action requise). On n'active
- * volontairement PAS cette nouvelle version automatiquement : ça reviendrait
- * à recharger l'app sous les pieds d'un commerçant en pleine vente. On lui
- * montre donc ce bandeau et c'est SON clic sur "Mettre à jour" qui recharge.
+ * nouvelle version est déployée (aucune action requise). On l'active
+ * automatiquement (silencieux, pas de bandeau/clic) mais seulement au premier
+ * instant où c'est sans danger : panier vide et aucune modale de vente/reçu
+ * ouverte — sinon on attendrait de recharger l'app sous les pieds d'un
+ * commerçant en pleine vente. Tant que ce n'est pas sûr, l'effet se recontrôle
+ * à chaque changement de panier/modale jusqu'à ce que ce soit le cas.
  */
 export const PwaUpdateToast: React.FC = () => {
   const {
@@ -15,6 +18,7 @@ export const PwaUpdateToast: React.FC = () => {
     offlineReady: [offlineReady, setOfflineReady],
     updateServiceWorker,
   } = useRegisterSW();
+  const { cart, isNewSaleOpen, selectedSaleForReceipt, saleSuccessReceipt } = useApp();
 
   const [showOfflineReady, setShowOfflineReady] = useState(false);
 
@@ -28,23 +32,14 @@ export const PwaUpdateToast: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [offlineReady, setOfflineReady]);
 
-  if (needRefresh) {
-    return (
-      <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 w-[92vw] max-w-sm">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-900 text-white shadow-xl border border-slate-800">
-          <RefreshCw className="w-4 h-4 text-indigo-300 shrink-0" />
-          <span className="flex-1 text-xs font-medium">Nouvelle version disponible.</span>
-          <button
-            id="btn-update-app"
-            onClick={() => updateServiceWorker(true)}
-            className="px-3 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-bold cursor-pointer hover:bg-slate-100 active:scale-95 transition-all shrink-0"
-          >
-            Mettre à jour
-          </button>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!needRefresh) return;
+    const safeToUpdate =
+      cart.length === 0 && !isNewSaleOpen && !selectedSaleForReceipt && !saleSuccessReceipt;
+    if (safeToUpdate) {
+      updateServiceWorker(true);
+    }
+  }, [needRefresh, cart.length, isNewSaleOpen, selectedSaleForReceipt, saleSuccessReceipt, updateServiceWorker]);
 
   if (showOfflineReady) {
     return (
