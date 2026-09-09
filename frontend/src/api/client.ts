@@ -31,6 +31,15 @@ function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
 }
 
+// Compteur de requêtes en cours — sert uniquement à faire patienter la mise à
+// jour auto-appliquée du Service Worker (PwaUpdateToast) : un rechargement
+// pendant qu'une requête est en vol (ex. connexion/inscription) l'annule net,
+// ce que le code appelant voit comme une simple erreur réseau.
+let inFlightRequests = 0;
+export function isRequestInFlight(): boolean {
+  return inFlightRequests > 0;
+}
+
 type ApiEnvelope<T> =
   | { success: true; data: T; meta?: unknown }
   | { success: false; error: ApiErrorPayload; meta?: unknown };
@@ -56,15 +65,20 @@ async function request<T>(
   }
 
   let response: Response;
+  inFlightRequests += 1;
   try {
-    response = await fetch(`/api/v1${path}`, {
-      method,
-      headers,
-      body,
-      credentials: 'include',
-    });
-  } catch {
-    throw new ApiError({ code: 'NETWORK_ERROR', message: 'Impossible de joindre le serveur.' });
+    try {
+      response = await fetch(`/api/v1${path}`, {
+        method,
+        headers,
+        body,
+        credentials: 'include',
+      });
+    } catch {
+      throw new ApiError({ code: 'NETWORK_ERROR', message: 'Impossible de joindre le serveur.' });
+    }
+  } finally {
+    inFlightRequests -= 1;
   }
 
   let envelope: ApiEnvelope<T> | null = null;

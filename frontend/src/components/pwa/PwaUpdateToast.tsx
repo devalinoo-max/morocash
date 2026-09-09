@@ -2,15 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { CloudCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isRequestInFlight } from '../../api/client';
 
 /**
  * Le Service Worker se télécharge et se met en cache tout seul dès qu'une
  * nouvelle version est déployée (aucune action requise). On l'active
- * automatiquement (silencieux, pas de bandeau/clic) mais seulement au premier
- * instant où c'est sans danger : panier vide et aucune modale de vente/reçu
- * ouverte — sinon on attendrait de recharger l'app sous les pieds d'un
- * commerçant en pleine vente. Tant que ce n'est pas sûr, l'effet se recontrôle
- * à chaque changement de panier/modale jusqu'à ce que ce soit le cas.
+ * automatiquement (silencieux, pas de bandeau/clic) mais seulement à un
+ * instant sans danger : session authentifiée (jamais pendant l'écran de
+ * connexion/inscription — un panier vide y est vrai en permanence et ne veut
+ * rien dire), panier vide, aucune modale de vente/reçu ouverte, ET aucune
+ * requête réseau en vol. Ce dernier point est indispensable — sans lui, un
+ * rechargement pendant une connexion/inscription en cours annule net la
+ * requête, ce qui ressemblait à une panne serveur alors que ce n'en était pas
+ * une (et faisait aussi revenir l'écran "Essayer" à la case départ). Vérifié
+ * en boucle courte tant que ce n'est pas encore sûr.
  */
 export const PwaUpdateToast: React.FC = () => {
   const {
@@ -18,7 +23,7 @@ export const PwaUpdateToast: React.FC = () => {
     offlineReady: [offlineReady, setOfflineReady],
     updateServiceWorker,
   } = useRegisterSW();
-  const { cart, isNewSaleOpen, selectedSaleForReceipt, saleSuccessReceipt } = useApp();
+  const { authStatus, cart, isNewSaleOpen, selectedSaleForReceipt, saleSuccessReceipt } = useApp();
 
   const [showOfflineReady, setShowOfflineReady] = useState(false);
 
@@ -34,12 +39,27 @@ export const PwaUpdateToast: React.FC = () => {
 
   useEffect(() => {
     if (!needRefresh) return;
-    const safeToUpdate =
-      cart.length === 0 && !isNewSaleOpen && !selectedSaleForReceipt && !saleSuccessReceipt;
-    if (safeToUpdate) {
-      updateServiceWorker(true);
-    }
-  }, [needRefresh, cart.length, isNewSaleOpen, selectedSaleForReceipt, saleSuccessReceipt, updateServiceWorker]);
+
+    const trySafeUpdate = () => {
+      const safeToUpdate =
+        authStatus === 'authenticated' &&
+        cart.length === 0 &&
+        !isNewSaleOpen &&
+        !selectedSaleForReceipt &&
+        !saleSuccessReceipt &&
+        !isRequestInFlight();
+      if (safeToUpdate) {
+        updateServiceWorker(true);
+      }
+    };
+
+    trySafeUpdate();
+    // Une requête en vol au premier passage (ex. connexion en cours) peut se
+    // terminer juste après : on recontrôle à intervalle court plutôt que de
+    // dépendre uniquement des changements de panier/modale.
+    const interval = setInterval(trySafeUpdate, 2000);
+    return () => clearInterval(interval);
+  }, [needRefresh, authStatus, cart.length, isNewSaleOpen, selectedSaleForReceipt, saleSuccessReceipt, updateServiceWorker]);
 
   if (showOfflineReady) {
     return (
