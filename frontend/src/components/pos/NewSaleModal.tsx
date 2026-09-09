@@ -121,6 +121,14 @@ export const NewSaleModal: React.FC = () => {
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
 
+  // Tiroir panier mobile (< md) — replié par défaut, cf. refonte écran
+  // téléphone : sur petit écran la colonne de droite fixe (400px, pensée pour
+  // ordinateur) mange tout l'espace du catalogue ; sur mobile le panier
+  // devient un tiroir en bas, et le geste principal reste "choisir un produit".
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const mobileDragStartY = useRef<number | null>(null);
+  const [mobileDragDeltaY, setMobileDragDeltaY] = useState(0);
+
   // Compute 4 recent customers for quick access pills
   const recentCustomers = useMemo(() => {
     const seen = new Set<string>();
@@ -291,47 +299,69 @@ export const NewSaleModal: React.FC = () => {
       setSelectedCustomerId('');
       setPaymentType('FULL');
       setCustomPaidAmount(0);
+      setIsMobileCartOpen(false);
     }
   };
 
+  // Tiroir panier mobile : fermeture par glissement vers le bas (en plus de
+  // la poignée et du voile, gérés directement par onClick).
+  const handleMobileDragStart = (e: React.TouchEvent) => {
+    mobileDragStartY.current = e.touches[0].clientY;
+  };
+  const handleMobileDragMove = (e: React.TouchEvent) => {
+    if (mobileDragStartY.current === null) return;
+    const delta = e.touches[0].clientY - mobileDragStartY.current;
+    if (delta > 0) setMobileDragDeltaY(delta);
+  };
+  const handleMobileDragEnd = () => {
+    if (mobileDragDeltaY > 60) setIsMobileCartOpen(false);
+    setMobileDragDeltaY(0);
+    mobileDragStartY.current = null;
+  };
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex flex-col justify-end sm:justify-center sm:items-center sm:p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex flex-col justify-end md:justify-center md:items-center md:p-4 animate-in fade-in duration-150 overflow-x-hidden">
       <div
         id="new-sale-modal-container"
-        className="bg-white w-full sm:max-w-6xl h-[94vh] sm:h-[90vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+        className="bg-white w-full md:max-w-6xl h-[94vh] md:h-[90vh] rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
       >
         {/* ========================================================================= */}
         {/* TOP HEADER & STEPPER */}
         {/* ========================================================================= */}
-        <div className="px-4 sm:px-6 py-3 bg-white border-b border-slate-200 shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            {/* Left: App/Shop Title */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center font-black text-[#4F46E5] text-xs">
+        <div className="h-14 md:h-auto px-3 md:px-6 py-0 md:py-3 bg-white border-b border-slate-200 shrink-0">
+          <div className="h-14 md:h-auto flex items-center justify-between gap-2">
+            {/* Left: App/Shop Title — l'avatar boutique n'apporte rien pendant
+                une commande, retiré sur mobile (point 7). */}
+            <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
+              <div className="hidden md:flex w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 items-center justify-center font-black text-[#4F46E5] text-xs shrink-0">
                 MC
               </div>
-              <div>
-                <h2 className="text-xs font-black text-slate-900 leading-none">Nouvelle commande</h2>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+              <div className="min-w-0">
+                <h2 className="text-[15px] md:text-xs font-black text-slate-900 leading-tight md:leading-none truncate">
+                  Nouvelle commande
+                </h2>
+                <p className="text-[11px] md:text-[10px] text-slate-400 font-medium mt-0.5 truncate">
                   {settings.shopName || 'Boutique'}
                 </p>
               </div>
             </div>
 
-            {/* Stepper */}
-            <div className="flex items-center gap-1 sm:gap-2 select-none">
+            {/* Stepper — compact sur mobile (point 6) : une seule ligne, ne
+                se replie jamais ; sous 360px, seul le libellé de l'étape en
+                cours reste affiché (l'autre garde sa pastille numérotée). */}
+            <div className="flex items-center gap-1 md:gap-2 select-none shrink-0">
               {/* Step 1: Produits */}
               <button
                 type="button"
                 onClick={() => setStep('PRODUCTS')}
-                className={`flex items-center gap-1.5 sm:gap-2 cursor-pointer transition-all ${
+                className={`flex items-center gap-1 md:gap-2 cursor-pointer transition-all ${
                   step === 'PRODUCTS'
                     ? 'text-slate-900 font-black'
                     : 'text-indigo-600 font-bold hover:opacity-80'
                 }`}
               >
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
                     step === 'PRODUCTS'
                       ? 'bg-[#4F46E5] text-white shadow-xs'
                       : 'bg-indigo-50 text-[#4F46E5]'
@@ -339,17 +369,23 @@ export const NewSaleModal: React.FC = () => {
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[11px] sm:text-xs">1. Produits</span>
+                <span
+                  className={`text-[11px] md:text-xs whitespace-nowrap ${
+                    step === 'PRODUCTS' ? '' : 'hidden min-[360px]:inline'
+                  }`}
+                >
+                  1. Produits
+                </span>
               </button>
 
-              <div className="w-4 sm:w-8 h-[1.5px] bg-slate-200" />
+              <div className="w-5 md:w-8 h-[1.5px] bg-slate-200 shrink-0" />
 
               {/* Step 2: Paiement */}
               <button
                 type="button"
                 disabled={cart.length === 0 || !selectedCustomerId}
                 onClick={() => setStep('PAYMENT')}
-                className={`flex items-center gap-1.5 sm:gap-2 transition-all ${
+                className={`flex items-center gap-1 md:gap-2 transition-all ${
                   cart.length === 0 || !selectedCustomerId
                     ? 'opacity-40 cursor-not-allowed'
                     : 'cursor-pointer'
@@ -360,7 +396,7 @@ export const NewSaleModal: React.FC = () => {
                 }`}
               >
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
                     step === 'PAYMENT'
                       ? 'bg-[#4F46E5] text-white shadow-xs'
                       : 'bg-slate-100 text-slate-400'
@@ -368,16 +404,26 @@ export const NewSaleModal: React.FC = () => {
                 >
                   <CreditCard className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[11px] sm:text-xs">2. Paiement</span>
+                <span
+                  className={`text-[11px] md:text-xs whitespace-nowrap ${
+                    step === 'PAYMENT' ? '' : 'hidden min-[360px]:inline'
+                  }`}
+                >
+                  2. Paiement
+                </span>
               </button>
             </div>
 
-            {/* Right: Close button */}
+            {/* Right: Close button — 36x36 sur mobile (point 7), 32x32 sur
+                ordinateur (inchangé) */}
             <button
               id="btn-close-sale-modal"
               type="button"
-              onClick={() => setIsNewSaleOpen(false)}
-              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all cursor-pointer"
+              onClick={() => {
+                setIsNewSaleOpen(false);
+                setIsMobileCartOpen(false);
+              }}
+              className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -398,7 +444,8 @@ export const NewSaleModal: React.FC = () => {
         {/* STEP 1 : PRODUITS (GRILLE UNIQUE + PANIER FIXE 400PX) */}
         {/* ========================================================================= */}
         {step === 'PRODUCTS' && (
-          <div className="flex-1 flex flex-col md:flex-row min-h-0 bg-slate-50/50">
+          <>
+          <div className="hidden md:flex flex-1 min-h-0 bg-slate-50/50">
             {/* GAUCHE : CATALOGUE PRODUITS (flex-1) */}
             <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-white border-r border-slate-200/80">
               {/* BARRE D'OUTILS */}
@@ -993,6 +1040,505 @@ export const NewSaleModal: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* ===================================================================== */}
+          {/* VUE MOBILE (< md) — CATALOGUE PLEIN ÉCRAN + TIROIR PANIER EN BAS      */}
+          {/* ===================================================================== */}
+          <div className="flex md:hidden flex-1 flex-col min-h-0 bg-white relative overflow-x-hidden">
+            {/* Carte client — juste sous l'indicateur d'étapes, avant la recherche (point 3) */}
+            <div className="shrink-0 px-3 pt-2">
+              {!selectedCustomerObj ? (
+                <div className="h-16 rounded-2xl bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-amber-200/70 px-3 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-[30px] h-[30px] min-w-[30px] rounded-full bg-[#F59E0B] flex items-center justify-center text-white shrink-0">
+                      <User className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-[13.5px] font-[650] text-slate-900 leading-tight truncate">
+                        À qui est cette commande ?
+                      </h4>
+                      <p className="text-[11px] text-amber-900/80 font-medium leading-tight truncate">
+                        Obligatoire pour valider
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    id="btn-choose-customer-pos-mobile"
+                    type="button"
+                    onClick={() => setIsCustomerPickerOpen(true)}
+                    className="shrink-0 h-[34px] px-3.5 rounded-xl bg-[#F59E0B] hover:bg-amber-600 text-white font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                  >
+                    Choisir
+                  </button>
+                </div>
+              ) : (
+                <div className="h-11 rounded-2xl bg-[#F0FDF4] border-l-4 border-l-[#16A34A] border-y border-r border-emerald-200/70 px-3 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={`w-7 h-7 min-w-7 rounded-full flex items-center justify-center font-bold text-white text-[10px] shrink-0 ${getAvatarColor(
+                        selectedCustomerObj.name
+                      )}`}
+                    >
+                      {getInitials(selectedCustomerObj.name)}
+                    </div>
+                    <span className="text-xs font-[650] text-slate-900 truncate">
+                      {selectedCustomerObj.name}
+                    </span>
+                    {selectedCustomerObj.totalDebt > 0 ? (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100/90 px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap">
+                        doit {formatMoney(selectedCustomerObj.totalDebt)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    id="btn-change-customer-pos-mobile"
+                    type="button"
+                    onClick={() => setIsCustomerPickerOpen(true)}
+                    className="shrink-0 text-xs font-bold text-[#4F46E5] cursor-pointer px-1 py-1"
+                  >
+                    Changer
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Barre d'outils (point 2) : recherche pleine largeur, puis 4
+                boutons carrés à égalité. + Ajouter un produit / + Service ont
+                quitté cette barre (bouton flottant + pastille catégorie). */}
+            <div className="shrink-0 px-3 pt-2 pb-1.5 space-y-2">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  id="input-sale-search-product-mobile"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher ou scanner un produit…"
+                  className="w-full h-[46px] pl-10 pr-9 rounded-full bg-slate-50 border border-slate-200 text-[16px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                <div className="relative">
+                  <button
+                    id="btn-filter-category-mobile"
+                    type="button"
+                    onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                    className={`w-full h-[46px] rounded-xl flex flex-col items-center justify-center gap-0.5 relative transition-all cursor-pointer ${
+                      selectedCategory !== 'TOUS'
+                        ? 'bg-amber-50 border border-amber-300 text-amber-800'
+                        : 'bg-slate-100 border border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" />
+                    <span className="text-[10px] font-bold">Filtrer</span>
+                    {selectedCategory !== 'TOUS' && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-1.5 right-1.5 ring-2 ring-white" />
+                    )}
+                  </button>
+
+                  {isCategoryDropdownOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-1.5 animate-in fade-in slide-in-from-top-2">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-2.5 py-1 block">
+                        Catégories
+                      </span>
+                      {categories.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory(cat);
+                            setIsCategoryDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            selectedCategory === cat
+                              ? 'bg-indigo-50 text-[#4F46E5]'
+                              : 'text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  id="btn-reload-catalog-mobile"
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('TOUS');
+                    showToast('Catalogue actualisé', 'info');
+                  }}
+                  className="w-full h-[46px] rounded-xl bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
+
+                <button
+                  id="btn-open-scanner-mobile"
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="w-full h-[46px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs"
+                >
+                  <Scan className="w-4 h-4 text-indigo-300" />
+                  <span className="text-[10px] font-bold">Scanner</span>
+                </button>
+
+                <button
+                  id="btn-open-whatsapp-order-mobile"
+                  type="button"
+                  onClick={() => setIsWhatsAppOpen(true)}
+                  className="w-full h-[46px] rounded-xl bg-[#25D366] text-white flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="text-[10px] font-bold">WhatsApp</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Pastilles catégories, + Service en dernière position (point 2 et 4) */}
+            <div className="shrink-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar px-3 pb-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-[#4F46E5] text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+              <button
+                id="btn-add-service-pos-mobile"
+                type="button"
+                onClick={() => setIsServiceModalOpen(true)}
+                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 border-2 border-dashed border-indigo-300 text-[#4F46E5] flex items-center gap-1 cursor-pointer"
+              >
+                <Wrench className="w-3 h-3" />
+                <span>+ Service</span>
+              </button>
+            </div>
+
+            {/* Catalogue produits — occupe tout l'espace restant (point 4) */}
+            <div className="flex-1 overflow-y-auto min-h-0 relative">
+              <div className="px-3 pb-24">
+                {displayProducts.length === 0 ? (
+                  <div className="py-16 text-center text-slate-400 space-y-2">
+                    <p className="text-sm font-semibold text-slate-600">Aucun produit trouvé</p>
+                    <p className="text-xs">Essaie un autre terme ou ajoute le produit au catalogue.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScannerPreBarcode('');
+                        setIsProductFormOpen(true);
+                      }}
+                      className="px-4 py-2 bg-indigo-50 text-[#4F46E5] hover:bg-indigo-100 rounded-xl text-xs font-bold cursor-pointer transition-colors mt-2 inline-block"
+                    >
+                      + Ajouter ce produit maintenant
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-[9px]">
+                    {displayProducts.map((prod) => {
+                      const inCart = cart.find((ci) => ci.product.id === prod.id);
+                      const isStockNeg = !prod.isService && prod.stock < 0;
+                      const isStockZero = !prod.isService && prod.stock === 0;
+                      const isStockLow = !prod.isService && prod.stock >= 1 && prod.stock <= 3;
+                      const isStockNormal = !prod.isService && prod.stock > 3;
+
+                      return (
+                        <div
+                          key={prod.id}
+                          id={`pos-prod-card-mobile-${prod.id}`}
+                          onClick={() => addToCart(prod)}
+                          className="h-[84px] rounded-2xl border border-[#E2E8F0] bg-white flex items-center gap-2.5 p-2.5 active:scale-[0.98] cursor-pointer relative select-none shadow-xs"
+                        >
+                          <div className="w-[46px] h-[46px] min-w-[46px] rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                            <ShoppingBag className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11.5px] font-bold text-slate-900 leading-snug line-clamp-2">
+                              {prod.name}
+                            </p>
+                            <p className="text-[12.5px] font-bold text-[#4F46E5] mt-0.5 leading-none">
+                              {formatMoney(prod.salePrice)}
+                            </p>
+                            <div className="leading-none mt-1">
+                              {prod.isService ? (
+                                <span className="text-[10px] font-medium text-[#2563EB]">Prestation</span>
+                              ) : isStockNeg ? (
+                                <span className="text-[10px] font-bold text-[#DC2626]">
+                                  Stock négatif ({prod.stock})
+                                </span>
+                              ) : isStockZero ? (
+                                <span className="text-[10px] font-medium text-[#DC2626]">Rupture</span>
+                              ) : isStockLow ? (
+                                <span className="text-[10px] font-bold text-[#D97706]">
+                                  Reste {prod.stock}
+                                </span>
+                              ) : isStockNormal ? (
+                                <span className="text-[10px] text-[#64748B]">Reste {prod.stock}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                          {inCart && (
+                            <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-[#EEF2FF] text-[#4F46E5] shadow-2xs">
+                              ×{inCart.quantity}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Bouton flottant "+ Ajouter un produit" (point 2), au-dessus
+                  du tiroir replié ; masqué quand le tiroir est déplié (couvert
+                  par le voile de toute façon). */}
+              {!isMobileCartOpen && (
+                <button
+                  id="btn-add-product-pos-mobile"
+                  type="button"
+                  onClick={() => {
+                    setScannerPreBarcode('');
+                    setIsProductFormOpen(true);
+                  }}
+                  title="Ajouter un nouveau produit au catalogue"
+                  className="fixed right-4 z-30 w-[52px] h-[52px] rounded-full bg-[#4F46E5] hover:bg-indigo-700 text-white shadow-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+                  style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+                >
+                  <Plus className="w-6 h-6" />
+                </button>
+              )}
+            </div>
+
+            {/* Voile sombre derrière le tiroir déplié */}
+            {isMobileCartOpen && (
+              <div
+                className="fixed inset-0 z-30 bg-black/40 animate-in fade-in duration-150"
+                onClick={() => setIsMobileCartOpen(false)}
+              />
+            )}
+
+            {/* Tiroir panier (point 5) */}
+            <div
+              className="fixed left-0 right-0 bottom-0 z-40 bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out"
+              style={{
+                height: isMobileCartOpen ? '75vh' : 'auto',
+                transform: isMobileCartOpen ? `translateY(${mobileDragDeltaY}px)` : 'translateY(0)',
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              }}
+            >
+              {!isMobileCartOpen ? (
+                /* REPLIÉ : barre de 72px, toute la barre est cliquable pour déplier
+                   (sauf panier vide, qui ne se déplie pas). */
+                <button
+                  id="btn-mobile-cart-collapsed"
+                  type="button"
+                  onClick={() => cart.length > 0 && setIsMobileCartOpen(true)}
+                  className={`w-full h-[72px] flex flex-col items-center justify-center px-4 ${
+                    cart.length > 0 ? 'cursor-pointer' : 'cursor-default'
+                  }`}
+                >
+                  <span className="w-9 h-1 rounded-full bg-slate-300 mb-1.5" />
+                  <div className="w-full flex items-center justify-between">
+                    {cart.length === 0 ? (
+                      <span className="text-xs font-medium text-slate-400">
+                        Ton panier est vide · Touche un produit
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-6 h-6 rounded-full bg-[#4F46E5] text-white text-[11px] font-black flex items-center justify-center shrink-0">
+                          {cartItemCount}
+                        </span>
+                        <span className="text-xs font-bold text-slate-900 truncate">
+                          Commande en cours
+                        </span>
+                      </div>
+                    )}
+                    <span className="text-[20px] font-black text-slate-900 shrink-0">
+                      {formatMoney(finalTotal)}
+                    </span>
+                  </div>
+                </button>
+              ) : (
+                /* DÉPLIÉ : monte à 75% de la hauteur */
+                <div className="h-full flex flex-col min-h-0">
+                  <div
+                    className="shrink-0 pt-2 pb-1 flex flex-col items-center cursor-grab active:cursor-grabbing"
+                    style={{ touchAction: 'none' }}
+                    onTouchStart={handleMobileDragStart}
+                    onTouchMove={handleMobileDragMove}
+                    onTouchEnd={handleMobileDragEnd}
+                    onClick={() => setIsMobileCartOpen(false)}
+                  >
+                    <span className="w-9 h-1 rounded-full bg-slate-300" />
+                  </div>
+
+                  <div className="shrink-0 px-4 py-2 flex items-center justify-between border-b border-slate-100">
+                    <h3 className="text-xs font-black text-slate-900">
+                      Commande en cours · {cartItemCount} article{cartItemCount > 1 ? 's' : ''}
+                    </h3>
+                    {cart.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearCart}
+                        className="text-[11px] font-bold text-rose-600 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Tout vider</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-0">
+                    {cart.map((item) => (
+                      <div
+                        key={item.product.id}
+                        className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-2.5"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-900 truncate leading-snug">
+                            {item.product.name}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{formatMoney(item.unitPrice)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => updateCartQuantity(item.product.id, -1)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-700 cursor-pointer"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-black px-2 text-slate-900 min-w-[20px] text-center">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateCartQuantity(item.product.id, 1)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#4F46E5] cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <span className="text-sm font-bold text-slate-900 min-w-[60px] text-right">
+                            {formatMoney(item.unitPrice * item.quantity)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.product.id)}
+                            className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 flex items-center justify-center cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="shrink-0 p-3.5 border-t border-slate-200 space-y-2.5">
+                    <div className="flex justify-between items-center text-xs font-semibold text-slate-600">
+                      <span>Sous-total</span>
+                      <span className="font-bold text-slate-900">{formatMoney(cartTotal)}</span>
+                    </div>
+
+                    {discountAmount > 0 ? (
+                      <div className="h-11 px-3 rounded-[11px] bg-[#FEF2F2] border border-rose-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-3.5 h-3.5 text-[#DC2626]" />
+                          <span className="text-xs font-[600] text-rose-950">
+                            {discountMode === 'PERCENTAGE' && discountValue > 0
+                              ? `Remise (${discountValue} %)`
+                              : `Remise (${discountPercent} %)`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[13px] font-[750] text-[#DC2626]">
+                            − {formatMoney(discountAmount)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsDiscountModalOpen(true)}
+                            className="w-6 h-6 rounded-lg text-slate-500 flex items-center justify-center cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-11 px-3 rounded-[11px] bg-[#F8FAFC] border border-slate-200/80 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-3.5 h-3.5 text-[#4F46E5]" />
+                          <span className="text-xs font-[600] text-slate-800">Remise</span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={cartTotal === 0}
+                          onClick={() => cartTotal > 0 && setIsDiscountModalOpen(true)}
+                          className="h-8 px-2.5 rounded-lg bg-[#EEF2FF] disabled:opacity-40 text-[#4F46E5] font-[650] text-[11px] flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Ajouter</span>
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="pt-1.5 border-t border-slate-200 flex items-baseline justify-between">
+                      <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                        Total
+                      </span>
+                      <span className="text-[28px] font-black text-slate-900 tracking-tight leading-none">
+                        {formatMoney(finalTotal)}
+                      </span>
+                    </div>
+
+                    <button
+                      id="btn-pos-checkout-mobile"
+                      type="button"
+                      disabled={cart.length === 0 || !selectedCustomerId}
+                      onClick={() => {
+                        setCustomPaidAmount(finalTotal);
+                        setPaymentType('FULL');
+                        setStep('PAYMENT');
+                        setIsMobileCartOpen(false);
+                      }}
+                      className={`w-full h-[54px] rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
+                        cart.length === 0 || !selectedCustomerId
+                          ? 'bg-[#94A3B8] text-white cursor-not-allowed'
+                          : 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md cursor-pointer'
+                      }`}
+                    >
+                      <span>Encaisser {formatMoney(finalTotal)}</span>
+                    </button>
+                    {(cart.length === 0 || !selectedCustomerId) && (
+                      <p className="text-center text-xs font-semibold text-amber-700">
+                        {cart.length === 0 ? 'Ajoute un produit' : 'Choisis d\'abord un client'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          </>
         )}
 
         {/* ========================================================================= */}
