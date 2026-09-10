@@ -115,6 +115,18 @@ function wroteNothing(error: unknown): boolean {
   return error instanceof ApiError && RETRYABLE_REFUSALS.has(error.code);
 }
 
+/**
+ * La ressource visee n'existe pas (ou plus) cote serveur. Pour une
+ * modification de produit, cela veut dire que sa creation n'est jamais passee :
+ * insister sur le meme identifiant echouera toujours.
+ */
+function isMissingResource(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.code === 'PRODUCT_NOT_FOUND' || error.code === 'RESOURCE_NOT_OWNED')
+  );
+}
+
 interface AppContextType {
   // Auth réel (étape 13) — remplace l'ancien onboarding local uniquement.
   authStatus: 'loading' | 'anonymous' | 'authenticated';
@@ -952,6 +964,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const idMap = useRef<Record<string, string>>({});
 
+  // Catalogue courant, lisible depuis la file d'envoi sans dependre de la
+  // fermeture capturee au rendu : c'est la seule source complete d'un produit
+  // qu'il faut recreer parce que le serveur ne le connait pas.
+  const productsRef = useRef(products);
+  productsRef.current = products;
+
   const remapId = (id: string): string => idMap.current[id] ?? id;
 
   const rememberId = async (localId: string, serverId: string) => {
@@ -1062,11 +1080,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       case 'PRODUCT_UPDATE': {
-        const productId = remapId(m.payload.id);
+        const localProductId: string = m.payload.id;
         const categoryName: string | undefined = m.payload.categoryName;
         const categoryId = categoryName
           ? await productsApi.resolveProductCategoryId(categoryName)
           : undefined;
+
+        // La modification part AVANT les photos : il faut d'abord savoir si le
+        // produit existe cote serveur. Sa creation hors ligne a pu ne jamais
+        // passer (session expiree, refus...) ; le PATCH repondait alors
+        // PRODUCT_NOT_FOUND en boucle et, comme une modification est rejouable,
+        // il bloquait TOUTE la file derriere lui — y compris les creations des
+        // autres produits saisis hors ligne. C'est ce qui figeait la reprise.
+        let productId = remapId(localProductId);
+        let updated: Awaited<ReturnType<typeof productsApi.updateProduct>>;
+        try {
+          updated = await productsApi.updateProduct(productId, {
+            ...m.payload.input,
+            ...(categoryId ? { categoryId } : {}),
+          });
+        } catch (error) {
+          if (!isMissingResource(error)) throw error;
+
+          const local = productsRef.current.find(
+            (p) => p.id === productId || p.id === localProductId
+          );
+          if (!local) {
+            // Ni sur le serveur, ni dans le catalogue local : il n'y a plus
+            // rien a envoyer. On laisse cette ligne sortir de la file au lieu
+            // de bloquer indefiniment tout ce qui attend derriere elle.
+            return;
+          }
+
+          // Le serveur vient de confirmer que ce produit n'existe pas : le
+          // creer a partir de la version locale ne peut pas faire de doublon,
+          // et c'est la seule facon de ne pas perdre ce qui a ete saisi.
+          updated = await productsApi.createProduct(
+            productsApi.toCreateProductInput({ ...local, categoryId })
+          );
+          productId = updated.id;
+          await rememberId(localProductId, updated.id);
+        }
 
         let refs: productsApi.ProductPhotoRef[] | null = null;
         if (m.payload.photos !== undefined) {
@@ -1080,11 +1134,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             showToast("Les photos n'ont pas pu être mises à jour.", 'warning');
           }
         }
-
-        const updated = await productsApi.updateProduct(productId, {
-          ...m.payload.input,
-          ...(categoryId ? { categoryId } : {}),
-        });
 
         setProducts((prev) =>
           prev.map((p) =>
