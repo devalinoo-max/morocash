@@ -78,7 +78,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               className="bg-accent-violet hover:opacity-90 text-white font-bold text-xs py-2.5 px-4 md:px-5 rounded-full transition-all shadow-md shadow-violet-500/20 hover:scale-105 active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Mon dashboard</span>
+              <span className="hidden sm:inline">Ouvrir mon tableau de bord</span>
+              <span className="sm:hidden">Mon tableau de bord</span>
             </button>
           ) : (
             <>

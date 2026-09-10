@@ -4,9 +4,16 @@ import { Reveal } from './Reveal';
 
 interface FinalCtaSectionProps {
   onStartTrial: () => void;
+  /** Deja connecte : on ne lui propose pas un essai, mais son tableau de bord. */
+  isAuthenticated?: boolean;
+  onOpenDashboard?: () => void;
 }
 
-export const FinalCtaSection: React.FC<FinalCtaSectionProps> = ({ onStartTrial }) => {
+export const FinalCtaSection: React.FC<FinalCtaSectionProps> = ({
+  onStartTrial,
+  isAuthenticated = false,
+  onOpenDashboard,
+}) => {
   return (
     <section className="max-w-6xl mx-auto px-4 md:px-8 pb-28 pt-8">
       <Reveal
@@ -25,10 +32,10 @@ export const FinalCtaSection: React.FC<FinalCtaSectionProps> = ({ onStartTrial }
           <div className="pt-2">
             <button
               type="button"
-              onClick={onStartTrial}
+              onClick={isAuthenticated ? onOpenDashboard : onStartTrial}
               className="inline-block bg-white text-[#1C1917] font-extrabold text-base py-5 px-12 rounded-2xl shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer"
             >
-              Essayer gratuitement
+              {isAuthenticated ? 'Ouvrir mon tableau de bord' : 'Essayer gratuitement'}
             </button>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/75 pt-2">

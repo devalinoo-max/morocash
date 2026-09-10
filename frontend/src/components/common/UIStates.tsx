@@ -14,45 +14,49 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+/**
+ * Bandeau hors-ligne : permanent tant que le reseau manque, mais discret.
+ *
+ * Il dit ce que le commercant a besoin de savoir — ses commandes sont
+ * enregistrees — et rien d'autre. Pas de bouton "se reconnecter" : il n'a
+ * aucun moyen de faire revenir le reseau en cliquant, et la reprise se fait
+ * toute seule des qu'il revient.
+ */
 export const OfflineBanner: React.FC = () => {
-  const { settings, toggleOfflineMode, syncQueue } = useApp();
+  const { settings, pendingMutations } = useApp();
 
   if (!settings.isOfflineMode) return null;
 
   return (
     <div
       id="banner-offline"
-      className="bg-amber-500 text-slate-950 px-4 py-2.5 flex items-center justify-between text-xs sm:text-sm font-semibold shadow-md transition-all sticky top-0 z-40"
+      className="bg-slate-900 text-slate-100 px-4 py-2 flex items-center justify-between gap-3 text-xs font-semibold sticky top-0 z-40"
     >
-      <div className="flex items-center gap-2">
-        <WifiOff className="w-4 h-4 shrink-0 text-slate-950 animate-pulse" />
-        <span>
-          <strong>Mode Hors-ligne actif</strong> — Tes ventes sont enregistrées sur cet appareil.
+      <div className="flex items-center gap-2 min-w-0">
+        <WifiOff className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+        <span className="truncate">Hors ligne — tes commandes sont enregistrées</span>
+      </div>
+      {pendingMutations.length > 0 && (
+        <span className="bg-white/10 px-2 py-0.5 rounded-full text-[11px] font-bold shrink-0">
+          {pendingMutations.length} en attente
         </span>
-      </div>
-      <div className="flex items-center gap-2">
-        {syncQueue.length > 0 && (
-          <span className="bg-slate-950/20 px-2 py-0.5 rounded-full text-[11px] font-bold">
-            {syncQueue.length} en attente
-          </span>
-        )}
-        <button
-          id="btn-reconnect"
-          onClick={toggleOfflineMode}
-          className="bg-slate-950 text-white hover:bg-slate-900 active:scale-95 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-all"
-        >
-          Se reconnecter
-        </button>
-      </div>
+      )}
     </div>
   );
 };
 
 export const SyncStatusBadge: React.FC = () => {
-  const { syncQueue, syncPendingOperations, uiState, settings, toggleOfflineMode } = useApp();
+  const {
+    pendingMutations,
+    syncPendingOperations,
+    isSyncing,
+    settings,
+    toggleOfflineMode,
+  } = useApp();
+  const syncQueue = pendingMutations;
 
   // State 1: Synchronisation en cours
-  if (uiState === 'SYNCING') {
+  if (isSyncing) {
     return (
       <div
         id="badge-sync-progress"
@@ -80,7 +84,7 @@ export const SyncStatusBadge: React.FC = () => {
   }
 
   // State 3: Hors-ligne (sans éléments dans la queue)
-  if (settings.isOfflineMode || uiState === 'OFFLINE') {
+  if (settings.isOfflineMode) {
     return (
       <button
         id="badge-sync-offline"

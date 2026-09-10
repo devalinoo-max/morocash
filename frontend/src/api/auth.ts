@@ -39,6 +39,8 @@ export interface RegisterInput {
   email?: string;
   telephone: string;
   pin: string;
+  /** Secteur d'activite : sert a proposer des categories de depart adaptees. */
+  secteur?: 'ALIMENTATION' | 'COSMETIQUES' | 'PRET_A_PORTER' | 'ELECTRONIQUE' | 'SERVICES' | 'AUTRE';
 }
 
 export interface LoginInput {

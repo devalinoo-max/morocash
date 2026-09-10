@@ -35,6 +35,16 @@ export async function issueSessionToken(
   return token;
 }
 
+/**
+ * Fenêtre de prolongation glissante : une session est repoussée à 30 jours
+ * pleins dès qu'il lui en reste moins de 29. Un commerçant qui ouvre MoroCash
+ * tous les jours ne ressaisit donc jamais son code.
+ *
+ * Le seuil (et non une prolongation à chaque appel) évite d'écrire en base à
+ * chaque requête : au plus une écriture par jour et par appareil.
+ */
+const SESSION_RENEW_THRESHOLD_MS = (SESSION_MAX_AGE_DAYS - 1) * 24 * 60 * 60 * 1000;
+
 /** Valide un jeton de session et retourne son contexte — ne lit aucun cookie. */
 export async function validateSessionToken(token: string): Promise<SessionInfo | null> {
   const tokenHash = hashToken(token);
@@ -45,6 +55,15 @@ export async function validateSessionToken(token: string): Promise<SessionInfo |
 
   if (!session || session.expiresAt < new Date() || !session.user.actif) {
     return null;
+  }
+
+  if (session.expiresAt.getTime() - Date.now() < SESSION_RENEW_THRESHOLD_MS) {
+    const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
+    // Volontairement sans await : prolonger la session ne doit jamais retarder
+    // la requête en cours, et si l'écriture échoue la session reste valide.
+    void prisma.session
+      .update({ where: { id: session.id }, data: { expiresAt } })
+      .catch(() => undefined);
   }
 
   return {
@@ -84,7 +103,28 @@ export async function getSessionFromCookies(): Promise<SessionInfo | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return validateSessionToken(token);
+
+  const session = await validateSessionToken(token);
+  if (!session) return null;
+
+  // Le cookie est repoussé en même temps que la session en base (voir
+  // SESSION_RENEW_THRESHOLD_MS) : sans ça, le navigateur oublierait le jeton
+  // au bout de 30 jours alors que le serveur le considère encore valide.
+  // Certains contextes de rendu interdisent d'écrire un cookie ; l'échec est
+  // sans conséquence, la session reste bonne côté serveur.
+  try {
+    store.set(SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: SESSION_MAX_AGE_DAYS * 24 * 60 * 60,
+      path: '/',
+    });
+  } catch {
+    // Lecture seule (rendu statique) : rien à faire.
+  }
+
+  return session;
 }
 
 export async function destroySession(): Promise<void> {

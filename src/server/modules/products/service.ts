@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { scoped } from '@/server/repositories/base';
 import { checkQuota } from '@/server/guards';
 import { AppError } from '@/server/shared/errors';
@@ -44,17 +45,27 @@ export async function createProduct(businessId: string, input: CreateProductInpu
   return product;
 }
 
+/**
+ * Les photos (ProductImage) font partie du produit pour le frontend : sans ce
+ * `include`, un produit rechargé revenait sans image et la photo enregistrée
+ * disparaissait de l'écran Produits.
+ */
+export const withImages = {
+  images: { orderBy: { ordre: 'asc' } },
+} satisfies Prisma.ProductInclude;
+
 export async function listProducts(businessId: string, opts: { actif?: boolean } = {}) {
   const repo = scoped(businessId);
   return repo.products.findMany({
     where: opts.actif === undefined ? undefined : { actif: opts.actif },
     orderBy: { createdAt: 'desc' },
+    include: withImages,
   });
 }
 
 export async function getProduct(businessId: string, id: string) {
   const repo = scoped(businessId);
-  const product = await repo.products.findById(id);
+  const product = await repo.products.findById(id, { include: withImages });
   if (!product) {
     throw new AppError('PRODUCT_NOT_FOUND', 'Produit introuvable.');
   }
@@ -68,7 +79,7 @@ export async function updateProduct(businessId: string, id: string, input: Updat
     throw new AppError('PRODUCT_NOT_FOUND', 'Produit introuvable.');
   }
   await repo.products.update(id, input);
-  return repo.products.findById(id);
+  return repo.products.findById(id, { include: withImages });
 }
 
 /**

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { matchPath, type MoreSubTab } from '../utils/routes';
 import {
   Product,
   ProductCode,
@@ -13,7 +14,6 @@ import {
   ActivityType,
   PaymentMethod,
   CartItem,
-  SyncQueueItem,
   CashRegisterSession,
   CashMovement,
   NavigationTab,
@@ -55,11 +55,41 @@ import * as cashApi from '../api/cash';
 import * as expensesApi from '../api/expenses';
 import * as stockApi from '../api/stock';
 import * as usersApi from '../api/users';
-import { ApiError } from '../api/client';
+import { ApiError, generateClientUuid } from '../api/client';
+import {
+  buildOptimisticProduct,
+  buildOptimisticSale,
+  haptic,
+  revertSaleFromStock,
+  applySaleToStock,
+} from '../offline/optimistic';
+import {
+  SERVER_DEDUPLICATED,
+  dequeue,
+  enqueue,
+  listPending,
+  markAttempt,
+  retryDelayMs,
+  type PendingMutation,
+} from '../offline/queue';
+import { loadIdMap, loadSnapshot, saveIdMap, saveSnapshot } from '../offline/cache';
+import { CACHE_STORE, QUEUE_STORE, idbClear } from '../offline/idb';
+import { NO_CATEGORY_LABEL } from '../api/categories';
+import { hasSessionHint, markSessionEnded, markSessionStarted } from '../utils/session';
 
 function apiErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return 'Impossible de joindre le serveur. Réessaie.';
+}
+
+/**
+ * Une panne reseau franche (requete jamais partie, ou coupee en vol) se rejoue
+ * sans risque. Une reponse d'erreur du serveur, elle, veut dire quelque chose
+ * et doit remonter au commercant : rejouer indefiniment un refus ne le
+ * corrigera pas.
+ */
+function isNetworkFailure(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'NETWORK_ERROR';
 }
 
 interface AppContextType {
@@ -91,14 +121,13 @@ interface AppContextType {
   sales: Sale[];
   expenses: Expense[];
   cart: CartItem[];
-  syncQueue: SyncQueueItem[];
   cashSessions: CashRegisterSession[];
   activeCashSession: CashRegisterSession | null;
   cashMovements: CashMovement[];
   activeTab: NavigationTab;
   setActiveTab: (tab: NavigationTab) => void;
-  activeMoreSubTab: 'expenses' | 'reports' | 'subscription' | 'settings' | 'help' | 'export' | 'employees' | 'permissions' | null;
-  setActiveMoreSubTab: (subTab: 'expenses' | 'reports' | 'subscription' | 'settings' | 'help' | 'export' | 'employees' | 'permissions' | null) => void;
+  activeMoreSubTab: MoreSubTab | null;
+  setActiveMoreSubTab: (subTab: MoreSubTab | null) => void;
   // Piloté depuis l'extérieur de l'onglet Clients (liens "Qui me doit" du tableau
   // de bord, de la caisse, du menu Plus et de la barre latérale) pour ouvrir la
   // liste déjà filtrée sur les débiteurs plutôt que la liste complète des clients.
@@ -108,6 +137,11 @@ interface AppContextType {
   // Modals & Flows
   isNewSaleOpen: boolean;
   setIsNewSaleOpen: (open: boolean) => void;
+  // Formulaire "nouveau produit" — pilote depuis l'adresse /produits/nouveau
+  // autant que depuis le bouton de la liste, pour que l'adresse et l'ecran
+  // affiche ne puissent pas diverger.
+  isNewProductOpen: boolean;
+  setIsNewProductOpen: (open: boolean) => void;
   // Ouvre la vente sauf abonnement expiré — redirige alors vers l'écran
   // d'abonnement au lieu d'ouvrir la modale (§ paywall).
   attemptNewSale: () => void;
@@ -236,6 +270,24 @@ interface AppContextType {
   syncPendingOperations: () => Promise<void>;
   toggleOfflineMode: () => void;
   resetToDefaultData: () => void;
+
+  // ── Envoi differe (points 1 et 2) ─────────────────────────────────────
+  /** Ecritures pas encore confirmees par le serveur. */
+  pendingMutations: PendingMutation[];
+  /** Vrai tant qu'une reprise de la file est en cours. */
+  isSyncing: boolean;
+  /** Etat reel du reseau, independant du bascule manuel des reglages. */
+  isOnline: boolean;
+  /**
+   * Dernier refus du serveur : affiche en bande basse avec "Reessayer".
+   * Aucune donnee n'est perdue tant que cette bande est la.
+   */
+  pendingFailure: { message: string; canRetry: boolean } | null;
+  dismissPendingFailure: () => void;
+  /** Nombre d'elements envoyes lors de la derniere reprise ("4 elements envoyes"). */
+  lastSyncedCount: number | null;
+  /** Vrai pour une commande encore dans la file (badge "En attente"). */
+  isSalePending: (saleId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -247,7 +299,6 @@ const STORAGE_KEYS = {
   SALES: 'morocash_sales_v3',
   EXPENSES: 'morocash_expenses_v3',
   CART: 'morocash_cart_v3',
-  SYNC_QUEUE: 'morocash_sync_queue_v3',
   CASH_SESSIONS: 'morocash_cash_sessions_v3',
   CASH_MOVEMENTS: 'morocash_cash_movements_v3',
   STOCK_MOVEMENTS: 'morocash_stock_movements_v3',
@@ -459,15 +510,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   // 5. Offline Sync Queue
-  const [syncQueue, setSyncQueue] = useState<SyncQueueItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
   // 6. Cash Register State (BLOC 7)
   const [cashSessions, setCashSessions] = useState<CashRegisterSession[]>(() => {
     try {
@@ -518,20 +560,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   // 8. Navigation and Modals
-  const [activeTab, setActiveTab] = useState<NavigationTab>(() => {
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
-      if (path === '/recus' || hash === '#recus') return 'receipts';
-      if (path === '/sales' || hash === '#sales' || path === '/commandes') return 'sales';
-      if (path === '/products' || hash === '#products') return 'products';
-      if (path === '/customers' || hash === '#customers') return 'customers';
-    }
-    return 'home';
-  });
-  const [activeMoreSubTab, setActiveMoreSubTab] = useState<'expenses' | 'reports' | 'subscription' | 'settings' | 'help' | 'export' | 'employees' | 'permissions' | null>(null);
-  const [customersDebtorsFilter, setCustomersDebtorsFilter] = useState(false);
-  const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
+  // L'onglet ouvert au démarrage vient de l'URL : un permalien (/products,
+  // /more/settings...) doit rouvrir exactement l'écran qu'il désigne.
+  const initialRoute = typeof window !== 'undefined' ? matchPath(window.location.pathname) : null;
+  const [activeTab, setActiveTab] = useState<NavigationTab>(initialRoute?.tab ?? 'home');
+  const [activeMoreSubTab, setActiveMoreSubTab] = useState<MoreSubTab | null>(
+    initialRoute?.subTab ?? null
+  );
+  const [customersDebtorsFilter, setCustomersDebtorsFilter] = useState(
+    initialRoute?.debtorsOnly ?? false
+  );
+  const [isNewSaleOpen, setIsNewSaleOpen] = useState(initialRoute?.modal === 'new-sale');
+  const [isNewProductOpen, setIsNewProductOpen] = useState(initialRoute?.modal === 'new-product');
+
+  // ── Envoi differe ───────────────────────────────────────────────────────
+  // Tout ce qui n'a pas encore ete confirme par le serveur vit ici ET dans
+  // IndexedDB : l'etat React sert a l'affichage, IndexedDB survit a la
+  // fermeture de l'app (c'est ce qui rend le mode avion utilisable).
+  const [pendingMutations, setPendingMutations] = useState<PendingMutation[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator === 'undefined' ? true : navigator.onLine
+  );
+  const [pendingFailure, setPendingFailure] = useState<{ message: string; canRetry: boolean } | null>(
+    null
+  );
+  const [lastSyncedCount, setLastSyncedCount] = useState<number | null>(null);
+  // Une seule reprise a la fois : deux boucles concurrentes rejoueraient la
+  // meme ecriture et, pour un produit (non dedoublonne en base), la creeraient
+  // deux fois.
+  const replayRunning = useRef(false);
+  const replayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ecriture refusee par le serveur : la reprise automatique s'arrete la, en
+  // attendant un clic sur "Reessayer" (voir replayQueue).
+  const blockedId = useRef<string | null>(null);
+  const replayRef = useRef<((opts?: { silent?: boolean; force?: boolean }) => Promise<void>) | null>(
+    null
+  );
   const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
   const [saleSuccessReceipt, setSaleSuccessReceipt] = useState<Sale | null>(null);
   const [receiptDeliveries, setReceiptDeliveries] = useState<ReceiptDelivery[]>(() => {
@@ -554,44 +619,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(STORAGE_KEYS.RECEIPT_DELIVERIES, JSON.stringify(receiptDeliveries));
   }, [receiptDeliveries]);
 
-  // URL sync
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const targetPath = activeTab === 'home' ? '/' : `/${activeTab === 'receipts' ? 'recus' : activeTab}`;
-    if (window.location.pathname !== targetPath && !window.location.pathname.startsWith('/api')) {
-      window.history.pushState(null, '', targetPath);
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname;
-      if (path === '/recus' || path.startsWith('/recus')) {
-        setActiveTab('receipts');
-      } else if (path === '/sales' || path === '/commandes') {
-        setActiveTab('sales');
-      } else if (path === '/' || path === '') {
-        setActiveTab('home');
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Network online/offline automatic detection and sync (BLOC 11 & 12)
+  // Detection reseau : au retour de la connexion, la file repart toute seule
+  // (point 2, "la reprise se declenche sur l'evenement online").
   useEffect(() => {
     const handleOnline = () => {
-      showToast('Connexion Internet rétablie ! Synchronisation en cours...', 'info');
+      setIsOnline(true);
       setSettings((prev) => ({ ...prev, isOfflineMode: false }));
-      setUiState('SYNCING');
-      // Trigger sync
-      setTimeout(() => {
-        syncPendingOperations();
-      }, 1000);
+      setUiState('READY');
+      // Via la référence, jamais directement : cet écouteur n'est posé qu'une
+      // fois, il capturerait sinon la toute première version de replayQueue,
+      // avec la session pas encore chargée.
+      void replayRef.current?.();
     };
 
     const handleOffline = () => {
-      showToast('Connexion Internet perdue. Mode hors-ligne activé (tes données sont protégées).', 'warning');
+      setIsOnline(false);
       setSettings((prev) => ({ ...prev, isOfflineMode: true }));
       setUiState('OFFLINE');
     };
@@ -599,16 +641,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial check
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setSettings((prev) => ({ ...prev, isOfflineMode: true }));
-      setUiState('OFFLINE');
-    }
+    // État réel du réseau au démarrage, dans les deux sens : `isOfflineMode`
+    // est persisté avec les réglages, et sans cette remise à plat une app
+    // fermée hors ligne rouvrait avec le bandeau « Hors ligne » alors que la
+    // connexion était revenue.
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+    setSettings((prev) => ({ ...prev, isOfflineMode: offline }));
+    setUiState(offline ? 'OFFLINE' : 'READY');
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (replayTimer.current) clearTimeout(replayTimer.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -630,10 +676,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(cart));
   }, [cart]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(syncQueue));
-  }, [syncQueue]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CASH_SESSIONS, JSON.stringify(cashSessions));
@@ -714,6 +756,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * multiplier les allers-retours réseau par rapport à une mise à jour locale
    * optimiste.
    */
+  /**
+   * Rechargement serveur et écritures en attente se marchent dessus : pendant
+   * qu'un rechargement est en vol, le commerçant continue de vendre, et ses
+   * commandes toutes fraîches n'existent pas encore côté serveur. Les appliquer
+   * telles quelles les ferait disparaître de l'écran — le pire bug possible
+   * pour une caisse.
+   *
+   * On relit donc la file au moment d'appliquer, et on remet en tête ce qui n'a
+   * pas encore été confirmé.
+   */
+  const mergePending = <T extends { id: string }>(
+    serverRows: T[],
+    localRows: T[],
+    pendingLocalIds: Set<string>
+  ): T[] => {
+    const serverIds = new Set(serverRows.map((r) => r.id));
+    const stillLocal = localRows.filter((r) => pendingLocalIds.has(r.id) && !serverIds.has(r.id));
+    return [...stillLocal, ...serverRows];
+  };
+
   const loadRealData = async (userName: string) => {
     try {
       // Toutes ces requêtes sont indépendantes les unes des autres (seul le
@@ -752,27 +814,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         stockApi.listMovements(),
       ]);
 
+      // Relue ICI, et non avant les appels réseau : le commerçant a pu vendre
+      // pendant qu'ils étaient en vol (voir mergePending).
+      const pendingLocalIds = new Set((await listPending()).map((m) => m.localId));
+
       const productCategoryName = (id: string | null) =>
-        productCategories.find((c) => c.id === id)?.nom ?? 'Général';
-      setProducts(apiProducts.map((p) => productsApi.toFrontendProduct(p, productCategoryName(p.categoryId))));
+        productCategories.find((c) => c.id === id)?.nom ?? NO_CATEGORY_LABEL;
+      const serverProducts = apiProducts.map((p) =>
+        productsApi.toFrontendProduct(p, productCategoryName(p.categoryId))
+      );
+      setProducts((prev) => mergePending(serverProducts, prev, pendingLocalIds));
 
       // Vague 2 : les soldes clients ont besoin de la liste des clients
       // (vague 1 ci-dessus) pour savoir quels ids interroger.
       const balances = await Promise.all(
         apiCustomers.map((c) => customersApi.fetchCustomerBalance(c.id).catch(() => 0))
       );
-      setCustomers(apiCustomers.map((c, i) => customersApi.toFrontendCustomer(c, balances[i])));
-
-      setSales(
-        apiOrders.map((o) => {
-          const customer = apiCustomers.find((c) => c.id === o.customerId);
-          return ordersApi.toFrontendSale(o, {
-            customerName: customer?.nom,
-            customerPhone: customer?.telephone ?? undefined,
-            sellerName: userName,
-          });
-        })
+      const serverCustomers = apiCustomers.map((c, i) =>
+        customersApi.toFrontendCustomer(c, balances[i])
       );
+      setCustomers((prev) => mergePending(serverCustomers, prev, pendingLocalIds));
+
+      const serverSales = apiOrders.map((o) => {
+        const customer = apiCustomers.find((c) => c.id === o.customerId);
+        return ordersApi.toFrontendSale(o, {
+          customerName: customer?.nom,
+          customerPhone: customer?.telephone ?? undefined,
+          sellerName: userName,
+        });
+      });
+      setSales((prev) => mergePending(serverSales, prev, pendingLocalIds));
 
       setCashMovements(apiMovements.map((m) => cashApi.toFrontendCashMovement(m, userName)));
 
@@ -784,26 +855,363 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Catégories accessibles à tous les rôles (non sensibles en elles-mêmes) —
       // sert à afficher un nom de catégorie lisible sur chaque dépense.
       const categoryName = (id: string) => categories.find((c) => c.id === id)?.nom ?? 'Autre';
-      setExpenses(apiExpenses.map((e) => expensesApi.toFrontendExpense(e, categoryName(e.categoryId))));
+      const serverExpenses = apiExpenses.map((e) =>
+        expensesApi.toFrontendExpense(e, categoryName(e.categoryId))
+      );
+      setExpenses((prev) => mergePending(serverExpenses, prev, pendingLocalIds));
 
       setStockReceptions(apiReceptions.map((r) => stockApi.toFrontendStockReception(r, userName)));
       setStockCounts(apiCounts.map((c) => stockApi.toFrontendStockCount(c, userName)));
 
       const productName = (id: string) => apiProducts.find((p) => p.id === id)?.nom;
-      setStockMovements(
-        apiStockMovements.map((m) =>
-          stockApi.toFrontendStockMovement(m, {
-            productName: productName(m.productId),
-            userName,
-            orders: apiOrders,
-            receptions: apiReceptions,
-          })
-        )
+      const frontendStockMovements = apiStockMovements.map((m) =>
+        stockApi.toFrontendStockMovement(m, {
+          productName: productName(m.productId),
+          userName,
+          orders: apiOrders,
+          receptions: apiReceptions,
+        })
       );
+      setStockMovements(frontendStockMovements);
+
+      // Chargement reussi = instantane a jour. C'est ce qui permet d'ouvrir
+      // l'app en mode avion et d'y retrouver son catalogue, ses clients et
+      // ses commandes recentes (point 2) au lieu d'une page vide.
+      // L'instantané ne garde QUE la version serveur : ce qui est encore dans
+      // la file d'attente y est déjà, avec tout ce qu'il faut pour être renvoyé.
+      // L'y dupliquer ferait réapparaître une commande déjà partie.
+      void saveSnapshot({
+        products: serverProducts,
+        customers: serverCustomers,
+        sales: serverSales,
+        expenses: serverExpenses,
+        cashSessions: registers.map((r) => cashApi.toFrontendCashSession(r, {})),
+        cashMovements: apiMovements.map((m) => cashApi.toFrontendCashMovement(m, userName)),
+        stockMovements: frontendStockMovements,
+        stockReceptions: apiReceptions.map((r) => stockApi.toFrontendStockReception(r, userName)),
+        stockCounts: apiCounts.map((c) => stockApi.toFrontendStockCount(c, userName)),
+        productCategories,
+        session: null,
+      });
     } catch (error) {
+      // Hors ligne, l'echec est attendu : l'instantane local prend le relais,
+      // aucun message d'erreur technique ne doit s'afficher (point 2).
+      if (isNetworkFailure(error)) return;
       showToast(apiErrorMessage(error), 'error');
     }
   };
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // MOTEUR D'ENVOI DIFFERE
+  //
+  // Une seule mecanique sert les deux exigences : l'ecran repond en moins de
+  // 100 ms (point 1) et l'app marche sans reseau (point 2). Dans les deux cas
+  // l'interface agit d'abord, la requete part ensuite, et si elle ne passe pas
+  // elle attend dans la file jusqu'a ce qu'elle passe.
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const idMap = useRef<Record<string, string>>({});
+
+  const remapId = (id: string): string => idMap.current[id] ?? id;
+
+  const rememberId = async (localId: string, serverId: string) => {
+    if (localId === serverId) return;
+    idMap.current = { ...idMap.current, [localId]: serverId };
+    await saveIdMap(idMap.current);
+  };
+
+  const refreshPending = async (): Promise<PendingMutation[]> => {
+    const rows = await listPending();
+    setPendingMutations(rows);
+    return rows;
+  };
+
+  /**
+   * Ecriture refusee par le serveur : l'element reste a l'ecran, entier, mais
+   * signale comme non transmis. Rien n'est efface — le commercant doit pouvoir
+   * relire ce qu'il a saisi et decider.
+   */
+  const markMutationFailed = (mutation: PendingMutation) => {
+    const flag = <T extends { id: string; syncStatus?: string }>(rows: T[]): T[] =>
+      rows.map((row) => (row.id === mutation.localId ? { ...row, syncStatus: 'SYNC_ERROR' } : row));
+
+    switch (mutation.kind) {
+      case 'ORDER_CREATE':
+        setSales((prev) => flag(prev) as typeof prev);
+        break;
+      case 'PRODUCT_CREATE':
+      case 'PRODUCT_UPDATE':
+        setProducts((prev) => flag(prev) as typeof prev);
+        break;
+      case 'CUSTOMER_CREATE':
+        setCustomers((prev) => flag(prev) as typeof prev);
+        break;
+      case 'EXPENSE_CREATE':
+        setExpenses((prev) => flag(prev) as typeof prev);
+        break;
+    }
+  };
+
+  /**
+   * Envoie UNE ecriture et reconcilie l'ecran avec la reponse du serveur
+   * (vrai numero de commande, vrai identifiant produit...). Jette si le
+   * serveur refuse ou si le reseau est coupe : l'appelant decide alors.
+   */
+  const sendMutation = async (m: PendingMutation): Promise<void> => {
+    switch (m.kind) {
+      case 'ORDER_CREATE': {
+        const input: ordersApi.CreateOrderInput = {
+          ...m.payload,
+          customerId: remapId(m.payload.customerId),
+          items: m.payload.items.map((it: { productId: string; qte: number }) => ({
+            ...it,
+            productId: remapId(it.productId),
+          })),
+        };
+        const order = await ordersApi.createOrder(input);
+        const sale = ordersApi.toFrontendSale(order, {
+          customerName: m.meta?.customerName,
+          customerPhone: m.meta?.customerPhone,
+          sellerName: m.meta?.sellerName ?? 'Vendeur',
+        });
+        setSales((prev) => prev.map((s) => (s.clientUuid === m.id ? sale : s)));
+        await rememberId(m.localId, order.id);
+        break;
+      }
+
+      case 'PRODUCT_CREATE': {
+        // La categorie se resout au moment de l'envoi : hors ligne, on ne peut
+        // ni lister ni creer une categorie cote serveur.
+        const categoryName: string | undefined = m.payload.categoryName;
+        const categoryId = categoryName
+          ? await productsApi.resolveProductCategoryId(categoryName)
+          : undefined;
+        const created = await productsApi.createProduct({
+          ...m.payload.input,
+          ...(categoryId ? { categoryId } : {}),
+        });
+
+        // Une photo qui ne part pas ne doit jamais faire perdre le produit
+        // (point 5) : on enregistre le produit, on signale la photo.
+        let refs: productsApi.ProductPhotoRef[] = [];
+        const photos: string[] = m.payload.photos ?? [];
+        if (photos.length > 0) {
+          try {
+            refs = await productsApi.syncProductPhotos(created.id, photos, []);
+          } catch {
+            showToast("Produit enregistré, mais la photo n'a pas pu être envoyée.", 'warning');
+          }
+        }
+
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === m.localId
+              ? {
+                  ...p,
+                  id: created.id,
+                  syncStatus: 'SYNCED',
+                  ...(refs.length > 0
+                    ? { photoRefs: refs, photos: refs.map((r) => r.url), photo: refs[0]?.url }
+                    : {}),
+                }
+              : p
+          )
+        );
+        await rememberId(m.localId, created.id);
+        break;
+      }
+
+      case 'PRODUCT_UPDATE': {
+        const productId = remapId(m.payload.id);
+        const categoryName: string | undefined = m.payload.categoryName;
+        const categoryId = categoryName
+          ? await productsApi.resolveProductCategoryId(categoryName)
+          : undefined;
+
+        let refs: productsApi.ProductPhotoRef[] | null = null;
+        if (m.payload.photos !== undefined) {
+          try {
+            refs = await productsApi.syncProductPhotos(
+              productId,
+              m.payload.photos ?? [],
+              m.payload.currentPhotoRefs ?? []
+            );
+          } catch {
+            showToast("Les photos n'ont pas pu être mises à jour.", 'warning');
+          }
+        }
+
+        const updated = await productsApi.updateProduct(productId, {
+          ...m.payload.input,
+          ...(categoryId ? { categoryId } : {}),
+        });
+
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === productId || p.id === m.payload.id
+              ? {
+                  ...p,
+                  id: updated.id,
+                  name: updated.nom,
+                  salePrice: updated.prixVente,
+                  purchasePrice: updated.prixAchat ?? p.purchasePrice,
+                  stock: updated.stock,
+                  alertThreshold: updated.seuilAlerte,
+                  unit: updated.unite,
+                  isService: updated.type === 'SERVICE',
+                  syncStatus: 'SYNCED',
+                  ...(refs
+                    ? { photoRefs: refs, photos: refs.map((r) => r.url), photo: refs[0]?.url }
+                    : {}),
+                }
+              : p
+          )
+        );
+        break;
+      }
+
+      case 'CUSTOMER_CREATE': {
+        const created = await customersApi.createCustomer(m.payload);
+        setCustomers((prev) =>
+          prev.map((c) =>
+            c.id === m.localId ? { ...c, id: created.id, syncStatus: 'SYNCED' } : c
+          )
+        );
+        await rememberId(m.localId, created.id);
+        break;
+      }
+
+      case 'EXPENSE_CREATE': {
+        const categoryId = await expensesApi.resolveExpenseCategoryId(m.payload.categoryName);
+        const created = await expensesApi.createExpense({
+          clientUuid: m.id,
+          montant: m.payload.montant,
+          categoryId,
+          note: m.payload.note,
+          methode: m.payload.methode,
+          date: m.payload.date,
+        });
+        setExpenses((prev) =>
+          prev.map((e) =>
+            e.id === m.localId
+              ? expensesApi.toFrontendExpense(created, m.payload.categoryName)
+              : e
+          )
+        );
+        await rememberId(m.localId, created.id);
+        break;
+      }
+    }
+  };
+
+  /**
+   * Rejoue la file, du plus ancien au plus recent (l'ordre compte : un produit
+   * cree hors ligne doit exister avant la commande qui le vend). S'arrete a la
+   * premiere panne reseau — inutile d'insister, rien ne passera.
+   */
+  const replayQueue = async (opts: { silent?: boolean; force?: boolean } = {}): Promise<void> => {
+    if (replayRunning.current) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    // Une ecriture refusee par le serveur (stock insuffisant, caisse fermee...)
+    // ne se debloquera pas toute seule : on cesse de la rejouer en boucle et on
+    // attend que le commercant clique "Reessayer". Sinon elle bloquerait aussi
+    // toutes les ecritures suivantes a chaque tentative.
+    if (blockedId.current && !opts.force) return;
+
+    const rows = await refreshPending();
+    if (rows.length === 0) return;
+
+    replayRunning.current = true;
+    setIsSyncing(true);
+    let sent = 0;
+
+    try {
+      for (const mutation of rows) {
+        try {
+          await sendMutation(mutation);
+          await dequeue(mutation.id);
+          sent += 1;
+        } catch (error) {
+          const updated = await markAttempt(mutation.id, apiErrorMessage(error));
+
+          if (isNetworkFailure(error)) {
+            // Reseau coupe : on garde tout, on retentera plus tard, avec un
+            // delai croissant. Aucun message d'erreur technique a l'ecran.
+            scheduleReplay(retryDelayMs(updated?.attempts ?? 1));
+            break;
+          }
+
+          // Le serveur a repondu : ce n'est pas un probleme de reseau, insister
+          // n'y changera rien. On marque l'element concerne comme en erreur
+          // (il reste visible et complet a l'ecran, rien n'est perdu) et on
+          // laisse la main au commercant.
+          markMutationFailed(mutation);
+
+          if (SERVER_DEDUPLICATED[mutation.kind]) {
+            blockedId.current = mutation.id;
+          } else {
+            // Ni produit ni client ne portent de garde-fou anti-doublon en
+            // base : la creation a peut-etre abouti cote serveur. La rejouer
+            // risquerait un doublon, on sort donc la ligne de la file.
+            await dequeue(mutation.id);
+          }
+
+          setPendingFailure({
+            message: `${mutation.label} : ${apiErrorMessage(error)}`,
+            canRetry: SERVER_DEDUPLICATED[mutation.kind],
+          });
+          break;
+        }
+      }
+    } finally {
+      replayRunning.current = false;
+      setIsSyncing(false);
+      const remaining = await refreshPending();
+      if (sent > 0) {
+        setPendingFailure(null);
+        if (!opts.silent) {
+          setLastSyncedCount(sent);
+          setTimeout(() => setLastSyncedCount(null), 3000);
+        }
+      }
+      if (remaining.length === 0 && sent > 0) {
+        // Les totaux (caisse, dettes, stock) sont recalcules par le serveur :
+        // on se realigne dessus une fois la file vide, jamais avant.
+        await loadRealData(currentUser?.nom ?? settings.ownerName ?? 'Vendeur');
+      }
+    }
+  };
+
+  // Version courante de replayQueue, pour les écouteurs posés une seule fois.
+  replayRef.current = replayQueue;
+
+  const scheduleReplay = (delay: number) => {
+    if (replayTimer.current) clearTimeout(replayTimer.current);
+    replayTimer.current = setTimeout(() => {
+      replayTimer.current = null;
+      replayQueue();
+    }, delay);
+  };
+
+  /**
+   * Empile une ecriture puis tente de l'envoyer tout de suite. L'appelant a
+   * DEJA mis l'ecran a jour : cette fonction ne renvoie rien et ne bloque rien.
+   */
+  const queueMutation = (mutation: Omit<PendingMutation, 'createdAt' | 'attempts'>) => {
+    const full: PendingMutation = {
+      ...mutation,
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+    };
+    setPendingMutations((prev) => [...prev, full]);
+    // Volontairement sans await : le clic est deja repercute a l'ecran.
+    void enqueue(full).then(() => replayQueue({ silent: true }));
+  };
+
+  const dismissPendingFailure = () => setPendingFailure(null);
+
+  const isSalePending = (saleId: string): boolean =>
+    pendingMutations.some((m) => m.kind === 'ORDER_CREATE' && m.localId === saleId);
 
   /**
    * Traduit le statut réel du backend (statut/trialEndsAt/subscriptionEndsAt,
@@ -841,20 +1249,63 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashRegisterMode: session.business.cashRegisterMode ?? 'LIBRE',
     });
     setAuthStatus('authenticated');
+    markSessionStarted(session.user.telephone);
     await loadRealData(session.user.nom);
   };
 
   useEffect(() => {
+    // 1. On repeuple l'ecran depuis l'instantane local AVANT tout appel reseau.
+    //    Hors ligne c'est la seule source ; en ligne, ca evite l'ecran vide le
+    //    temps que le serveur reponde (Neon peut demarrer a froid).
+    void loadIdMap().then((map) => {
+      idMap.current = map;
+    });
+    void refreshPending();
+    void loadSnapshot().then((snapshot) => {
+      if (!snapshot) return;
+      if (snapshot.products?.length) setProducts(snapshot.products);
+      if (snapshot.customers?.length) setCustomers(snapshot.customers);
+      if (snapshot.sales?.length) setSales(snapshot.sales);
+      if (snapshot.expenses?.length) setExpenses(snapshot.expenses);
+      if (snapshot.cashSessions?.length) setCashSessions(snapshot.cashSessions);
+      if (snapshot.cashMovements?.length) setCashMovements(snapshot.cashMovements);
+      if (snapshot.stockMovements?.length) setStockMovements(snapshot.stockMovements);
+      if (snapshot.stockReceptions?.length) setStockReceptions(snapshot.stockReceptions);
+      if (snapshot.stockCounts?.length) setStockCounts(snapshot.stockCounts);
+    });
+
+    // 2. Session reelle. Hors ligne, /auth/me echoue : on ne renvoie surtout
+    //    pas le commercant sur l'ecran de connexion (il n'a aucun moyen de s'y
+    //    connecter sans reseau) — on le laisse travailler sur ses donnees
+    //    locales, la session sera reverifiee au retour du reseau.
     authApi
       .fetchCurrentSession()
       .then((session) => {
         if (session) {
           bootstrapSession(session);
-        } else {
-          setAuthStatus('anonymous');
+          return;
         }
+        markSessionEnded();
+        setAuthStatus('anonymous');
       })
-      .catch(() => setAuthStatus('anonymous'));
+      .catch((error) => {
+        if (isNetworkFailure(error) && hasSessionHint()) {
+          setAuthStatus('authenticated');
+          setUiState('OFFLINE');
+          return;
+        }
+        markSessionEnded();
+        setAuthStatus('anonymous');
+      });
+
+    // 3. Reveil de la base : Neon met une base inactive en veille, et le
+    //    premier appel apres la sieste paie plusieurs secondes de demarrage.
+    //    Le faire ici, pendant que le commercant regarde son accueil, evite
+    //    que ce soit sa premiere commande qui le paie.
+    void fetch('/api/v1/categories?type=PRODUIT', { credentials: 'include' }).catch(() => {
+      // Simple reveil : son echec n'a aucune consequence.
+    });
+
     // Exécuté une seule fois au montage — vérifie la session cookie existante.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -897,6 +1348,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {
       // On déconnecte localement même si l'appel serveur échoue (session déjà expirée, réseau...).
     }
+    markSessionEnded();
     setCurrentUser(null);
     setCurrentBusiness(null);
     setAuthStatus('anonymous');
@@ -909,6 +1361,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       showToast(apiErrorMessage(error), 'error');
       return false;
     }
+    markSessionEnded();
     setCurrentUser(null);
     setCurrentBusiness(null);
     setAuthStatus('anonymous');
@@ -991,46 +1444,64 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return null;
     }
 
-    try {
-      const order = await ordersApi.createOrder(
-        ordersApi.toCreateOrderInput({
-          customerId: params.customerId,
-          items: cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
-          remiseMode: params.discountMode,
-          remiseValeur: params.discountValue,
-          montantRecu: Math.max(0, Math.round(params.paidAmount)),
-          methode: params.paymentMethod,
-        })
-      );
+    // ── Reponse optimiste (point 1) ───────────────────────────────────────
+    // Le clic vaut validation : la commande entre dans l'historique, le stock
+    // baisse a l'ecran, le panier se vide et le recu s'affiche. Tout de suite,
+    // sans attendre le serveur — meme en mode avion. Le clientUuid garantit
+    // qu'un renvoi ne creera jamais de doublon cote serveur.
+    haptic();
 
-      const sale = ordersApi.toFrontendSale(order, {
+    const clientUuid = generateClientUuid();
+    const sellerName = currentUser?.nom ?? settings.ownerName ?? 'Vendeur';
+    const sale = buildOptimisticSale({
+      clientUuid,
+      cart,
+      paidAmount: params.paidAmount,
+      paymentMethod: params.paymentMethod,
+      discountMode: params.discountMode,
+      discountValue: params.discountValue,
+      customerId: params.customerId,
+      customerName: params.customerName,
+      customerPhone: params.customerPhone,
+      notes: params.notes,
+      sellerName,
+    });
+
+    setSales((prev) => [sale, ...prev]);
+    setProducts((prev) => applySaleToStock(prev, sale));
+    clearCart();
+    setIsNewSaleOpen(false);
+    setSelectedSaleForReceipt(sale);
+    setSaleSuccessReceipt(sale);
+
+    try {
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.8 } });
+    } catch {
+      // Ignored if confetti fails
+    }
+
+    queueMutation({
+      id: clientUuid,
+      kind: 'ORDER_CREATE',
+      localId: sale.id,
+      label: 'Commande',
+      payload: ordersApi.toCreateOrderInput({
+        clientUuid,
+        customerId: params.customerId,
+        items: cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+        remiseMode: params.discountMode,
+        remiseValeur: params.discountValue,
+        montantRecu: Math.max(0, Math.round(params.paidAmount)),
+        methode: params.paymentMethod,
+      }),
+      meta: {
         customerName: params.customerName,
         customerPhone: params.customerPhone,
-        sellerName: currentUser?.nom ?? 'Vendeur',
-      });
+        sellerName,
+      },
+    });
 
-      clearCart();
-      setIsNewSaleOpen(false);
-      setSelectedSaleForReceipt(sale);
-      setSaleSuccessReceipt(sale);
-
-      try {
-        confetti({
-          particleCount: 40,
-          spread: 60,
-          origin: { y: 0.8 },
-        });
-      } catch {
-        // Ignored if confetti fails
-      }
-
-      showToast(`Commande ${sale.reference} validée !`, 'success');
-      await loadRealData(currentUser?.nom ?? 'Vendeur');
-      return sale;
-    } catch (error) {
-      showToast(apiErrorMessage(error), 'error');
-      return null;
-    }
+    return sale;
   };
 
   const recordReceiptDelivery = (orderId: string, canal: ReceiptDeliveryChannel, orderReference?: string) => {
@@ -1063,68 +1534,72 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addProduct = async (
     productData: Omit<Product, 'id' | 'salesCount' | 'createdAt'>
   ): Promise<Product | null> => {
-    try {
-      const categoryName = productData.category?.trim();
-      const categoryId = categoryName ? await productsApi.resolveProductCategoryId(categoryName) : undefined;
-      const created = await productsApi.createProduct(
-        productsApi.toCreateProductInput({ ...productData, categoryId })
-      );
-      const product = productsApi.toFrontendProduct(created, categoryName || 'Général');
-      // Le produit créé contient déjà tout ce qu'il faut : on l'ajoute
-      // directement à la liste plutôt que de recharger tout loadRealData()
-      // (produits + clients + commandes + caisse + dépenses + stock...), qui
-      // ajoutait ~1s de latence perceptible pour un simple ajout de produit.
-      setProducts((prev) => [product, ...prev]);
-      showToast(`${productData.name} ajouté au catalogue`, 'success');
-      return product;
-    } catch (error) {
-      showToast(apiErrorMessage(error), 'error');
-      return null;
-    }
+    // Meme principe que la commande : le produit apparait dans le catalogue au
+    // clic, la requete part derriere. Un produit cree sans reseau est vendable
+    // immediatement — la file remplacera son id local par l'id serveur, y
+    // compris dans les commandes en attente qui le referencent.
+    haptic();
+
+    const localId = generateClientUuid();
+    const categoryName = productData.category?.trim() || undefined;
+    const photos = productData.photos ?? (productData.photo ? [productData.photo] : []);
+    const product = buildOptimisticProduct(localId, {
+      ...productData,
+      category: categoryName || 'Sans catégorie',
+      photos,
+      photo: photos[0],
+    });
+
+    setProducts((prev) => [product, ...prev]);
+    showToast(`${product.name} ajouté au catalogue`, 'success');
+
+    queueMutation({
+      id: localId,
+      kind: 'PRODUCT_CREATE',
+      localId,
+      label: `Produit ${product.name}`,
+      payload: {
+        input: productsApi.toCreateProductInput({ ...productData }),
+        categoryName,
+        photos,
+      },
+    });
+
+    return product;
   };
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
-    try {
-      const categoryName = updates.category?.trim();
-      const categoryId = categoryName ? await productsApi.resolveProductCategoryId(categoryName) : undefined;
-      const updated = await productsApi.updateProduct(id, {
-        ...(updates.name !== undefined ? { nom: updates.name } : {}),
-        ...(updates.salePrice !== undefined ? { prixVente: updates.salePrice } : {}),
-        ...(updates.purchasePrice !== undefined ? { prixAchat: updates.purchasePrice } : {}),
-        ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
-        ...(updates.alertThreshold !== undefined ? { seuilAlerte: updates.alertThreshold } : {}),
-        ...(updates.unit !== undefined ? { unite: updates.unit } : {}),
-        ...(updates.isService !== undefined ? { type: updates.isService ? 'SERVICE' : 'PRODUIT' } : {}),
-        ...(categoryId ? { categoryId } : {}),
-      });
-      // Le produit mis à jour contient déjà tout ce qu'il faut : on patche la
-      // liste directement plutôt que de recharger tout loadRealData() (même
-      // raisonnement que pour addProduct). On fusionne avec l'existant plutôt
-      // que d'appeler toFrontendProduct() telle quelle, car celle-ci renvoie
-      // salesCount à 0 et ignore barcode/productCodes — des champs gérés
-      // localement (hors périmètre de ce passage, voir plus haut) qu'un
-      // remplacement complet effacerait.
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                name: updated.nom,
-                salePrice: updated.prixVente,
-                purchasePrice: updated.prixAchat ?? p.purchasePrice,
-                stock: updated.stock,
-                alertThreshold: updated.seuilAlerte,
-                category: categoryName || p.category,
-                unit: updated.unite,
-                isService: updated.type === 'SERVICE',
-              }
-            : p
-        )
-      );
-      showToast('Produit mis à jour', 'success');
-    } catch (error) {
-      showToast(apiErrorMessage(error), 'error');
-    }
+    const current = products.find((p) => p.id === id);
+    const categoryName = updates.category?.trim() || undefined;
+
+    // L'ecran affiche la modification tout de suite ; le PATCH suit.
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updates, syncStatus: 'PENDING_SYNC' } : p))
+    );
+
+    queueMutation({
+      id: generateClientUuid(),
+      kind: 'PRODUCT_UPDATE',
+      localId: id,
+      label: `Produit ${updates.name ?? current?.name ?? ''}`.trim(),
+      payload: {
+        id,
+        categoryName,
+        photos: updates.photos,
+        currentPhotoRefs: current?.photoRefs ?? [],
+        input: {
+          ...(updates.name !== undefined ? { nom: updates.name } : {}),
+          ...(updates.salePrice !== undefined ? { prixVente: updates.salePrice } : {}),
+          ...(updates.purchasePrice !== undefined ? { prixAchat: updates.purchasePrice } : {}),
+          ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
+          ...(updates.alertThreshold !== undefined ? { seuilAlerte: updates.alertThreshold } : {}),
+          ...(updates.unit !== undefined ? { unite: updates.unit } : {}),
+          ...(updates.isService !== undefined
+            ? { type: updates.isService ? 'SERVICE' : 'PRODUIT' }
+            : {}),
+        },
+      },
+    });
   };
 
   const deleteProduct = async (id: string) => {
@@ -1312,23 +1787,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addCustomer = async (
     customerData: Omit<Customer, 'id' | 'debtAgeDays' | 'lastActivity'>
   ): Promise<Customer | null> => {
-    try {
-      const created = await customersApi.createCustomer({
+    // Nouveau client, dette forcement nulle : rien a attendre du serveur pour
+    // l'afficher, ni pour lui attribuer une commande dans la foulee.
+    const localId = generateClientUuid();
+    const customer: Customer = {
+      ...customerData,
+      id: localId,
+      totalDebt: 0,
+      debtAgeDays: 0,
+      lastActivity: new Date().toISOString(),
+      syncStatus: 'PENDING_SYNC',
+    };
+
+    setCustomers((prev) => [customer, ...prev]);
+    showToast(`Client ${customerData.name} ajouté`, 'success');
+
+    queueMutation({
+      id: localId,
+      kind: 'CUSTOMER_CREATE',
+      localId,
+      label: `Client ${customerData.name}`,
+      payload: {
         nom: customerData.name,
         telephone: customerData.phone || undefined,
         note: customerData.notes || undefined,
-      });
-      const customer = customersApi.toFrontendCustomer(created, 0);
-      // Nouveau client, dette forcément nulle : on l'ajoute directement à la
-      // liste plutôt que de recharger tout loadRealData() (même raisonnement
-      // que pour addProduct — voir plus haut).
-      setCustomers((prev) => [customer, ...prev]);
-      showToast(`Client ${customerData.name} ajouté`, 'success');
-      return customer;
-    } catch (error) {
-      showToast(apiErrorMessage(error), 'error');
-      return null;
-    }
+      },
+    });
+
+    return customer;
   };
 
   const recordDebtPayment = async (customerId: string, amount: number, paymentMethod: PaymentMethod) => {
@@ -1382,23 +1868,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // categoryId réel (résolu depuis le nom via resolveExpenseCategoryId) et une
   // caisse ouverte (chaque dépense règle un CashMovement, spec §7.4).
   const addExpense = async (expenseData: Omit<Expense, 'id' | 'syncStatus'>): Promise<Expense | null> => {
-    try {
-      const categoryId = await expensesApi.resolveExpenseCategoryId(expenseData.category);
-      const created = await expensesApi.createExpense({
+    haptic();
+
+    const localId = generateClientUuid();
+    const expense: Expense = { ...expenseData, id: localId, syncStatus: 'PENDING_SYNC' };
+
+    setExpenses((prev) => [expense, ...prev]);
+    showToast(`Frais de ${expenseData.amount} F enregistrés`, 'success');
+
+    queueMutation({
+      id: localId,
+      kind: 'EXPENSE_CREATE',
+      localId,
+      label: `Dépense de ${expenseData.amount} F`,
+      payload: {
         montant: expenseData.amount,
-        categoryId,
+        categoryName: expenseData.category,
         note: expenseData.note,
         methode: expensesApi.toApiExpenseMethode(expenseData.paymentMethod ?? 'CASH'),
         date: expenseData.date,
-      });
-      const expense = expensesApi.toFrontendExpense(created, expenseData.category);
-      showToast(`Frais de ${expenseData.amount} F enregistrés`, 'success');
-      await loadRealData(currentUser?.nom ?? 'Vendeur');
-      return expense;
-    } catch (error) {
-      showToast(apiErrorMessage(error), 'error');
-      return null;
-    }
+      },
+    });
+
+    return expense;
   };
 
   // Pas de suppression de dépense côté backend (spec §0 règle 4 : rien n'est
@@ -1698,58 +2190,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Sync Pending Operations (§14 of spec)
+  /**
+   * "Reessayer" : relance la file, y compris l'ecriture bloquee par un refus
+   * du serveur. C'est le seul chemin qui debloque cette derniere.
+   */
   const syncPendingOperations = async () => {
-    if (syncQueue.length === 0) {
-      showToast('Toutes tes données sont déjà synchronisées !', 'info');
+    if (pendingMutations.length === 0) {
+      showToast('Tout est à jour.', 'info');
       return;
     }
-    const count = syncQueue.length;
-    setUiState('SYNCING');
-
-    await new Promise((resolve) => setTimeout(resolve, 1400));
-
-    // Resolve queued sales
-    setSales((prev) =>
-      prev.map((sale) => {
-        if (sale.syncStatus === 'PENDING_SYNC') {
-          return {
-            ...sale,
-            syncStatus: 'SYNCED',
-            reference: sale.reference.startsWith('LOC-')
-              ? sale.reference.replace('LOC-', 'CMD-')
-              : sale.reference,
-          };
-        }
-        return sale;
-      })
-    );
-
-    setProducts((prev) =>
-      prev.map((p) => ({ ...p, syncStatus: 'SYNCED' }))
-    );
-    setCustomers((prev) =>
-      prev.map((c) => ({ ...c, syncStatus: 'SYNCED' }))
-    );
-    setExpenses((prev) =>
-      prev.map((e) => ({ ...e, syncStatus: 'SYNCED' }))
-    );
-
-    setSyncQueue([]);
-    setUiState('SYNCED');
-    showToast(`Synchronisation réussie : ${count} opération${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''} au serveur !`, 'success');
-
-    setTimeout(() => {
-      setUiState(settings.isOfflineMode ? 'OFFLINE' : 'READY');
-    }, 2500);
+    blockedId.current = null;
+    setPendingFailure(null);
+    await replayQueue({ force: true });
   };
 
   const toggleOfflineMode = () => {
     const nextMode = !settings.isOfflineMode;
     updateSettings({ isOfflineMode: nextMode });
     setUiState(nextMode ? 'OFFLINE' : 'READY');
-    if (!nextMode && syncQueue.length > 0) {
-      syncPendingOperations();
+    if (!nextMode) {
+      void syncPendingOperations();
     }
   };
 
@@ -1766,8 +2226,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setStockReceptions(initialStockReceptions);
     setStockCounts(initialStockCounts);
     setCart([]);
-    setSyncQueue([]);
     setUiState('READY');
+
+    // L'instantané hors-ligne et la file d'attente vivent dans IndexedDB, pas
+    // dans localStorage : sans ça, une réinitialisation laisserait derrière
+    // elle des écritures en attente qui repartiraient vers le serveur.
+    setPendingMutations([]);
+    setPendingFailure(null);
+    blockedId.current = null;
+    idMap.current = {};
+    void idbClear(QUEUE_STORE);
+    void idbClear(CACHE_STORE);
+
     showToast('Données réinitialisées avec succès', 'info');
   };
 
@@ -1793,7 +2263,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         sales,
         expenses,
         cart,
-        syncQueue,
         cashSessions,
         activeCashSession,
         cashMovements,
@@ -1813,6 +2282,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCustomersDebtorsFilter,
         isNewSaleOpen,
         setIsNewSaleOpen,
+        isNewProductOpen,
+        setIsNewProductOpen,
         attemptNewSale,
         isWriteLocked,
         gateWrite,
@@ -1859,6 +2330,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         syncPendingOperations,
         toggleOfflineMode,
         resetToDefaultData,
+        pendingMutations,
+        isSyncing,
+        isOnline,
+        pendingFailure,
+        dismissPendingFailure,
+        lastSyncedCount,
+        isSalePending,
       }}
     >
       {children}

@@ -1,5 +1,6 @@
 import { guardMutation, auditable } from '@/server/guards';
 import { addImage, addImageSchema, removeImage } from '@/server/modules/products/images';
+import { serializeProductImage } from '@/server/serializers/product';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
 
@@ -22,7 +23,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     await auditable(ctx, { action: 'PRODUCT_IMAGE_ADDED', entite: 'Product', entiteId: id });
 
-    return ok({ image }, { status: 201 });
+    return ok({ image: serializeProductImage(image) }, { status: 201 });
   } catch (error) {
     return fail(error);
   }

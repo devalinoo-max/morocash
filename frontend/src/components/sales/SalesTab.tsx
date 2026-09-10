@@ -592,10 +592,18 @@ export const SalesTab: React.FC = () => {
                                 </span>
                                 {sale.syncStatus === 'PENDING_SYNC' && (
                                   <span
-                                    title="En attente de synchronisation"
+                                    title="Enregistrée sur cet appareil, pas encore envoyée"
                                     className="px-1.5 py-0.2 rounded text-[9.5px] font-extrabold bg-amber-100 text-amber-900"
                                   >
                                     En attente
+                                  </span>
+                                )}
+                                {sale.syncStatus === 'SYNC_ERROR' && (
+                                  <span
+                                    title="Le serveur a refusé cet envoi — rien n’est perdu, réessaie depuis la bande du bas"
+                                    className="px-1.5 py-0.2 rounded text-[9.5px] font-extrabold bg-rose-100 text-rose-900"
+                                  >
+                                    À renvoyer
                                   </span>
                                 )}
                               </div>

@@ -3,6 +3,11 @@ import { prisma } from '@/server/database/client';
 import { setTenantContext } from '@/server/middleware/tenant';
 import { hashPin } from './pin';
 import { issueSessionToken } from './session';
+import {
+  BUSINESS_SECTORS,
+  SYSTEM_EXPENSE_CATEGORY,
+  starterProductCategories,
+} from '@/server/modules/categories/defaults';
 
 // Durée d'essai par défaut à la création d'une boutique — non spécifiée explicitement
 // dans le cahier des charges (le champ Business.trialEndsAt existe, sa durée est un
@@ -19,6 +24,11 @@ export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email('Adresse e-mail invalide').max(180).optional().or(z.literal('')),
   telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide'),
   pin: z.string().regex(/^\d{6}$/, 'Le code doit comporter exactement 6 chiffres'),
+  // Secteur d'activité : sert uniquement à proposer des catégories de départ
+  // adaptées (voir starterProductCategories). Non stocké — le commerçant peut
+  // renommer, supprimer ou ignorer ces catégories dès la première minute, il
+  // serait donc trompeur d'en faire un attribut durable de sa boutique.
+  secteur: z.enum(BUSINESS_SECTORS).default('AUTRE'),
 });
 
 // z.input (pas z.infer/z.output) : `pays` a une valeur par défaut, donc les
@@ -65,10 +75,23 @@ export async function registerBusiness(
         },
       });
 
+      // Catalogue déjà rangé au premier jour : le commerçant trouve des
+      // catégories qui parlent de SON métier, sans avoir rien à créer avant
+      // de pouvoir vendre. Il peut toutes les supprimer d'un geste.
       await tx.category.createMany({
         data: [
-          { businessId: business.id, nom: 'Achat marchandise', type: 'DEPENSE', systeme: true },
-          { businessId: business.id, nom: 'Divers', type: 'PRODUIT', systeme: false },
+          {
+            businessId: business.id,
+            nom: SYSTEM_EXPENSE_CATEGORY,
+            type: 'DEPENSE',
+            systeme: true,
+          },
+          ...starterProductCategories(input.secteur).map((nom) => ({
+            businessId: business.id,
+            nom,
+            type: 'PRODUIT' as const,
+            systeme: false,
+          })),
         ],
       });
 

@@ -79,7 +79,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
         <ComparisonSection />
         <BentoPersonasSection />
         <PricingSection onSelectPlan={handleSelectPlan} />
-        <FinalCtaSection onStartTrial={handleStartTrial} />
+        <FinalCtaSection
+          onStartTrial={handleStartTrial}
+          isAuthenticated={isAuthenticated}
+          onOpenDashboard={handleOpenDashboard}
+        />
       </main>
 
       <LandingFooter theme={theme} />

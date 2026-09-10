@@ -1,6 +1,13 @@
 import { api, ApiError } from './client';
-import { listCategories, createCategory } from './expenses';
+import { NO_CATEGORY_LABEL, createCategory, listCategories } from './categories';
 import type { Product } from '../types';
+
+export interface ApiProductImage {
+  id: string;
+  url: string;
+  ordre: number;
+  isPrincipale: boolean;
+}
 
 export interface ApiProduct {
   id: string;
@@ -13,6 +20,7 @@ export interface ApiProduct {
   categoryId: string | null;
   actif: boolean;
   createdAt: string;
+  images?: ApiProductImage[];
   // Absents du JSON pour un SELLER (spec §0 règle 7) — filtré côté serveur.
   prixAchat?: number;
   cmp?: number;
@@ -61,23 +69,97 @@ export async function deleteOrDeactivateProduct(id: string): Promise<'DELETED' |
 }
 
 /**
+ * Photos produit : elles vivent dans une ressource à part (ProductImage), donc
+ * un POST /products ne les enregistre pas — il faut un appel par photo APRÈS
+ * la création du produit. C'est ce chaînage qui manquait : la photo choisie
+ * dans le formulaire n'était jamais envoyée, et disparaissait au rechargement.
+ */
+export function addProductImage(productId: string, dataUrl: string, isPrincipale = false) {
+  return api
+    .post<{ image: ApiProductImage }>(`/products/${productId}/images`, { dataUrl, isPrincipale })
+    .then((d) => d.image);
+}
+
+export function removeProductImage(productId: string, imageId: string) {
+  return api.delete<{ deleted: true }>(
+    `/products/${productId}/images?imageId=${encodeURIComponent(imageId)}`
+  );
+}
+
+export function reorderProductImages(productId: string, orderedIds: string[]) {
+  return api.patch<{ reordered: true }>(`/products/${productId}/images/order`, { orderedIds });
+}
+
+export interface ProductPhotoRef {
+  id: string;
+  url: string;
+}
+
+/**
+ * Aligne les photos côté serveur sur la liste affichée par le formulaire :
+ * une entrée `data:` est une photo neuve à envoyer, une photo déjà connue mais
+ * absente de la nouvelle liste a été supprimée, et l'ordre de la liste fait foi
+ * (la première photo est la principale).
+ *
+ * Les envois sont séquentiels : le champ `ordre` est calculé côté serveur à
+ * partir du nombre de photos existantes, deux POST en parallèle donneraient donc
+ * le même rang.
+ */
+export async function syncProductPhotos(
+  productId: string,
+  nextPhotos: string[],
+  currentRefs: ProductPhotoRef[] = []
+): Promise<ProductPhotoRef[]> {
+  const kept = new Set(nextPhotos);
+  for (const ref of currentRefs) {
+    if (!kept.has(ref.url)) {
+      await removeProductImage(productId, ref.id);
+    }
+  }
+
+  const refs: ProductPhotoRef[] = [];
+  for (const [index, photo] of nextPhotos.entries()) {
+    const existing = currentRefs.find((r) => r.url === photo);
+    if (existing) {
+      refs.push(existing);
+      continue;
+    }
+    const image = await addProductImage(productId, photo, index === 0);
+    refs.push({ id: image.id, url: image.url });
+  }
+
+  if (refs.length > 1) {
+    await reorderProductImages(productId, refs.map((r) => r.id));
+  }
+
+  return refs;
+}
+
+/**
  * Champs absents pour l'instant de ce passage (étape 13, "parcours complet
- * d'abord") : codes-barres/QR (productCodes), photos — la gestion complète
- * des codes reste sur les données locales du prototype.
+ * d'abord") : codes-barres/QR (productCodes) — la gestion complète des codes
+ * reste sur les données locales du prototype.
  *
  * `categoryName` est résolu par l'appelant (le payload produit ne contient
  * que categoryId, jamais le nom lisible) à partir de la liste des catégories
  * PRODUIT — voir resolveProductCategoryId / listProductCategories ci-dessous.
  */
 export function toFrontendProduct(p: ApiProduct, categoryName?: string): Product {
+  const images = p.images ?? [];
+  const photos = images.map((i) => i.url);
   return {
+    photo: photos[0],
+    photos,
+    photoRefs: images.map((i) => ({ id: i.id, url: i.url })),
     id: p.id,
     name: p.nom,
     salePrice: p.prixVente,
     purchasePrice: p.prixAchat ?? 0,
     stock: p.stock,
     alertThreshold: p.seuilAlerte,
-    category: categoryName ?? 'Général',
+    // Pas de categorie = « Sans categorie », un etat normal : le produit se
+    // vend comme les autres (point 4a).
+    category: categoryName ?? NO_CATEGORY_LABEL,
     unit: p.unite,
     isService: p.type === 'SERVICE',
     salesCount: 0,

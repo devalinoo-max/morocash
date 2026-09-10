@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { lastKnownPhone } from '../../utils/session';
 import { useApp } from '../../context/AppContext';
 import {
   ArrowRight,
@@ -17,12 +18,31 @@ import { Logo, LogoMark } from '../common/Logo';
 import { PinInput } from '../common/PinInput';
 import { COUNTRIES, DEFAULT_COUNTRY, CountryOption } from '../../data/countries';
 
+
+/**
+ * Secteurs proposes a l'inscription. Ils ne servent qu'a choisir les
+ * categories de depart (voir starterProductCategories cote serveur) : rien
+ * n'est verrouille par ce choix.
+ */
+const BUSINESS_SECTORS = [
+  { code: 'ALIMENTATION' as const, label: 'Alimentation' },
+  { code: 'COSMETIQUES' as const, label: 'Cosmétiques' },
+  { code: 'PRET_A_PORTER' as const, label: 'Prêt-à-porter' },
+  { code: 'ELECTRONIQUE' as const, label: 'Électronique' },
+  { code: 'SERVICES' as const, label: 'Services' },
+  { code: 'AUTRE' as const, label: 'Autre chose' },
+];
+
+type BusinessSector = (typeof BUSINESS_SECTORS)[number]['code'];
+
 type Mode = 'LOGIN' | 'REGISTER';
 
 const BRAND_INDIGO = '#4338CA';
 
 interface AuthScreenProps {
   initialMode?: Mode;
+  /** Permet à l'adresse de suivre l'onglet choisi (/connexion vs /inscription). */
+  onModeChange?: (mode: Mode) => void;
 }
 
 /**
@@ -32,7 +52,7 @@ interface AuthScreenProps {
  * spec. Inscription en 2 étapes (boutique/localisation puis contact/PIN) pour
  * un onboarding plus guidé qu'un long formulaire unique.
  */
-export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER' }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER', onModeChange }) => {
   const { registerBusinessAccount, loginUser } = useApp();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
@@ -40,7 +60,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Champs communs
-  const [telephone, setTelephone] = useState('');
+  // Session expiree : le numero de la derniere connexion reussie est deja la,
+  // le commercant n'a plus qu'a taper son code (point 3).
+  const [telephone, setTelephone] = useState(lastKnownPhone);
   const [pin, setPin] = useState('');
 
   // Inscription
@@ -49,6 +71,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   const [country, setCountry] = useState<CountryOption>(DEFAULT_COUNTRY);
   const [email, setEmail] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
+  const [secteur, setSecteur] = useState<BusinessSector>('ALIMENTATION');
 
   // Connexion multi-boutiques (même numéro dans plusieurs boutiques)
   const [businessChoices, setBusinessChoices] = useState<{ businessId: string; businessNom: string }[] | null>(null);
@@ -57,6 +80,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
 
   const switchMode = (next: Mode) => {
     setMode(next);
+    onModeChange?.(next);
     setRegisterStep(1);
     setErrorMessage(null);
     resetBusinessChoices();
@@ -101,6 +125,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       email: email.trim() || undefined,
       telephone: telephone.trim(),
       pin,
+      secteur,
     });
     setIsSubmitting(false);
     if (!result.success) {
@@ -333,6 +358,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                           </div>
                         </div>
                       </div>
+                      {/* Secteur : une seule touche, sur l'étape qui existe déjà.
+                          Il ne sert qu'à proposer des catégories de départ qui
+                          parlent du métier du commerçant — il n'ajoute donc ni
+                          écran, ni décision qu'on ne puisse défaire ensuite. */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                          Tu vends quoi ?
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {BUSINESS_SECTORS.map((s) => (
+                            <button
+                              key={s.code}
+                              type="button"
+                              onClick={() => setSecteur(s.code)}
+                              className={`px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                                secteur === s.code
+                                  ? 'bg-[#4338CA] border-[#4338CA] text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                              }`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1.5">
+                          Ça nous sert juste à te proposer des catégories toutes prêtes. Tu pourras
+                          les changer.
+                        </p>
+                      </div>
+
                       <button
                         type="submit"
                         className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all hover:opacity-90"

@@ -2,12 +2,12 @@ import { api, generateClientUuid } from './client';
 import { toApiPaymentMethode, toFrontendPaymentMethod } from './mappers';
 import type { Expense, PaymentMethod } from '../types';
 
-export interface ApiCategory {
-  id: string;
-  nom: string;
-  type: 'PRODUIT' | 'DEPENSE';
-  systeme: boolean;
-}
+// Les catégories vivent dans api/categories.ts (une seule définition pour les
+// produits comme pour les dépenses) — réexportées ici pour les appelants existants.
+import { createCategory, listCategories } from './categories';
+
+export type { ApiCategory } from './categories';
+export { listCategories, createCategory };
 
 export interface ApiExpense {
   id: string;
@@ -20,15 +20,6 @@ export interface ApiExpense {
   receptionId: string | null;
   date: string;
   createdAt: string;
-}
-
-export function listCategories(type?: 'PRODUIT' | 'DEPENSE') {
-  const query = type ? `?type=${type}` : '';
-  return api.get<{ categories: ApiCategory[] }>(`/categories${query}`).then((d) => d.categories);
-}
-
-export function createCategory(nom: string, type: 'PRODUIT' | 'DEPENSE') {
-  return api.post<{ category: ApiCategory }>('/categories', { nom, type }).then((d) => d.category);
 }
 
 /**
@@ -55,11 +46,14 @@ export function createExpense(input: {
   note?: string;
   methode: string;
   date?: string;
+  /** Fourni par la file d'attente pour qu'un renvoi ne cree pas de doublon. */
+  clientUuid?: string;
 }) {
+  const { clientUuid, ...rest } = input;
   return api
     .post<{ status: 'CREATED' | 'DUPLICATE'; expense: ApiExpense }>('/expenses', {
-      clientUuid: generateClientUuid(),
-      ...input,
+      clientUuid: clientUuid ?? generateClientUuid(),
+      ...rest,
     })
     .then((d) => d.expense);
 }

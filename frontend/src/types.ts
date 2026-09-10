@@ -71,6 +71,9 @@ export interface Product {
   unit: string;
   photo?: string;
   photos?: string[];
+  // Identifiants serveur des photos (ProductImage) — indispensables pour
+  // supprimer une photo retirée du formulaire.
+  photoRefs?: { id: string; url: string }[];
   barcode?: string;
   internalCode?: string; // e.g. MC-A7K2X-000148
   productCodes?: ProductCode[];

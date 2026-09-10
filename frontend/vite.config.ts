@@ -21,7 +21,10 @@ export default defineConfig(() => {
           short_name: 'MoroCash',
           description:
             "Enregistre tes ventes en 10 secondes. Suis ton stock, tes bénéfices et tes dettes, même sans connexion.",
-          start_url: '/',
+          // L'app installée ouvre l'accueil, jamais la page de présentation :
+          // celui qui a installé MoroCash sur son écran d'accueil vient
+          // travailler, pas lire une publicité (point 3).
+          start_url: '/accueil',
           scope: '/',
           display: 'standalone',
           background_color: '#F4F4F8',
@@ -34,16 +37,54 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          // Les appels /api/** ne sont JAMAIS servis depuis le cache : les
-          // données de caisse (stock, dettes, caisse ouverte...) doivent
-          // toujours venir du serveur, sous peine d'incohérences graves
-          // (survente de stock, montant de caisse faux...). Seul l'app shell
-          // (JS/CSS/HTML) est mis en cache pour l'usage hors-ligne.
+          // Coquille de l'app mise en cache à l'installation : HTML, JS, CSS,
+          // icônes, polices locales. C'est ce qui permet d'OUVRIR l'app en
+          // mode avion au lieu de tomber sur la page d'erreur du navigateur.
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+
+          // Toute navigation hors-ligne (/accueil, /produits, /caisse...)
+          // retombe sur index.html : c'est une application à page unique, le
+          // routage se fait ensuite côté navigateur.
+          navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api\//],
+
           runtimeCaching: [
             {
+              // Les appels /api/** ne sont JAMAIS servis depuis le cache HTTP :
+              // les données de caisse (stock, dettes, caisse ouverte...) ne
+              // supportent pas d'être servies périmées sans qu'on le sache.
+              // La lecture hors-ligne passe par l'instantané IndexedDB écrit
+              // par l'app elle-même (voir src/offline/cache.ts), qui, lui,
+              // est daté et affiché comme tel.
               urlPattern: /\/api\/.*/,
               handler: 'NetworkOnly',
+            },
+            {
+              // Les polices Google sont chargées par index.html : sans cache,
+              // la première ouverture hors-ligne perd toute la typographie.
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
+              handler: 'StaleWhileRevalidate',
+              options: { cacheName: 'google-fonts-stylesheets' },
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts-files',
+                expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            {
+              // Photos produit (Cloudinary) : indispensables pour reconnaître
+              // un article d'un coup d'oeil en caisse, y compris sans réseau.
+              urlPattern: /^https:\/\/res\.cloudinary\.com\//,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'product-images',
+                expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
           ],
         },

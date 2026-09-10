@@ -28,6 +28,7 @@ export const ReceiptModal: React.FC = () => {
     setSelectedSaleForReceipt,
     settings,
     customers,
+    sales,
     recordReceiptDelivery,
     showToast,
   } = useApp();
@@ -36,7 +37,15 @@ export const ReceiptModal: React.FC = () => {
   const [isMerchantCopy, setIsMerchantCopy] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const sale = saleSuccessReceipt || selectedSaleForReceipt;
+  const pinnedSale = saleSuccessReceipt || selectedSaleForReceipt;
+  // Le reçu affiché juste après la validation porte d'abord un numéro
+  // provisoire (la commande n'est pas encore partie). Dès que le serveur
+  // répond, la commande de la liste porte son vrai numéro : on relit donc
+  // toujours la version courante, sinon le reçu resterait figé sur
+  // « EN-ATTENTE-… » sous les yeux du client.
+  const sale = pinnedSale
+    ? sales.find((s) => s.clientUuid === pinnedSale.clientUuid) ?? pinnedSale
+    : null;
   const isSuccessMode = Boolean(saleSuccessReceipt);
 
   if (!sale) return null;

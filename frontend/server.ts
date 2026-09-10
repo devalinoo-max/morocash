@@ -4,6 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { generateLabelsPdfBuffer } from './server/labelPdfGenerator';
 import { generateReceiptsPdfBuffer } from './server/receiptPdfGenerator';
+import { LEGACY_REDIRECTS } from './src/utils/routes';
 
 // Le vrai backend Next.js (étapes 1-10, 12) écoute sur le port 3000. On déplace
 // ce serveur frontend (Express + Vite en middleware mode) sur 5173 pour libérer
@@ -98,6 +99,14 @@ async function startServer() {
       changeOrigin: true,
     })
   );
+
+  // Anciennes adresses anglaises (/dashboard, /products, /settings...) : 301
+  // vers leur équivalent français, pour ne casser aucun favori déjà enregistré
+  // ni aucun lien partagé. La table est la même que celle du routeur côté
+  // navigateur — une seule source, pas de dérive possible entre les deux.
+  app.get(Object.keys(LEGACY_REDIRECTS), (req, res) => {
+    res.redirect(301, LEGACY_REDIRECTS[req.path.toLowerCase()]);
+  });
 
   // Middleware for parsing JSON with generous limit for product payload / photos
   app.use(express.json({ limit: '15mb' }));

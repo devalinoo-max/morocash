@@ -64,8 +64,8 @@ export function scoped(businessId: string) {
         withTenant(businessId, (tx) =>
           tx.product.findMany({ ...args, where: { ...where, ...args.where } })
         ),
-      findById: (id: string) =>
-        withTenant(businessId, (tx) => tx.product.findFirst({ where: { id, ...where } })),
+      findById: (id: string, args: Omit<Prisma.ProductFindFirstArgs, 'where'> = {}) =>
+        withTenant(businessId, (tx) => tx.product.findFirst({ ...args, where: { id, ...where } })),
       create: (data: Omit<Prisma.ProductUncheckedCreateInput, 'businessId'>) =>
         withTenant(businessId, (tx) => tx.product.create({ data: { ...data, businessId } })),
       update: (id: string, data: Prisma.ProductUncheckedUpdateInput) =>
@@ -98,6 +98,15 @@ export function scoped(businessId: string) {
           const product = await tx.product.findFirst({ where: { id: productId, ...where } });
           if (!product) return null;
           return tx.productImage.create({ data: { ...data, productId } });
+        }),
+      findById: (imageId: string) =>
+        withTenant(businessId, async (tx) => {
+          const image = await tx.productImage.findFirst({
+            where: { id: imageId },
+            include: { product: true },
+          });
+          if (!image || image.product.businessId !== businessId) return null;
+          return image;
         }),
       delete: (imageId: string) =>
         withTenant(businessId, async (tx) => {
@@ -192,6 +201,35 @@ export function scoped(businessId: string) {
         withTenant(businessId, (tx) => tx.category.findFirst({ where: { id, ...where } })),
       create: (data: Omit<Prisma.CategoryUncheckedCreateInput, 'businessId'>) =>
         withTenant(businessId, (tx) => tx.category.create({ data: { ...data, businessId } })),
+      update: (id: string, data: Prisma.CategoryUncheckedUpdateInput) =>
+        withTenant(businessId, (tx) => tx.category.updateMany({ where: { id, ...where }, data })),
+      delete: (id: string) =>
+        withTenant(businessId, (tx) => tx.category.deleteMany({ where: { id, ...where } })),
+      /** Nombre de produits et de dépenses qui s'appuient sur chaque catégorie. */
+      usageCounts: () =>
+        withTenant(businessId, async (tx) => {
+          const [products, expenses] = await Promise.all([
+            tx.product.groupBy({ by: ['categoryId'], where, _count: { _all: true } }),
+            tx.expense.groupBy({ by: ['categoryId'], where, _count: { _all: true } }),
+          ]);
+          const counts = new Map<string, number>();
+          for (const row of products) {
+            if (row.categoryId) counts.set(row.categoryId, row._count._all);
+          }
+          for (const row of expenses) {
+            counts.set(row.categoryId, (counts.get(row.categoryId) ?? 0) + row._count._all);
+          }
+          return counts;
+        }),
+      /** Déplace tous les produits d'une catégorie vers une autre (ou aucune). */
+      moveProducts: (fromCategoryId: string, toCategoryId: string | null) =>
+        withTenant(businessId, async (tx) => {
+          const result = await tx.product.updateMany({
+            where: { ...where, categoryId: fromCategoryId },
+            data: { categoryId: toCategoryId },
+          });
+          return result.count;
+        }),
     },
 
     movements: {

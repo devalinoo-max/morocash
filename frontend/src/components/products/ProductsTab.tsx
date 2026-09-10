@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Package,
@@ -19,6 +19,7 @@ import { formatMoney, getTerminology } from '../../utils/formatters';
 import { Product } from '../../types';
 import { ProductFormModal } from './ProductFormModal';
 import { LabelPrintModal } from './LabelPrintModal';
+import { BulkEditBar } from './BulkEditBar';
 import { InventoryScanModal } from './InventoryScanModal';
 import { BarcodeScannerModal } from '../pos/BarcodeScannerModal';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
@@ -33,6 +34,8 @@ export const ProductsTab: React.FC = () => {
     findProductByCode,
     isWriteLocked,
     gateWrite,
+    isNewProductOpen,
+    setIsNewProductOpen,
   } = useApp();
 
   const terminology = getTerminology(settings.activityType);
@@ -61,6 +64,12 @@ export const ProductsTab: React.FC = () => {
   const [adjustStockProduct, setAdjustStockProduct] = useState<Product | null>(null);
   const [stockAddAmount, setStockAddAmount] = useState<number>(10);
 
+  // Sélection multiple : n'apparaît qu'une fois un premier produit coché, pour
+  // ne pas encombrer la liste de cases à cocher chez qui n'en a jamais besoin.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
   const handleOpenEdit = (p: Product) => {
     setEditingProduct(p);
     setNewProductInitialBarcode(undefined);
@@ -71,7 +80,18 @@ export const ProductsTab: React.FC = () => {
     setEditingProduct(null);
     setNewProductInitialBarcode(prefilledBarcode);
     setIsFormOpen(true);
+    setIsNewProductOpen(true);
   };
+
+  // L'adresse /produits/nouveau ouvre le formulaire, et le formulaire met
+  // l'adresse à jour : les deux ne peuvent pas diverger.
+  useEffect(() => {
+    if (isNewProductOpen && !isFormOpen) {
+      setEditingProduct(null);
+      setNewProductInitialBarcode(undefined);
+      setIsFormOpen(true);
+    }
+  }, [isNewProductOpen, isFormOpen]);
 
   const handleOpenSinglePrint = (p: Product) => {
     setSelectedProductForPrint(p);
@@ -300,6 +320,13 @@ export const ProductsTab: React.FC = () => {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(prod.id)}
+                      onChange={() => toggleSelected(prod.id)}
+                      aria-label={`Sélectionner ${prod.name}`}
+                      className="w-4 h-4 shrink-0 text-[#4F46E5] rounded-sm cursor-pointer focus:ring-[#4F46E5]"
+                    />
                     {prod.photo ? (
                       <img
                         src={prod.photo}
@@ -349,7 +376,7 @@ export const ProductsTab: React.FC = () => {
                           </span>
                         )}
                         <span className="text-[10px] text-slate-400">
-                          Catégorie : {prod.category || 'Général'}
+                          Catégorie : {prod.category || 'Sans catégorie'}
                         </span>
                       </div>
                     </div>
@@ -420,6 +447,8 @@ export const ProductsTab: React.FC = () => {
         )}
       </div>
 
+      <BulkEditBar selectedIds={selectedIds} onDone={() => setSelectedIds([])} />
+
       {/* SHARED PRODUCT CREATION / EDIT MODAL */}
       <ProductFormModal
         isOpen={isFormOpen}
@@ -429,6 +458,7 @@ export const ProductsTab: React.FC = () => {
           setIsFormOpen(false);
           setEditingProduct(null);
           setNewProductInitialBarcode(undefined);
+          setIsNewProductOpen(false);
         }}
       />
 

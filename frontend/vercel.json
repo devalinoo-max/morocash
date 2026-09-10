@@ -2,10 +2,53 @@
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "redirects": [
+    { "source": "/dashboard", "destination": "/accueil", "permanent": true },
+    { "source": "/home", "destination": "/accueil", "permanent": true },
+    { "source": "/tableau-de-bord", "destination": "/accueil", "permanent": true },
+    { "source": "/orders", "destination": "/commandes", "permanent": true },
+    { "source": "/orders/new", "destination": "/commandes/nouvelle", "permanent": true },
+    { "source": "/sales", "destination": "/commandes", "permanent": true },
+    { "source": "/ventes", "destination": "/commandes", "permanent": true },
+    { "source": "/receipts", "destination": "/recus", "permanent": true },
+    { "source": "/products", "destination": "/produits", "permanent": true },
+    { "source": "/products/new", "destination": "/produits/nouveau", "permanent": true },
+    { "source": "/stock-movements", "destination": "/mouvements", "permanent": true },
+    { "source": "/movements", "destination": "/mouvements", "permanent": true },
+    { "source": "/stock", "destination": "/mouvements", "permanent": true },
+    { "source": "/customers", "destination": "/clients", "permanent": true },
+    { "source": "/customers/debts", "destination": "/qui-me-doit", "permanent": true },
+    { "source": "/expenses", "destination": "/depenses", "permanent": true },
+    { "source": "/cash-register", "destination": "/caisse", "permanent": true },
+    { "source": "/cash", "destination": "/caisse", "permanent": true },
+    { "source": "/reports", "destination": "/mes-chiffres", "permanent": true },
+    { "source": "/employees", "destination": "/employes", "permanent": true },
+    { "source": "/permissions", "destination": "/qui-peut-voir-quoi", "permanent": true },
+    { "source": "/subscription", "destination": "/abonnement", "permanent": true },
+    { "source": "/settings", "destination": "/reglages", "permanent": true },
+    { "source": "/parametres", "destination": "/reglages", "permanent": true },
+    { "source": "/help", "destination": "/aide", "permanent": true },
+    { "source": "/export", "destination": "/exporter", "permanent": true },
+    { "source": "/login", "destination": "/connexion", "permanent": true },
+    { "source": "/register", "destination": "/inscription", "permanent": true },
+    { "source": "/more", "destination": "/plus", "permanent": true },
+    { "source": "/more/expenses", "destination": "/depenses", "permanent": true },
+    { "source": "/more/reports", "destination": "/mes-chiffres", "permanent": true },
+    { "source": "/more/subscription", "destination": "/abonnement", "permanent": true },
+    { "source": "/more/settings", "destination": "/reglages", "permanent": true },
+    { "source": "/more/help", "destination": "/aide", "permanent": true },
+    { "source": "/more/export", "destination": "/exporter", "permanent": true },
+    { "source": "/more/employees", "destination": "/employes", "permanent": true },
+    { "source": "/more/permissions", "destination": "/qui-peut-voir-quoi", "permanent": true }
+  ],
   "rewrites": [
     {
       "source": "/api/v1/:path*",
       "destination": "https://morocash.vercel.app/api/v1/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
