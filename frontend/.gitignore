@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Bundles des generateurs PDF, produits au build pour les fonctions Vercel
+api/_lib/*.js

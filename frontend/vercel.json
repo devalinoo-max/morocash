@@ -1,5 +1,5 @@
 {
-  "buildCommand": "vite build",
+  "buildCommand": "vite build && esbuild server/receiptPdfGenerator.tsx server/labelPdfGenerator.tsx --bundle --platform=node --format=esm --packages=external --outdir=api/_lib",
   "outputDirectory": "dist",
   "framework": "vite",
   "redirects": [

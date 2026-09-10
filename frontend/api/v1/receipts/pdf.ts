@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { generateReceiptsPdfBuffer } = await import('../../../server/receiptPdfGenerator.js');
+    const { generateReceiptsPdfBuffer } = await import('../../_lib/receiptPdfGenerator.js');
     const pdfBuffer = await generateReceiptsPdfBuffer({ sales, settings, isMerchantCopy });
     const filename =
       sales.length === 1

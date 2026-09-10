@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const { generateLabelsPdfBuffer } = await import('../../../server/labelPdfGenerator.js');
+    const { generateLabelsPdfBuffer } = await import('../../_lib/labelPdfGenerator.js');
     const pdfBuffer = await generateLabelsPdfBuffer({
       products: targetProducts,
       copies,
