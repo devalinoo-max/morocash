@@ -50,12 +50,25 @@ function formatDatePdf(dateString: string): string {
   }
 }
 
+/**
+ * Largeur du recu, en millimetres.
+ *
+ * Le papier utilise en boutique fait 105 mm de large au maximum : un recu plus
+ * large sort rogne a l'impression, un recu plus etroit gaspille du papier. Ces
+ * deux constantes sont le SEUL endroit a changer pour passer sur un autre
+ * rouleau (58 mm, 80 mm...) — la mise en page suit.
+ */
+const RECEIPT_WIDTH_MM = 105;
+const RECEIPT_WIDTH_PT = (RECEIPT_WIDTH_MM * 72) / 25.4; // 297.64 pt
+
 const styles = StyleSheet.create({
   page: {
-    width: 226.77, // 80mm in points (72 points/inch * 80 / 25.4)
+    width: RECEIPT_WIDTH_PT,
     paddingTop: 14,
     paddingBottom: 20,
-    paddingHorizontal: 14,
+    // Marge laterale : sur 105 mm, une imprimante thermique ne peut pas
+    // toujours encrer les tout derniers millimetres du bord.
+    paddingHorizontal: 18,
     backgroundColor: '#FFFFFF',
     fontFamily: 'Helvetica',
     fontSize: 9,
@@ -284,7 +297,7 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({
   const debtTotal = sale.customerTotalDebt !== undefined ? sale.customerTotalDebt : sale.remainingAmount;
 
   return (
-    <Page size={[226.77, 'auto']} style={styles.page}>
+    <Page size={[RECEIPT_WIDTH_PT, 'auto']} style={styles.page}>
       {/* 1. Shop Banner */}
       <View style={styles.headerContainer}>
         <Text style={styles.shopTitle}>{shopName}</Text>
