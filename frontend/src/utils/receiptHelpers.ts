@@ -115,17 +115,109 @@ export async function fetchReceiptsPdfBlob(
     isMerchantCopy,
   };
 
-  const res = await fetch('/api/v1/receipts/pdf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Erreur serveur PDF : ${res.statusText}`);
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error(
+      'Pas de connexion : le reçu PDF est fabriqué sur le serveur. Envoie-le par WhatsApp ou copie le texte en attendant le réseau.'
+    );
   }
 
-  return await res.blob();
+  let res: Response;
+  try {
+    res = await fetch('/api/v1/receipts/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // fetch ne rejette que sur une panne réseau/DNS/CORS — jamais sur un 4xx/5xx.
+    throw new Error('Serveur injoignable : vérifie ta connexion, puis réessaie.');
+  }
+
+  if (!res.ok) {
+    // `statusText` est vide en HTTP/2 (donc sur Vercel) : le message affiché au
+    // commerçant était "Erreur serveur PDF :" suivi de rien du tout. On lit le
+    // corps, que les deux implémentations du endpoint renvoient en JSON
+    // ({ error, details }), et on garde le code HTTP qui, lui, dit toujours
+    // quelque chose : 404 = endpoint absent sur cet hébergement, 500 = échec de
+    // génération côté serveur.
+    throw new Error(`${await describeErrorResponse(res)} (HTTP ${res.status})`);
+  }
+
+  const blob = await res.blob();
+
+  // Un hébergement mal routé répond 200 + index.html au lieu du PDF : sans ce
+  // garde-fou on ouvre ou on télécharge un "PDF" qui est en fait la page
+  // d'accueil, et le commerçant ne comprend pas pourquoi son reçu est illisible.
+  if (blob.type && !blob.type.includes('pdf') && !blob.type.includes('octet-stream')) {
+    throw new Error(
+      `Le serveur a répondu ${blob.type} au lieu d'un PDF — l'adresse /api/v1/receipts/pdf n'est pas branchée sur cet hébergement.`
+    );
+  }
+
+  return blob;
+}
+
+async function describeErrorResponse(res: Response): Promise<string> {
+  if (res.status === 404) {
+    return 'Le service de reçus PDF est introuvable sur ce serveur';
+  }
+  try {
+    const raw = await res.text();
+    try {
+      const data = JSON.parse(raw) as { error?: string; details?: string };
+      const parts = [data.error, data.details].filter(Boolean);
+      if (parts.length > 0) return parts.join(' — ');
+    } catch {
+      // Réponse non JSON : page d'erreur HTML d'un proxy, par exemple.
+    }
+    if (raw.trim() && !raw.trimStart().startsWith('<')) {
+      return raw.trim().slice(0, 200);
+    }
+  } catch {
+    // Corps illisible : on se rabat sur le seul code HTTP.
+  }
+  return 'Erreur du serveur PDF';
+}
+
+/**
+ * Message à afficher au commerçant quand une action reçu échoue. On garde la
+ * cause réelle (endpoint absent, serveur en erreur, hors ligne...) : un
+ * "Erreur lors du téléchargement" sans plus de détail ne permet ni au
+ * commerçant de contourner, ni à nous de diagnostiquer à distance.
+ */
+export function receiptErrorMessage(prefix: string, err: unknown): string {
+  const detail = err instanceof Error ? err.message : String(err ?? '');
+  return detail ? `${prefix} : ${detail}` : prefix;
+}
+
+function receiptFileName(sales: Sale[]): string {
+  return sales.length === 1
+    ? `recu-${sales[0].reference}.pdf`
+    : `recus-groupes-${sales.length}.pdf`;
+}
+
+function triggerBlobDownload(blobUrl: string, fileName: string): void {
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = fileName;
+  // rel="noopener" : sur les navigateurs qui ignorent `download` pour un blob
+  // (Safari iOS), le lien se comporte comme une navigation — autant qu'elle
+  // n'expose pas window.opener.
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * Libère l'URL blob, mais pas tout de suite : révoquée dans la foulée du clic,
+ * elle annule le téléchargement encore en cours d'amorçage sur Firefox et sur
+ * plusieurs navigateurs Android (le bouton "Télécharger" semblait fonctionner,
+ * aucun fichier n'arrivait). Une minute laisse le temps au navigateur d'ouvrir
+ * l'onglet ou d'écrire le fichier avant que la mémoire ne soit rendue.
+ */
+function releaseBlobUrlLater(blobUrl: string): void {
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }
 
 export async function printReceiptsPdf(
@@ -148,17 +240,10 @@ export async function printReceiptsPdf(
   if (newTab) {
     result = 'opened';
   } else {
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download =
-      sales.length === 1
-        ? `recu-${sales[0].reference}.pdf`
-        : `recus-groupes-${sales.length}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    triggerBlobDownload(blobUrl, receiptFileName(sales));
     result = 'downloaded';
   }
+  releaseBlobUrlLater(blobUrl);
 
   if (onDelivered) {
     onDelivered('IMPRESSION');
@@ -174,16 +259,8 @@ export async function downloadReceiptsPdf(
 ): Promise<void> {
   const blob = await fetchReceiptsPdfBlob(sales, settings, isMerchantCopy);
   const blobUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download =
-    sales.length === 1
-      ? `recu-${sales[0].reference}.pdf`
-      : `recus-groupes-${sales.length}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(blobUrl);
+  triggerBlobDownload(blobUrl, receiptFileName(sales));
+  releaseBlobUrlLater(blobUrl);
 
   if (onDelivered) {
     onDelivered('TELECHARGEMENT');

@@ -28,6 +28,7 @@ import {
   copyReceiptToClipboard,
   printReceiptsPdf,
   downloadReceiptsPdf,
+  receiptErrorMessage,
 } from '../../utils/receiptHelpers';
 
 type PeriodFilter = 'today' | 'week' | 'month' | 'all';
@@ -261,7 +262,7 @@ export const ReceiptsTab: React.FC = () => {
       );
     } catch (err) {
       console.error(err);
-      showToast('Erreur lors de l’impression du reçu', 'error');
+      showToast(receiptErrorMessage('Impression impossible', err), 'error');
     } finally {
       setIsProcessingPdf(false);
     }
@@ -276,7 +277,7 @@ export const ReceiptsTab: React.FC = () => {
       showToast('Téléchargement du reçu PDF en cours', 'success');
     } catch (err) {
       console.error(err);
-      showToast('Erreur lors du téléchargement', 'error');
+      showToast(receiptErrorMessage('Téléchargement impossible', err), 'error');
     } finally {
       setIsProcessingPdf(false);
     }
@@ -298,7 +299,7 @@ export const ReceiptsTab: React.FC = () => {
       );
     } catch (err) {
       console.error(err);
-      showToast('Erreur lors de l’impression groupée', 'error');
+      showToast(receiptErrorMessage('Impression groupée impossible', err), 'error');
     } finally {
       setIsProcessingPdf(false);
     }
@@ -314,7 +315,7 @@ export const ReceiptsTab: React.FC = () => {
       showToast(`Téléchargement de ${selectedSalesList.length} reçus`, 'success');
     } catch (err) {
       console.error(err);
-      showToast('Erreur lors du téléchargement groupé', 'error');
+      showToast(receiptErrorMessage('Téléchargement groupé impossible', err), 'error');
     } finally {
       setIsProcessingPdf(false);
     }

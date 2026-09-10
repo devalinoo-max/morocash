@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateLabelsPdfBuffer } from '../../../server/labelPdfGenerator';
 
+// Import dynamique dans le try, même raison que api/v1/receipts/pdf.ts : un
+// échec de chargement de @react-pdf/renderer (ESM pur) au niveau du module
+// donne un FUNCTION_INVOCATION_FAILED muet ; ici il ressort en JSON.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Méthode non autorisée' });
@@ -26,6 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    const { generateLabelsPdfBuffer } = await import('../../../server/labelPdfGenerator');
     const pdfBuffer = await generateLabelsPdfBuffer({
       products: targetProducts,
       copies,

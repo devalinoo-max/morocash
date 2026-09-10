@@ -18,6 +18,7 @@ import {
   copyReceiptToClipboard,
   printReceiptsPdf,
   downloadReceiptsPdf,
+  receiptErrorMessage,
 } from '../../utils/receiptHelpers';
 
 export const ReceiptModal: React.FC = () => {
@@ -92,7 +93,7 @@ export const ReceiptModal: React.FC = () => {
       );
     } catch (err) {
       console.error(err);
-      showToast('Erreur lors de l’impression du reçu', 'error');
+      showToast(receiptErrorMessage('Impression impossible', err), 'error');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -107,7 +108,7 @@ export const ReceiptModal: React.FC = () => {
       showToast('Téléchargement du reçu PDF...', 'success');
     } catch (err) {
       console.error(err);
-      showToast('Erreur lors du téléchargement', 'error');
+      showToast(receiptErrorMessage('Téléchargement impossible', err), 'error');
     } finally {
       setIsGeneratingPdf(false);
     }

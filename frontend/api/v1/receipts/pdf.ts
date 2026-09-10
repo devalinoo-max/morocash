@@ -1,6 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateReceiptsPdfBuffer } from '../../../server/receiptPdfGenerator';
 
+// L'import du générateur (et donc de @react-pdf/renderer, qui est du ESM pur)
+// est volontairement dynamique et placé DANS le try du handler. En statique, un
+// échec de chargement du module survient avant même l'exécution du handler :
+// Vercel répond alors un FUNCTION_INVOCATION_FAILED en text/plain, sans pile
+// d'appel côté client — le commerçant voyait "Erreur lors du téléchargement" et
+// nous n'avions aucun moyen de savoir pourquoi. Chargé ici, le même échec
+// ressort en JSON { error, details } avec le message réel.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Méthode non autorisée' });
@@ -15,6 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const { generateReceiptsPdfBuffer } = await import('../../../server/receiptPdfGenerator');
     const pdfBuffer = await generateReceiptsPdfBuffer({ sales, settings, isMerchantCopy });
     const filename =
       sales.length === 1
