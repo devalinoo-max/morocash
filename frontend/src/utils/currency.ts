@@ -1,1 +1,7 @@
-export { formatMoney, formatNumber, formatDate, formatShortDate } from './formatters';
+export {
+  formatMoney,
+  formatMoneyCompact,
+  formatNumber,
+  formatDate,
+  formatShortDate,
+} from './formatters';

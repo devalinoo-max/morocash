@@ -1,13 +1,56 @@
 import { ActivityType } from '../types';
 
+const THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
+const TRAILING_ZEROS = /[.,]?0+$/;
+
+
+// Espace insécable : un montant ne doit jamais se couper en fin de ligne
+// ("555 577" d'un côté, "755 F" de l'autre).
+const NBSP = '\u00A0';
+
+function groupThousands(numeric: number): string {
+  return Math.abs(numeric)
+    .toString()
+    .replace(THOUSANDS, NBSP);
+}
+
 export function formatMoney(amount: number | string | undefined | null): string {
   if (amount === undefined || amount === null || isNaN(Number(amount))) {
-    return '0 F';
+    return `0${NBSP}F`;
   }
   const numeric = Math.round(Number(amount));
-  // Format with French space thousand separators, no decimals, F currency
-  const formatted = numeric.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return `${formatted} F`;
+  const sign = numeric < 0 ? '-' : '';
+  return `${sign}${groupThousands(numeric)}${NBSP}F`;
+}
+
+/** 1,25 → "1,3" ; 10,0 → "10" (jamais de décimale nulle affichée). */
+function trimDecimals(value: number, decimals: number): string {
+  return value.toFixed(decimals).replace(TRAILING_ZEROS, '').replace('.', ',');
+}
+
+/**
+ * Montant destiné à un emplacement contraint (tiroir panier, tuiles du tableau
+ * de bord, caisse, rapports) : au-delà de 7 chiffres le nombre complet déborde
+ * ou se fait tronquer, on l'abrège donc plutôt que de mentir sur sa largeur.
+ * Le montant exact reste affiché là où la place existe (panier déplié, détail
+ * d'une commande, reçu) : cette fonction ne remplace jamais formatMoney().
+ */
+export function formatMoneyCompact(amount: number | string | undefined | null): string {
+  if (amount === undefined || amount === null || isNaN(Number(amount))) {
+    return `0${NBSP}F`;
+  }
+  const numeric = Math.round(Number(amount));
+  const abs = Math.abs(numeric);
+
+  // Jusqu'à 7 chiffres (9 999 999), l'affichage reste complet.
+  if (abs < 10_000_000) return formatMoney(numeric);
+
+  const sign = numeric < 0 ? '-' : '';
+  // 999 950 000 s'arrondirait à "1000 M" : on bascule en milliards avant.
+  if (abs >= 999_950_000) {
+    return `${sign}${trimDecimals(abs / 1_000_000_000, 2)}${NBSP}Md${NBSP}F`;
+  }
+  return `${sign}${trimDecimals(abs / 1_000_000, 1)}${NBSP}M${NBSP}F`;
 }
 
 export const formatFCFA = formatMoney;
@@ -16,7 +59,8 @@ export function formatNumber(amount: number | string | undefined | null): string
   if (amount === undefined || amount === null || isNaN(Number(amount))) {
     return '0';
   }
-  return Math.round(Number(amount)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const numeric = Math.round(Number(amount));
+  return `${numeric < 0 ? '-' : ''}${groupThousands(numeric)}`;
 }
 
 export function formatDate(dateInput: string | Date | undefined): string {

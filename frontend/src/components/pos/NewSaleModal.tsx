@@ -14,6 +14,7 @@ import {
   User,
   ArrowRight,
   ArrowLeft,
+  ChevronUp,
   AlertCircle,
   Scan,
   RotateCw,
@@ -27,7 +28,7 @@ import {
   Pencil,
   Wrench,
 } from 'lucide-react';
-import { formatMoney } from '../../utils/currency';
+import { formatMoney, formatMoneyCompact } from '../../utils/currency';
 import { MoneyInput } from '../common/UIStates';
 import { WhatsAppOrderModal } from './WhatsAppOrderModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
@@ -61,6 +62,41 @@ function getAvatarColor(name: string): string {
   for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
+
+/**
+ * Couleur de vignette dérivée du nom : elle est stable pour un produit donné,
+ * et deux noms voisins ("À lolo" / "Alloco") tombent sur des couleurs
+ * différentes — une icône grise identique partout n'aide à rien à reconnaître
+ * un article d'un coup d'œil.
+ */
+const PRODUCT_THUMB_COLORS = [
+  '#4F46E5',
+  '#0891B2',
+  '#059669',
+  '#D97706',
+  '#DB2777',
+  '#7C3AED',
+  '#0284C7',
+  '#CA8A04',
+  '#DC2626',
+  '#0D9488',
+];
+
+function getProductThumbColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return PRODUCT_THUMB_COLORS[Math.abs(hash) % PRODUCT_THUMB_COLORS.length];
+}
+
+function getProductInitial(name: string): string {
+  const trimmed = name.trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
+}
+
+// Le tiroir ne se soulève qu'au tout premier ajout, sur cet appareil.
+const DRAWER_HINT_STORAGE_KEY = 'morocash_pos_drawer_hint_seen';
 
 function getFirstName(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
@@ -128,6 +164,15 @@ export const NewSaleModal: React.FC = () => {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const mobileDragStartY = useRef<number | null>(null);
   const [mobileDragDeltaY, setMobileDragDeltaY] = useState(0);
+
+  // Le bouton "Payer" bloqué faute de client ne se contente pas d'être gris :
+  // au toucher, il fait pulser la carte client et y ramène l'écran.
+  const [customerCardAlert, setCustomerCardAlert] = useState(false);
+  const mobileCustomerCardRef = useRef<HTMLDivElement>(null);
+
+  // Indice d'ouverture du tiroir, joué une seule fois dans la vie de l'appareil.
+  const [drawerHint, setDrawerHint] = useState(false);
+  const hadCartItems = useRef(cart.length > 0);
 
   // Compute 4 recent customers for quick access pills
   const recentCustomers = useMemo(() => {
@@ -197,6 +242,36 @@ export const NewSaleModal: React.FC = () => {
     }
     return list;
   }, [products, searchQuery, selectedCategory]);
+
+  // Un seul verrou pour les trois états du bouton de validation.
+  const isCheckoutReady = cart.length > 0 && Boolean(selectedCustomerId);
+
+  // Premier ajout d'un produit : le tiroir se soulève de 8px puis redescend,
+  // une seule fois. C'est le seul signal de "ça se déplie" qui ne coûte ni
+  // place ni explication.
+  useEffect(() => {
+    const hadItems = hadCartItems.current;
+    hadCartItems.current = cart.length > 0;
+    if (hadItems || cart.length === 0) return;
+
+    try {
+      if (localStorage.getItem(DRAWER_HINT_STORAGE_KEY)) return;
+      localStorage.setItem(DRAWER_HINT_STORAGE_KEY, '1');
+    } catch {
+      // Navigation privée : on montre l'indice sans pouvoir le mémoriser.
+    }
+    setDrawerHint(true);
+    const timer = setTimeout(() => setDrawerHint(false), 450);
+    return () => clearTimeout(timer);
+  }, [cart.length]);
+
+  // Toucher le bouton bloqué doit toujours dire POURQUOI il est bloqué.
+  const handleBlockedCheckout = () => {
+    if (cart.length === 0) return;
+    setCustomerCardAlert(true);
+    mobileCustomerCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => setCustomerCardAlert(false), 650);
+  };
 
   // Calculations
   const finalTotal = Math.max(0, cartTotal - discountAmount);
@@ -332,15 +407,15 @@ export const NewSaleModal: React.FC = () => {
           <div className="h-14 md:h-auto flex items-center justify-between gap-2">
             {/* Left: App/Shop Title — l'avatar boutique n'apporte rien pendant
                 une commande, retiré sur mobile (point 7). */}
-            <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
+            <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial overflow-hidden">
               <div className="hidden md:flex w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 items-center justify-center font-black text-[#4F46E5] text-xs shrink-0">
                 MC
               </div>
               <div className="min-w-0">
-                <h2 className="text-[15px] md:text-xs font-black text-slate-900 leading-tight md:leading-none truncate">
+                <h2 className="text-[13.5px] md:text-xs font-[750] md:font-black text-slate-900 leading-tight md:leading-none whitespace-nowrap truncate">
                   Nouvelle commande
                 </h2>
-                <p className="text-[11px] md:text-[10px] text-slate-400 font-medium mt-0.5 truncate">
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
                   {settings.shopName || 'Boutique'}
                 </p>
               </div>
@@ -361,7 +436,7 @@ export const NewSaleModal: React.FC = () => {
                 }`}
               >
                 <div
-                  className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
+                  className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
                     step === 'PRODUCTS'
                       ? 'bg-[#4F46E5] text-white shadow-xs'
                       : 'bg-indigo-50 text-[#4F46E5]'
@@ -370,8 +445,8 @@ export const NewSaleModal: React.FC = () => {
                   <ShoppingBag className="w-3.5 h-3.5" />
                 </div>
                 <span
-                  className={`text-[11px] md:text-xs whitespace-nowrap ${
-                    step === 'PRODUCTS' ? '' : 'hidden min-[360px]:inline'
+                  className={`text-[10.5px] md:text-xs whitespace-nowrap ${
+                    step === 'PRODUCTS' ? '' : 'hidden min-[420px]:inline'
                   }`}
                 >
                   1. Produits
@@ -396,7 +471,7 @@ export const NewSaleModal: React.FC = () => {
                 }`}
               >
                 <div
-                  className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
+                  className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
                     step === 'PAYMENT'
                       ? 'bg-[#4F46E5] text-white shadow-xs'
                       : 'bg-slate-100 text-slate-400'
@@ -405,8 +480,8 @@ export const NewSaleModal: React.FC = () => {
                   <CreditCard className="w-3.5 h-3.5" />
                 </div>
                 <span
-                  className={`text-[11px] md:text-xs whitespace-nowrap ${
-                    step === 'PAYMENT' ? '' : 'hidden min-[360px]:inline'
+                  className={`text-[10.5px] md:text-xs whitespace-nowrap ${
+                    step === 'PAYMENT' ? '' : 'hidden min-[420px]:inline'
                   }`}
                 >
                   2. Paiement
@@ -1046,9 +1121,13 @@ export const NewSaleModal: React.FC = () => {
           {/* ===================================================================== */}
           <div className="flex md:hidden flex-1 flex-col min-h-0 bg-white relative overflow-x-hidden">
             {/* Carte client — juste sous l'indicateur d'étapes, avant la recherche (point 3) */}
-            <div className="shrink-0 px-3 pt-2">
+            <div className="shrink-0 px-3 pt-2" ref={mobileCustomerCardRef}>
               {!selectedCustomerObj ? (
-                <div className="h-16 rounded-2xl bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-amber-200/70 px-3 flex items-center justify-between gap-2 shadow-2xs">
+                <div
+                  className={`h-16 rounded-2xl bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-amber-200/70 px-3 flex items-center justify-between gap-2 shadow-2xs ${
+                    customerCardAlert ? 'pos-customer-attention' : ''
+                  }`}
+                >
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-[30px] h-[30px] min-w-[30px] rounded-full bg-[#F59E0B] flex items-center justify-center text-white shrink-0">
                       <User className="w-3.5 h-3.5" />
@@ -1207,7 +1286,11 @@ export const NewSaleModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Pastilles catégories, + Service en dernière position (point 2 et 4) */}
+            {/* Pastilles catégories, puis les deux actions d'ajout en dernière
+                position. Elles portent une bordure pointillée indigo sur fond
+                #EEF2FF pour ne pas se confondre avec un filtre de catégorie —
+                c'est ici que vit "Ajouter un produit", plus dans un bouton
+                flottant que personne ne savait interpréter. */}
             <div className="shrink-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar px-3 pb-2">
               {categories.map((cat) => (
                 <button
@@ -1227,16 +1310,31 @@ export const NewSaleModal: React.FC = () => {
                 id="btn-add-service-pos-mobile"
                 type="button"
                 onClick={() => setIsServiceModalOpen(true)}
-                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 border-2 border-dashed border-indigo-300 text-[#4F46E5] flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 border border-dashed border-[#4F46E5]/60 bg-[#EEF2FF] text-[#4F46E5] flex items-center gap-1 cursor-pointer"
               >
                 <Wrench className="w-3 h-3" />
                 <span>+ Service</span>
+              </button>
+              <button
+                id="btn-add-product-pos-mobile"
+                type="button"
+                onClick={() => {
+                  setScannerPreBarcode('');
+                  setIsProductFormOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 border border-dashed border-[#4F46E5]/60 bg-[#EEF2FF] text-[#4F46E5] flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Nouveau produit</span>
               </button>
             </div>
 
             {/* Catalogue produits — occupe tout l'espace restant (point 4) */}
             <div className="flex-1 overflow-y-auto min-h-0 relative">
-              <div className="px-3 pb-24">
+              <div
+                className="px-3"
+                style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
+              >
                 {displayProducts.length === 0 ? (
                   <div className="py-16 text-center text-slate-400 space-y-2">
                     <p className="text-sm font-semibold text-slate-600">Aucun produit trouvé</p>
@@ -1266,40 +1364,85 @@ export const NewSaleModal: React.FC = () => {
                           key={prod.id}
                           id={`pos-prod-card-mobile-${prod.id}`}
                           onClick={() => addToCart(prod)}
-                          className="h-[84px] rounded-2xl border border-[#E2E8F0] bg-white flex items-center gap-2.5 p-2.5 active:scale-[0.98] cursor-pointer relative select-none shadow-xs"
+                          className="rounded-2xl border border-[#E2E8F0] bg-white flex flex-col gap-2 p-2.5 active:scale-[0.98] cursor-pointer relative select-none shadow-xs"
                         >
-                          <div className="w-[46px] h-[46px] min-w-[46px] rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                            <ShoppingBag className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11.5px] font-bold text-slate-900 leading-snug line-clamp-2">
-                              {prod.name}
-                            </p>
-                            <p className="text-[12.5px] font-bold text-[#4F46E5] mt-0.5 leading-none">
-                              {formatMoney(prod.salePrice)}
-                            </p>
-                            <div className="leading-none mt-1">
-                              {prod.isService ? (
-                                <span className="text-[10px] font-medium text-[#2563EB]">Prestation</span>
-                              ) : isStockNeg ? (
-                                <span className="text-[10px] font-bold text-[#DC2626]">
-                                  Stock négatif ({prod.stock})
-                                </span>
-                              ) : isStockZero ? (
-                                <span className="text-[10px] font-medium text-[#DC2626]">Rupture</span>
-                              ) : isStockLow ? (
-                                <span className="text-[10px] font-bold text-[#D97706]">
-                                  Reste {prod.stock}
-                                </span>
-                              ) : isStockNormal ? (
-                                <span className="text-[10px] text-[#64748B]">Reste {prod.stock}</span>
-                              ) : null}
+                          <div className="flex items-start gap-2.5">
+                            {prod.photo ? (
+                              <img
+                                src={prod.photo}
+                                alt=""
+                                referrerPolicy="no-referrer"
+                                className="w-10 h-10 min-w-10 rounded-[10px] object-cover shrink-0 bg-slate-100"
+                              />
+                            ) : (
+                              <div
+                                className="w-10 h-10 min-w-10 rounded-[10px] flex items-center justify-center text-white font-black text-[15px] shrink-0 select-none"
+                                style={{ backgroundColor: getProductThumbColor(prod.name) }}
+                                aria-hidden="true"
+                              >
+                                {getProductInitial(prod.name)}
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11.5px] font-bold text-slate-900 leading-snug line-clamp-2">
+                                {prod.name}
+                              </p>
+                              <p className="text-[12.5px] font-bold text-[#4F46E5] mt-0.5 leading-none">
+                                {formatMoney(prod.salePrice)}
+                              </p>
+                              <div className="leading-none mt-1">
+                                {prod.isService ? (
+                                  <span className="text-[10px] font-medium text-[#2563EB]">Prestation</span>
+                                ) : isStockNeg ? (
+                                  <span className="text-[10px] font-bold text-[#DC2626]">
+                                    Stock négatif ({prod.stock})
+                                  </span>
+                                ) : isStockZero ? (
+                                  <span className="text-[10px] font-medium text-[#DC2626]">Rupture</span>
+                                ) : isStockLow ? (
+                                  <span className="text-[10px] font-bold text-[#D97706]">
+                                    Reste {prod.stock}
+                                  </span>
+                                ) : isStockNormal ? (
+                                  <span className="text-[10px] text-[#64748B]">Reste {prod.stock}</span>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
-                          {inCart && (
-                            <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-[#EEF2FF] text-[#4F46E5] shadow-2xs">
-                              ×{inCart.quantity}
-                            </span>
+
+                          {/* Compteur en pied de carte : la quantité s'ajuste
+                              depuis le catalogue, sans jamais ouvrir le panier.
+                              C'est ce qui rend le tiroir replié tenable. */}
+                          {inCart ? (
+                            <div
+                              className="h-[26px] rounded-lg bg-[#F8FAFC] border border-slate-200/80 flex items-center justify-between px-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                aria-label={`Retirer un ${prod.name}`}
+                                onClick={() => updateCartQuantity(prod.id, -1)}
+                                className="w-7 h-[22px] rounded-md flex items-center justify-center text-slate-700 active:bg-slate-200 cursor-pointer"
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="text-[12.5px] font-black text-slate-900 tabular-nums">
+                                {inCart.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Ajouter un ${prod.name}`}
+                                onClick={() => updateCartQuantity(prod.id, 1)}
+                                className="w-7 h-[22px] rounded-md flex items-center justify-center text-[#4F46E5] active:bg-indigo-100 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="h-[26px] rounded-lg bg-[#EEF2FF] flex items-center justify-center gap-1 text-[#4F46E5]">
+                              <Plus className="w-3 h-3" />
+                              <span className="text-[11px] font-bold">Ajouter</span>
+                            </div>
                           )}
                         </div>
                       );
@@ -1307,25 +1450,6 @@ export const NewSaleModal: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* Bouton flottant "+ Ajouter un produit" (point 2), au-dessus
-                  du tiroir replié ; masqué quand le tiroir est déplié (couvert
-                  par le voile de toute façon). */}
-              {!isMobileCartOpen && (
-                <button
-                  id="btn-add-product-pos-mobile"
-                  type="button"
-                  onClick={() => {
-                    setScannerPreBarcode('');
-                    setIsProductFormOpen(true);
-                  }}
-                  title="Ajouter un nouveau produit au catalogue"
-                  className="fixed right-4 z-30 w-[52px] h-[52px] rounded-full bg-[#4F46E5] hover:bg-indigo-700 text-white shadow-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
-                  style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
-                >
-                  <Plus className="w-6 h-6" />
-                </button>
-              )}
             </div>
 
             {/* Voile sombre derrière le tiroir déplié */}
@@ -1336,49 +1460,88 @@ export const NewSaleModal: React.FC = () => {
               />
             )}
 
-            {/* Tiroir panier (point 5) */}
+            {/* Tiroir panier : barre fixe de 78px, toujours visible. Le bouton
+                de validation ne quitte jamais l'écran ni sa place — il change
+                d'état, jamais de position. */}
             <div
-              className="fixed left-0 right-0 bottom-0 z-40 bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] transition-transform duration-200 ease-out"
+              className={`fixed left-0 right-0 bottom-0 z-40 bg-white rounded-t-[18px] shadow-[0_-8px_26px_rgba(15,23,42,0.13)] transition-transform duration-200 ease-out ${
+                drawerHint && !isMobileCartOpen ? 'pos-drawer-hint' : ''
+              }`}
               style={{
-                height: isMobileCartOpen ? '75vh' : 'auto',
-                transform: isMobileCartOpen ? `translateY(${mobileDragDeltaY}px)` : 'translateY(0)',
+                height: isMobileCartOpen ? '70vh' : 'auto',
+                transform: isMobileCartOpen ? `translateY(${mobileDragDeltaY}px)` : undefined,
                 paddingBottom: 'env(safe-area-inset-bottom, 0px)',
               }}
             >
               {!isMobileCartOpen ? (
-                /* REPLIÉ : barre de 72px, toute la barre est cliquable pour déplier
-                   (sauf panier vide, qui ne se déplie pas). */
-                <button
-                  id="btn-mobile-cart-collapsed"
-                  type="button"
-                  onClick={() => cart.length > 0 && setIsMobileCartOpen(true)}
-                  className={`w-full h-[72px] flex flex-col items-center justify-center px-4 ${
-                    cart.length > 0 ? 'cursor-pointer' : 'cursor-default'
-                  }`}
-                >
-                  <span className="w-9 h-1 rounded-full bg-slate-300 mb-1.5" />
-                  <div className="w-full flex items-center justify-between">
-                    {cart.length === 0 ? (
-                      <span className="text-xs font-medium text-slate-400">
-                        Ton panier est vide · Touche un produit
+                /* REPLIÉ : 78px. La zone gauche (pastille + libellé + total +
+                   chevron) déplie le panier ; seul "Payer" y échappe. */
+                <div className="h-[78px] flex items-stretch gap-2.5 pt-[9px] px-3 pb-[14px] relative">
+                  <span className="absolute top-[5px] left-1/2 -translate-x-1/2 w-[34px] h-1 rounded-full bg-slate-300" />
+
+                  <button
+                    id="btn-mobile-cart-collapsed"
+                    type="button"
+                    aria-expanded={false}
+                    aria-label="Voir le détail de la commande"
+                    onClick={() => cart.length > 0 && setIsMobileCartOpen(true)}
+                    className={`flex-1 min-w-0 flex items-center gap-2 text-left pt-1 ${
+                      cart.length > 0 ? 'cursor-pointer' : 'cursor-default'
+                    }`}
+                  >
+                    {cart.length > 0 && (
+                      <span className="w-[26px] h-[26px] rounded-full bg-[#4F46E5] text-white text-[11px] font-black flex items-center justify-center shrink-0 tabular-nums">
+                        {cartItemCount}
                       </span>
-                    ) : (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-6 h-6 rounded-full bg-[#4F46E5] text-white text-[11px] font-black flex items-center justify-center shrink-0">
-                          {cartItemCount}
-                        </span>
-                        <span className="text-xs font-bold text-slate-900 truncate">
-                          Commande en cours
-                        </span>
-                      </div>
                     )}
-                    <span className="text-[20px] font-black text-slate-900 shrink-0">
-                      {formatMoney(finalTotal)}
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block text-[10px] leading-tight truncate ${
+                          cart.length > 0 && !selectedCustomerId
+                            ? 'text-[#B45309] font-bold'
+                            : 'text-[#94A3B8] font-[600]'
+                        }`}
+                      >
+                        {cart.length === 0
+                          ? 'Ton panier est vide'
+                          : !selectedCustomerId
+                            ? "Choisis d'abord un client"
+                            : 'Commande en cours'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-[17px] font-[800] text-slate-900 tabular-nums leading-tight">
+                          {formatMoneyCompact(finalTotal)}
+                        </span>
+                        {cart.length > 0 && <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" />}
+                      </span>
                     </span>
-                  </div>
-                </button>
+                  </button>
+
+                  <button
+                    id="btn-pos-checkout-mobile-bar"
+                    type="button"
+                    aria-disabled={!isCheckoutReady}
+                    onClick={() => {
+                      if (!isCheckoutReady) {
+                        handleBlockedCheckout();
+                        return;
+                      }
+                      setCustomPaidAmount(finalTotal);
+                      setPaymentType('FULL');
+                      setStep('PAYMENT');
+                    }}
+                    className={`self-center h-12 px-[18px] rounded-xl text-[14px] font-[750] flex items-center gap-1 shrink-0 transition-colors ${
+                      isCheckoutReady
+                        ? 'bg-[#4F46E5] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] active:scale-[0.98] cursor-pointer'
+                        : 'bg-[#E2E8F0] text-[#94A3B8] cursor-default'
+                    }`}
+                  >
+                    <span>Payer</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
               ) : (
-                /* DÉPLIÉ : monte à 75% de la hauteur */
+                /* DÉPLIÉ : monte à 70% de la hauteur, voile noir à 40% derrière */
                 <div className="h-full flex flex-col min-h-0">
                   <div
                     className="shrink-0 pt-2 pb-1 flex flex-col items-center cursor-grab active:cursor-grabbing"
@@ -1388,7 +1551,7 @@ export const NewSaleModal: React.FC = () => {
                     onTouchEnd={handleMobileDragEnd}
                     onClick={() => setIsMobileCartOpen(false)}
                   >
-                    <span className="w-9 h-1 rounded-full bg-slate-300" />
+                    <span className="w-[34px] h-1 rounded-full bg-slate-300" />
                   </div>
 
                   <div className="shrink-0 px-4 py-2 flex items-center justify-between border-b border-slate-100">
@@ -1505,7 +1668,7 @@ export const NewSaleModal: React.FC = () => {
                       <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
                         Total
                       </span>
-                      <span className="text-[28px] font-black text-slate-900 tracking-tight leading-none">
+                      <span className="text-[28px] font-black text-slate-900 tracking-tight leading-none tabular-nums">
                         {formatMoney(finalTotal)}
                       </span>
                     </div>
@@ -1513,24 +1676,30 @@ export const NewSaleModal: React.FC = () => {
                     <button
                       id="btn-pos-checkout-mobile"
                       type="button"
-                      disabled={cart.length === 0 || !selectedCustomerId}
+                      aria-disabled={!isCheckoutReady}
                       onClick={() => {
+                        if (!isCheckoutReady) {
+                          setIsMobileCartOpen(false);
+                          handleBlockedCheckout();
+                          return;
+                        }
                         setCustomPaidAmount(finalTotal);
                         setPaymentType('FULL');
                         setStep('PAYMENT');
                         setIsMobileCartOpen(false);
                       }}
-                      className={`w-full h-[54px] rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
-                        cart.length === 0 || !selectedCustomerId
-                          ? 'bg-[#94A3B8] text-white cursor-not-allowed'
-                          : 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md cursor-pointer'
+                      className={`w-full h-12 rounded-xl text-[14px] font-[750] flex items-center justify-center gap-1 transition-colors ${
+                        isCheckoutReady
+                          ? 'bg-[#4F46E5] active:scale-[0.98] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer'
+                          : 'bg-[#E2E8F0] text-[#94A3B8] cursor-default'
                       }`}
                     >
-                      <span>Encaisser {formatMoney(finalTotal)}</span>
+                      <span>Payer</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
-                    {(cart.length === 0 || !selectedCustomerId) && (
-                      <p className="text-center text-xs font-semibold text-amber-700">
-                        {cart.length === 0 ? 'Ajoute un produit' : 'Choisis d\'abord un client'}
+                    {!isCheckoutReady && (
+                      <p className="text-center text-[11px] font-semibold text-amber-700">
+                        {cart.length === 0 ? 'Ajoute un produit' : "Choisis d'abord un client"}
                       </p>
                     )}
                   </div>

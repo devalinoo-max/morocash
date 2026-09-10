@@ -445,3 +445,39 @@
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   Écran "Nouvelle commande" sur téléphone
+   ========================================================================== */
+
+/* Le tiroir panier se soulève une seule fois, au tout premier ajout d'un
+   produit : rien d'autre ne dit qu'il se déplie, et ce mouvement suffit à le
+   faire comprendre. Il ne se reproduit jamais ensuite (mémorisé côté client). */
+@keyframes posDrawerHint {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-8px);
+  }
+}
+.pos-drawer-hint {
+  animation: posDrawerHint 400ms ease-in-out;
+}
+
+/* Un bouton bloqué ne doit pas seulement être gris : au toucher, il désigne ce
+   qui manque. La carte client pulse une fois, 600 ms. */
+@keyframes posCustomerAttention {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.35);
+  }
+}
+.pos-customer-attention {
+  animation: posCustomerAttention 600ms ease-in-out;
+  border-color: rgba(245, 158, 11, 0.9);
+}

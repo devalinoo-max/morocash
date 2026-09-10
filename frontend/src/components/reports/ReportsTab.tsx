@@ -25,7 +25,7 @@ import {
   Layers,
   Users,
 } from 'lucide-react';
-import { formatMoney, formatDate, formatNumber } from '../../utils/formatters';
+import { formatMoney, formatMoneyCompact, formatDate, formatNumber } from '../../utils/formatters';
 import { Sale, Expense, CashMovement, PaymentMethod, Customer } from '../../types';
 
 type PeriodPreset = 'today' | '7days' | '30days' | 'thisMonth' | 'thisYear' | 'custom';
@@ -827,7 +827,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               Total vendu
             </div>
             <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1 tabular-nums">
-              {formatMoney(curr.total_vendu)}
+              {formatMoneyCompact(curr.total_vendu)}
             </div>
             {comparePrevious && (
               <div className="mt-2 flex items-center gap-1.5 text-xs font-bold">
@@ -864,7 +864,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                 curr.gagne >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
               }`}
             >
-              {curr.gagne < 0 ? `- ${formatMoney(Math.abs(curr.gagne))}` : formatMoney(curr.gagne)}
+              {curr.gagne < 0 ? `- ${formatMoneyCompact(Math.abs(curr.gagne))}` : formatMoneyCompact(curr.gagne)}
             </div>
             {comparePrevious && (
               <div className="mt-2 flex items-center gap-1.5 text-xs font-bold">
@@ -901,7 +901,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               Ce que tu as dépensé
             </div>
             <div className="text-2xl sm:text-3xl font-black text-amber-700 mt-1 tabular-nums">
-              {formatMoney(curr.total_depenses)}
+              {formatMoneyCompact(curr.total_depenses)}
             </div>
             {comparePrevious && (
               <div className="mt-2 flex items-center gap-1.5 text-xs font-bold">
@@ -934,7 +934,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               On te doit
             </div>
             <div className="text-2xl sm:text-3xl font-black text-[#DC2626] mt-1 tabular-nums">
-              {formatMoney(totalOutstandingDebt)}
+              {formatMoneyCompact(totalOutstandingDebt)}
             </div>
             <div className="mt-2 text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md inline-block">
               {indebtedCustomersCount} client{indebtedCustomersCount > 1 ? 's' : ''} concerné{indebtedCustomersCount > 1 ? 's' : ''}

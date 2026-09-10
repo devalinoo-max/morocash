@@ -22,7 +22,7 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
+import { formatMoney, formatMoneyCompact, formatDate, formatShortDate } from '../../utils/formatters';
 import { PaymentMethod, CashMovement } from '../../types';
 import { getPeriodRange, isWithinRange, SimplePeriod } from '../../utils/period';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
@@ -431,7 +431,7 @@ export const CashRegisterTab: React.FC = () => {
           <div className="space-y-1.5">
             <span className="text-xs font-bold text-slate-500">Fond de départ</span>
             <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatMoney(fondDepart)}
+              {formatMoneyCompact(fondDepart)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
               Mis en caisse à l’ouverture
@@ -450,7 +450,7 @@ export const CashRegisterTab: React.FC = () => {
               </span>
             </div>
             <div className="text-2xl font-black text-[#059669] tracking-tight">
-              {formatMoney(totalEntrees)}
+              {formatMoneyCompact(totalEntrees)}
             </div>
             <p className="text-[11px] text-amber-700 font-bold flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
@@ -470,7 +470,7 @@ export const CashRegisterTab: React.FC = () => {
               </span>
             </div>
             <div className="text-2xl font-black text-[#D97706] tracking-tight">
-              {formatMoney(totalSorties)}
+              {formatMoneyCompact(totalSorties)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
               Retraits ou achats justifiés
@@ -489,7 +489,7 @@ export const CashRegisterTab: React.FC = () => {
               </span>
             </div>
             <div className="text-2xl font-black text-[#DC2626] tracking-tight">
-              {formatMoney(todayExpenses)}
+              {formatMoneyCompact(todayExpenses)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
               {expenses.filter((e) => isWithinRange(e.date, getPeriodRange('TODAY'))).length} note(s) de frais aujourd'hui
@@ -518,7 +518,7 @@ export const CashRegisterTab: React.FC = () => {
               Ce que les clients nous doivent
             </span>
             <div className="text-xl sm:text-2xl font-black text-rose-700 mt-0.5">
-              {formatMoney(totalCustomerDebts)}
+              {formatMoneyCompact(totalCustomerDebts)}
             </div>
             <p className="text-[11px] text-rose-600 font-medium">
               Réparti sur {debtorsCount} client{debtorsCount > 1 ? 's' : ''} — pas encore encaissé, donc pas dans la caisse

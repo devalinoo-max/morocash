@@ -23,7 +23,7 @@ import {
   Banknote,
   Send,
 } from 'lucide-react';
-import { formatMoney, formatDate, getTerminology } from '../../utils/formatters';
+import { formatMoney, formatMoneyCompact, formatDate, getTerminology } from '../../utils/formatters';
 import { getPeriodRange, getPreviousPeriodRange, isWithinRange, percentChange, SimplePeriod } from '../../utils/period';
 import { PaywallOverlay } from '../common/PaywallOverlay';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
@@ -340,7 +340,7 @@ export const DashboardTab: React.FC = () => {
                 1. Ventes totales
               </span>
               <div className="text-2xl font-black text-slate-900">
-                {formatMoney(totalVendu)}
+                {formatMoneyCompact(totalVendu)}
               </div>
               <p className="text-xs text-slate-400">
                 {periodSales.length} vente{periodSales.length > 1 ? 's' : ''} enregistrée{periodSales.length > 1 ? 's' : ''}
@@ -352,7 +352,7 @@ export const DashboardTab: React.FC = () => {
                 2. Dépenses totales
               </span>
               <div className="text-2xl font-black text-[#DC2626]">
-                {formatMoney(totalDepenses)}
+                {formatMoneyCompact(totalDepenses)}
               </div>
               <p className="text-xs text-slate-400">
                 {periodExpenses.length} dépense{periodExpenses.length > 1 ? 's' : ''} notée{periodExpenses.length > 1 ? 's' : ''}
@@ -364,7 +364,7 @@ export const DashboardTab: React.FC = () => {
                 3. Reste à encaisser
               </span>
               <div className="text-2xl font-black text-amber-600">
-                {formatMoney(argentARecevoir)}
+                {formatMoneyCompact(argentARecevoir)}
               </div>
               <p className="text-xs text-slate-400">
                 {customers.filter((c) => c.totalDebt > 0).length} clients avec crédit
@@ -568,7 +568,7 @@ export const DashboardTab: React.FC = () => {
               )}
             </div>
             <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatMoney(totalVendu)}
+              {formatMoneyCompact(totalVendu)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
               {periodSales.length} vente{periodSales.length > 1 ? 's' : ''}
@@ -603,7 +603,7 @@ export const DashboardTab: React.FC = () => {
               )}
             </div>
             <div className="text-2xl font-black text-[#DC2626] tracking-tight">
-              {formatMoney(argentARecevoir)}
+              {formatMoneyCompact(argentARecevoir)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
               {customers.filter((c) => c.totalDebt > 0).length} client{customers.filter((c) => c.totalDebt > 0).length > 1 ? 's' : ''} avec dette
@@ -637,7 +637,7 @@ export const DashboardTab: React.FC = () => {
               )}
             </div>
             <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatMoney(totalDepenses)}
+              {formatMoneyCompact(totalDepenses)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
               {periodExpenses.length} dépense{periodExpenses.length > 1 ? 's' : ''}
@@ -662,7 +662,7 @@ export const DashboardTab: React.FC = () => {
               </span>
             </div>
             <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatMoney(soldeCaisseTheorique)}
+              {formatMoneyCompact(soldeCaisseTheorique)}
             </div>
             <p className="text-xs text-slate-500 font-medium truncate">
               Espèces {formatMoney(encaisseEspeces)} · MM {formatMoney(encaisseMobileMoney)}
