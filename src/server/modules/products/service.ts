@@ -49,9 +49,15 @@ export async function createProduct(businessId: string, input: CreateProductInpu
  * Les photos (ProductImage) font partie du produit pour le frontend : sans ce
  * `include`, un produit rechargé revenait sans image et la photo enregistrée
  * disparaissait de l'écran Produits.
+ *
+ * Les codes (ProductCode) aussi, et pour la même raison : c'est le serveur qui
+ * génère le QR interne à la création (INT-XXXXXXXXX, voir createProduct plus
+ * haut). Sans lui dans la réponse, le frontend imprimait sur l'étiquette un
+ * code qu'il fabriquait de son côté, et ne reconnaissait plus rien au scan.
  */
 export const withImages = {
   images: { orderBy: { ordre: 'asc' } },
+  codes: { orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.ProductInclude;
 
 export async function listProducts(businessId: string, opts: { actif?: boolean } = {}) {

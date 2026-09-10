@@ -1,6 +1,6 @@
-import type { Product, ProductImage, UserRole } from '@prisma/client';
+import type { Product, ProductCode, ProductImage, UserRole } from '@prisma/client';
 
-export type ProductWithImages = Product & { images?: ProductImage[] };
+export type ProductWithImages = Product & { images?: ProductImage[]; codes?: ProductCode[] };
 
 /**
  * URL exploitable par un <img> côté frontend.
@@ -31,6 +31,17 @@ export function serializeProductImage(image: ProductImage) {
  * Filtrage par rôle AVANT la réponse, jamais à l'affichage (spec §10).
  * Un SELLER ne reçoit jamais prixAchat, cmp, ni la marge calculée.
  */
+export function serializeProductCode(c: ProductCode) {
+  return {
+    id: c.id,
+    code: c.code,
+    format: c.format,
+    origine: c.origine,
+    estPrincipal: c.estPrincipal,
+    createdAt: c.createdAt,
+  };
+}
+
 export function serializeProduct(p: ProductWithImages, role: UserRole) {
   const base = {
     id: p.id,
@@ -44,6 +55,9 @@ export function serializeProduct(p: ProductWithImages, role: UserRole) {
     actif: p.actif,
     createdAt: p.createdAt,
     images: (p.images ?? []).map(serializeProductImage),
+    // Le code sert a scanner l'article en caisse et a imprimer son etiquette :
+    // tous les roles en ont besoin, y compris un SELLER.
+    codes: (p.codes ?? []).map(serializeProductCode),
   };
 
   if (role === 'SELLER') return base;

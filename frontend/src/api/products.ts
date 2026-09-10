@@ -1,12 +1,21 @@
 import { api, ApiError } from './client';
 import { NO_CATEGORY_LABEL, createCategory, listCategories } from './categories';
-import type { Product } from '../types';
+import type { BarcodeFormat, CodeOrigin, Product, ProductCode } from '../types';
 
 export interface ApiProductImage {
   id: string;
   url: string;
   ordre: number;
   isPrincipale: boolean;
+}
+
+export interface ApiProductCode {
+  id: string;
+  code: string;
+  format: BarcodeFormat;
+  origine: CodeOrigin;
+  estPrincipal: boolean;
+  createdAt: string;
 }
 
 export interface ApiProduct {
@@ -21,6 +30,7 @@ export interface ApiProduct {
   actif: boolean;
   createdAt: string;
   images?: ApiProductImage[];
+  codes?: ApiProductCode[];
   // Absents du JSON pour un SELLER (spec §0 règle 7) — filtré côté serveur.
   prixAchat?: number;
   cmp?: number;
@@ -147,7 +157,32 @@ export async function syncProductPhotos(
 export function toFrontendProduct(p: ApiProduct, categoryName?: string): Product {
   const images = p.images ?? [];
   const photos = images.map((i) => i.url);
+
+  // Les codes viennent du serveur, qui les genere a la creation du produit
+  // (INT-XXXXXXXXX) et les garde uniques par boutique. Ce sont EUX qui sont
+  // imprimes sur l'etiquette et cherches au scan en caisse : le frontend ne
+  // doit jamais en inventer un de son cote, sinon l'etiquette et le catalogue
+  // ne parlent pas du meme code et le scan repond "produit introuvable".
+  const apiCodes = p.codes ?? [];
+  const productCodes: ProductCode[] = apiCodes.map((c) => ({
+    id: c.id,
+    business_id: '',
+    product_id: p.id,
+    code: c.code,
+    format: c.format as BarcodeFormat,
+    origine: c.origine as CodeOrigin,
+    est_principal: c.estPrincipal,
+    created_at: c.createdAt,
+  }));
+  // Code interne = celui que la boutique a genere (QR MoroCash). Le code du
+  // fabricant, lui, est scanne sur l'emballage : formats EAN/UPC/CODE*.
+  const internal = apiCodes.find((c) => c.origine === 'GENERE') ?? apiCodes.find((c) => c.estPrincipal);
+  const manufacturer = apiCodes.find((c) => c.origine !== 'GENERE' && c.format !== 'QR');
+
   return {
+    ...(productCodes.length > 0 ? { productCodes } : {}),
+    ...(internal ? { internalCode: internal.code } : {}),
+    ...(manufacturer ? { barcode: manufacturer.code } : {}),
     photo: photos[0],
     photos,
     photoRefs: images.map((i) => ({ id: i.id, url: i.url })),

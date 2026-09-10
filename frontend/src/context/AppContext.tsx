@@ -40,10 +40,7 @@ import {
   generateUUID,
   getTerminology,
 } from '../utils/formatters';
-import {
-  generateInternalCode,
-  validateBarcodeChecksum,
-} from '../utils/barcodeEngine';
+import { validateBarcodeChecksum } from '../utils/barcodeEngine';
 import confetti from 'canvas-confetti';
 import { PLANS } from '../data/plans';
 import * as authApi from '../api/auth';
@@ -445,18 +442,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       const loaded: Product[] = saved ? JSON.parse(saved) : initialProducts;
       const shopCode = settings.shopCode || 'A7K2X';
-      let counter = settings.lastInternalCodeNumber || 12;
 
       return loaded.map((p, idx) => {
-        let internalCode = p.internalCode;
-        let codes = p.productCodes ? [...p.productCodes] : [];
+        // Le code interne vient du SERVEUR, qui le genere a la creation du
+        // produit (INT-XXXXXXXXX) et garantit son unicite dans la boutique.
+        // On n'en fabrique plus ici : un code invente localement n'existait
+        // pour personne d'autre — il finissait imprime sur l'etiquette, puis
+        // introuvable au scan des que le catalogue etait recharge du serveur.
+        const internalCode = p.internalCode;
+        const codes = p.productCodes ? [...p.productCodes] : [];
 
-        if (!internalCode) {
-          counter += 1;
-          internalCode = generateInternalCode(shopCode, counter);
-        }
-
-        const hasHouseCode = codes.some((c) => c.origine === 'GENERE' || c.code === internalCode);
+        const hasHouseCode =
+          !internalCode || codes.some((c) => c.origine === 'GENERE' || c.code === internalCode);
         if (!hasHouseCode) {
           codes.unshift({
             id: `code-gen-${p.id || idx}`,
@@ -1741,6 +1738,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (p.internalCode && p.internalCode.toLowerCase() === clean) return true;
       if (p.barcode && p.barcode.toLowerCase() === clean) return true;
       if (p.productCodes && p.productCodes.some((c) => c.code.toLowerCase() === clean)) return true;
+      // Filet de securite pour les etiquettes deja collees : tant que le
+      // catalogue ne recevait pas les codes du serveur, le generateur
+      // d'etiquettes se rabattait sur l'identifiant du produit (voir
+      // labelPdfGenerator, `p.internalCode || p.barcode || p.id`). Ces QR-la
+      // sont dans la boutique et doivent continuer a scanner.
+      if (p.id.toLowerCase() === clean) return true;
       return false;
     });
   };
