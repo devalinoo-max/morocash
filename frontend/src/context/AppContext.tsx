@@ -92,6 +92,29 @@ function isNetworkFailure(error: unknown): boolean {
   return error instanceof ApiError && error.code === 'NETWORK_ERROR';
 }
 
+/**
+ * Refus prononces AVANT toute ecriture en base : session expiree, quota de
+ * requetes, boutique en lecture seule, abonnement echu. Rien n'a ete cree cote
+ * serveur, donc rejouer plus tard ne peut pas faire de doublon — meme pour un
+ * produit ou un client, qui n'ont pas de garde-fou anti-doublon en base.
+ *
+ * Le cas est frequent et couteux : un commercant reste hors ligne assez
+ * longtemps pour que sa session expire perdait, au retour du reseau, tout ce
+ * qu'il avait saisi entre-temps (la file jetait la ligne pour ne pas risquer
+ * un doublon). On la garde desormais : elle repartira apres reconnexion.
+ */
+const RETRYABLE_REFUSALS = new Set([
+  'AUTH_SESSION_EXPIRED',
+  'AUTH_TOO_MANY_ATTEMPTS',
+  'RATE_LIMITED',
+  'BUSINESS_READ_ONLY',
+  'SUBSCRIPTION_EXPIRED',
+]);
+
+function wroteNothing(error: unknown): boolean {
+  return error instanceof ApiError && RETRYABLE_REFUSALS.has(error.code);
+}
+
 interface AppContextType {
   // Auth réel (étape 13) — remplace l'ancien onboarding local uniquement.
   authStatus: 'loading' | 'anonymous' | 'authenticated';
@@ -394,6 +417,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // 1b. Auth réel (étape 13) — session cookie vérifiée auprès du vrai backend
   // au montage ; tant que 'loading', on n'affiche ni l'app ni l'écran de connexion.
   const [authStatus, setAuthStatus] = useState<'loading' | 'anonymous' | 'authenticated'>('loading');
+  // Lu par les ecouteurs poses une seule fois au montage (retour au premier
+  // plan), qui captureraient sinon la valeur du premier rendu.
+  const authStatusRef = useRef(authStatus);
+  authStatusRef.current = authStatus;
   const [currentUser, setCurrentUser] = useState<authApi.ApiUser | null>(null);
   const [currentBusiness, setCurrentBusiness] = useState<authApi.ApiBusiness | null>(null);
 
@@ -638,8 +665,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUiState('OFFLINE');
     };
 
+    // Retour au premier plan : sur telephone, l'app est mise en veille par le
+    // systeme et l'evenement `online` peut ne jamais arriver (reseau revenu
+    // pendant que l'ecran etait eteint, bascule 4G/Wi-Fi...). On retente donc
+    // aussi a chaque fois que le commercant revient sur l'app.
+    const handleVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!navigator.onLine) return;
+      if (authStatusRef.current !== 'authenticated') return;
+      void replayRef.current?.();
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisible);
 
     // État réel du réseau au démarrage, dans les deux sens : `isOfflineMode`
     // est persisté avec les réglages, et sans cette remise à plat une app
@@ -652,6 +691,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisible);
       if (replayTimer.current) clearTimeout(replayTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1147,7 +1187,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // laisse la main au commercant.
           markMutationFailed(mutation);
 
-          if (SERVER_DEDUPLICATED[mutation.kind]) {
+          if (SERVER_DEDUPLICATED[mutation.kind] || wroteNothing(error)) {
             blockedId.current = mutation.id;
           } else {
             // Ni produit ni client ne portent de garde-fou anti-doublon en
@@ -1158,7 +1198,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           setPendingFailure({
             message: `${mutation.label} : ${apiErrorMessage(error)}`,
-            canRetry: SERVER_DEDUPLICATED[mutation.kind],
+            canRetry: SERVER_DEDUPLICATED[mutation.kind] || wroteNothing(error),
           });
           break;
         }
@@ -1251,6 +1291,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setAuthStatus('authenticated');
     markSessionStarted(session.user.telephone);
     await loadRealData(session.user.nom);
+
+    // Reprise de la file au demarrage. Sans ca, ce qui avait ete saisi hors
+    // ligne ne repartait QUE si la connexion revenait pendant que l'app etait
+    // ouverte (evenement `online`) : un commercant qui saisit ses produits en
+    // mode avion, ferme l'app, puis la rouvre une fois le reseau revenu ne
+    // declenchait aucun envoi — la file restait pleine indefiniment.
+    // Volontairement ici, et pas au montage : tant que la session n'est pas
+    // confirmee, le serveur repondrait AUTH_SESSION_EXPIRED, ce que la file
+    // interprete comme un refus (voir replayQueue).
+    void replayRef.current?.();
   };
 
   useEffect(() => {
@@ -1260,19 +1310,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     void loadIdMap().then((map) => {
       idMap.current = map;
     });
-    void refreshPending();
-    void loadSnapshot().then((snapshot) => {
+    // La file est relue AVANT l'instantane, et l'instantane est fusionne avec
+    // elle : l'instantane ne contient que la version serveur, donc l'appliquer
+    // tel quel effacait de l'ecran tout ce qui avait ete saisi hors ligne lors
+    // d'une session precedente (un produit cree en mode avion disparaissait au
+    // redemarrage de l'app, alors que son envoi attendait toujours en file).
+    void (async () => {
+      const pendingRows = await refreshPending();
+      const pendingLocalIds = new Set(pendingRows.map((m) => m.localId));
+      const snapshot = await loadSnapshot();
       if (!snapshot) return;
-      if (snapshot.products?.length) setProducts(snapshot.products);
-      if (snapshot.customers?.length) setCustomers(snapshot.customers);
-      if (snapshot.sales?.length) setSales(snapshot.sales);
-      if (snapshot.expenses?.length) setExpenses(snapshot.expenses);
+      if (snapshot.products?.length)
+        setProducts((prev) => mergePending(snapshot.products, prev, pendingLocalIds));
+      if (snapshot.customers?.length)
+        setCustomers((prev) => mergePending(snapshot.customers, prev, pendingLocalIds));
+      if (snapshot.sales?.length)
+        setSales((prev) => mergePending(snapshot.sales, prev, pendingLocalIds));
+      if (snapshot.expenses?.length)
+        setExpenses((prev) => mergePending(snapshot.expenses, prev, pendingLocalIds));
       if (snapshot.cashSessions?.length) setCashSessions(snapshot.cashSessions);
       if (snapshot.cashMovements?.length) setCashMovements(snapshot.cashMovements);
       if (snapshot.stockMovements?.length) setStockMovements(snapshot.stockMovements);
       if (snapshot.stockReceptions?.length) setStockReceptions(snapshot.stockReceptions);
       if (snapshot.stockCounts?.length) setStockCounts(snapshot.stockCounts);
-    });
+    })();
 
     // 2. Session reelle. Hors ligne, /auth/me echoue : on ne renvoie surtout
     //    pas le commercant sur l'ecran de connexion (il n'a aucun moyen de s'y

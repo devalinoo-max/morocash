@@ -97,9 +97,17 @@ export const PendingSyncBar: React.FC = () => {
   }
 
   if (pendingMutations.length > 0) {
+    // Tapable : la reprise est automatique (retour du reseau, retour sur
+    // l'app, redemarrage), mais quand quelque chose reste en attente le
+    // commercant doit pouvoir forcer l'envoi lui-meme plutot que de regarder
+    // un compteur qui ne bouge pas.
     return (
-      <SyncPill tone="neutral" icon={<UploadCloud className="w-3.5 h-3.5" />}>
-        {pendingMutations.length} en attente d’envoi
+      <SyncPill
+        tone="neutral"
+        icon={<UploadCloud className="w-3.5 h-3.5" />}
+        onClick={() => void syncPendingOperations()}
+      >
+        {pendingMutations.length} en attente d’envoi — envoyer
       </SyncPill>
     );
   }
@@ -111,17 +119,27 @@ const SyncPill: React.FC<{
   tone: 'neutral' | 'success';
   icon: React.ReactNode;
   children: React.ReactNode;
-}> = ({ tone, icon, children }) => (
-  <div className="fixed bottom-20 md:bottom-3 inset-x-0 z-[90] px-3 pointer-events-none flex justify-center">
-    <div
-      className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-bold shadow-lg border ${
-        tone === 'success'
-          ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/20'
-          : 'bg-slate-900 text-slate-100 border-slate-800 shadow-slate-900/25'
-      }`}
-    >
-      {icon}
-      <span>{children}</span>
+  onClick?: () => void;
+}> = ({ tone, icon, children, onClick }) => {
+  const className = `flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-bold shadow-lg border ${
+    tone === 'success'
+      ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/20'
+      : 'bg-slate-900 text-slate-100 border-slate-800 shadow-slate-900/25'
+  }`;
+
+  return (
+    <div className="fixed bottom-20 md:bottom-3 inset-x-0 z-[90] px-3 pointer-events-none flex justify-center">
+      {onClick ? (
+        <button type="button" onClick={onClick} className={`${className} pointer-events-auto active:scale-95 transition-transform`}>
+          {icon}
+          <span>{children}</span>
+        </button>
+      ) : (
+        <div className={className}>
+          {icon}
+          <span>{children}</span>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
