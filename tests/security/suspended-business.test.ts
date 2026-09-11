@@ -63,7 +63,13 @@ describe('Boutique suspendue — blocage en écriture', () => {
     try {
       await requireBusinessWritable(business.id);
       await pushSyncOperations(
-        { businessId: business.id, userId: owner.id, role: 'OWNER', cashRegisterMode: business.cashRegisterMode },
+        {
+          businessId: business.id,
+          userId: owner.id,
+          role: 'OWNER',
+          remiseMaxVendeur: business.remiseMaxVendeur,
+          cashRegisterMode: business.cashRegisterMode,
+        },
         [op]
       );
     } catch {

@@ -55,7 +55,13 @@ export interface SyncResult {
   error?: { code: string; message: string };
 }
 
-type Ctx = { businessId: string; userId: string; role: UserRole; cashRegisterMode: CashRegisterMode };
+type Ctx = {
+  businessId: string;
+  userId: string;
+  role: UserRole;
+  remiseMaxVendeur: number;
+  cashRegisterMode: CashRegisterMode;
+};
 
 async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
   // Le clientUuid de l'enveloppe fait foi — il prime sur un éventuel clientUuid
@@ -71,7 +77,11 @@ async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
             businessId: ctx.businessId,
             userId: ctx.userId,
             role: ctx.role,
-            remiseMaxVendeur: 0,
+            // Le plafond réel de la boutique, comme sur POST /orders. Il était
+            // forcé à 0 ici : une vente remisée par un vendeur dans la limite
+            // autorisée était acceptée à l'écran hors ligne, puis refusée pour
+            // toujours (DISCOUNT_ABOVE_LIMIT) au moment de la synchronisation.
+            remiseMaxVendeur: ctx.remiseMaxVendeur,
             cashRegisterMode: ctx.cashRegisterMode,
           },
           parsed

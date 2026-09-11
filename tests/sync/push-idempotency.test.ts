@@ -59,6 +59,7 @@ describe('Étape 10 — idempotence du push de synchronisation', () => {
       businessId: business.id,
       userId: owner.id,
       role: 'OWNER' as const,
+      remiseMaxVendeur: business.remiseMaxVendeur,
       cashRegisterMode: business.cashRegisterMode,
     };
     const results = await pushSyncOperations(ctx, operations);

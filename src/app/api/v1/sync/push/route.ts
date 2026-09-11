@@ -18,7 +18,13 @@ export async function POST(request: Request) {
     }
 
     const results = await pushSyncOperations(
-      { businessId: ctx.businessId, userId: ctx.userId, role: ctx.role, cashRegisterMode: ctx.business.cashRegisterMode },
+      {
+        businessId: ctx.businessId,
+        userId: ctx.userId,
+        role: ctx.role,
+        remiseMaxVendeur: ctx.business.remiseMaxVendeur,
+        cashRegisterMode: ctx.business.cashRegisterMode,
+      },
       parsed.data.operations
     );
 
