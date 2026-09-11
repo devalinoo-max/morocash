@@ -70,6 +70,12 @@ import {
   retryDelayMs,
   type PendingMutation,
 } from '../offline/queue';
+import {
+  decideAfterFailure,
+  isMissingResource,
+  isNetworkFailure,
+  mergePending,
+} from '../offline/replayPolicy';
 import { loadIdMap, loadSnapshot, saveIdMap, saveSnapshot } from '../offline/cache';
 import { CACHE_STORE, QUEUE_STORE, idbClear } from '../offline/idb';
 import { NO_CATEGORY_LABEL } from '../api/categories';
@@ -80,50 +86,6 @@ function apiErrorMessage(error: unknown): string {
   return 'Impossible de joindre le serveur. Réessaie.';
 }
 
-/**
- * Une panne reseau franche (requete jamais partie, ou coupee en vol) se rejoue
- * sans risque. Une reponse d'erreur du serveur, elle, veut dire quelque chose
- * et doit remonter au commercant : rejouer indefiniment un refus ne le
- * corrigera pas.
- */
-function isNetworkFailure(error: unknown): boolean {
-  return error instanceof ApiError && error.code === 'NETWORK_ERROR';
-}
-
-/**
- * Refus prononces AVANT toute ecriture en base : session expiree, quota de
- * requetes, boutique en lecture seule, abonnement echu. Rien n'a ete cree cote
- * serveur, donc rejouer plus tard ne peut pas faire de doublon — meme pour un
- * produit ou un client, qui n'ont pas de garde-fou anti-doublon en base.
- *
- * Le cas est frequent et couteux : un commercant reste hors ligne assez
- * longtemps pour que sa session expire perdait, au retour du reseau, tout ce
- * qu'il avait saisi entre-temps (la file jetait la ligne pour ne pas risquer
- * un doublon). On la garde desormais : elle repartira apres reconnexion.
- */
-const RETRYABLE_REFUSALS = new Set([
-  'AUTH_SESSION_EXPIRED',
-  'AUTH_TOO_MANY_ATTEMPTS',
-  'RATE_LIMITED',
-  'BUSINESS_READ_ONLY',
-  'SUBSCRIPTION_EXPIRED',
-]);
-
-function wroteNothing(error: unknown): boolean {
-  return error instanceof ApiError && RETRYABLE_REFUSALS.has(error.code);
-}
-
-/**
- * La ressource visee n'existe pas (ou plus) cote serveur. Pour une
- * modification de produit, cela veut dire que sa creation n'est jamais passee :
- * insister sur le meme identifiant echouera toujours.
- */
-function isMissingResource(error: unknown): boolean {
-  return (
-    error instanceof ApiError &&
-    (error.code === 'PRODUCT_NOT_FOUND' || error.code === 'RESOURCE_NOT_OWNED')
-  );
-}
 
 interface AppContextType {
   // Auth réel (étape 13) — remplace l'ancien onboarding local uniquement.
@@ -806,26 +768,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * multiplier les allers-retours réseau par rapport à une mise à jour locale
    * optimiste.
    */
-  /**
-   * Rechargement serveur et écritures en attente se marchent dessus : pendant
-   * qu'un rechargement est en vol, le commerçant continue de vendre, et ses
-   * commandes toutes fraîches n'existent pas encore côté serveur. Les appliquer
-   * telles quelles les ferait disparaître de l'écran — le pire bug possible
-   * pour une caisse.
-   *
-   * On relit donc la file au moment d'appliquer, et on remet en tête ce qui n'a
-   * pas encore été confirmé.
-   */
-  const mergePending = <T extends { id: string }>(
-    serverRows: T[],
-    localRows: T[],
-    pendingLocalIds: Set<string>
-  ): T[] => {
-    const serverIds = new Set(serverRows.map((r) => r.id));
-    const stillLocal = localRows.filter((r) => pendingLocalIds.has(r.id) && !serverIds.has(r.id));
-    return [...stillLocal, ...serverRows];
-  };
-
   const loadRealData = async (userName: string) => {
     try {
       // Toutes ces requêtes sont indépendantes les unes des autres (seul le
@@ -1220,8 +1162,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           sent += 1;
         } catch (error) {
           const updated = await markAttempt(mutation.id, apiErrorMessage(error));
+          // La regle elle-meme vit dans offline/replayPolicy.ts : garder,
+          // bloquer ou jeter est la decision la plus lourde de consequences de
+          // l'app (perte, doublon, ou file figee), elle doit rester verifiable.
+          const { decision, canRetry } = decideAfterFailure(mutation.kind, error);
 
-          if (isNetworkFailure(error)) {
+          if (decision.action === 'RETRY_LATER') {
             // Reseau coupe : on garde tout, on retentera plus tard, avec un
             // delai croissant. Aucun message d'erreur technique a l'ecran.
             scheduleReplay(retryDelayMs(updated?.attempts ?? 1));
@@ -1234,7 +1180,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // laisse la main au commercant.
           markMutationFailed(mutation);
 
-          if (SERVER_DEDUPLICATED[mutation.kind] || wroteNothing(error)) {
+          if (decision.action === 'KEEP_AND_BLOCK') {
             blockedId.current = mutation.id;
           } else {
             // Ni produit ni client ne portent de garde-fou anti-doublon en
@@ -1245,7 +1191,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
           setPendingFailure({
             message: `${mutation.label} : ${apiErrorMessage(error)}`,
-            canRetry: SERVER_DEDUPLICATED[mutation.kind] || wroteNothing(error),
+            canRetry,
           });
           break;
         }
