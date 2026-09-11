@@ -89,7 +89,11 @@ async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
       case 'RECORD_DEBT_PAYMENT': {
         const customerId = z.string().cuid().parse((op.payload as Record<string, unknown>).customerId);
         const parsed = repayDebtSchema.parse(payload);
-        const result = await repayDebt({ businessId: ctx.businessId, userId: ctx.userId }, customerId, parsed);
+        const result = await repayDebt(
+          { businessId: ctx.businessId, userId: ctx.userId, cashRegisterMode: ctx.cashRegisterMode },
+          customerId,
+          parsed
+        );
         return { clientUuid: op.clientUuid, status: result.status === 'DUPLICATE' ? 'DUPLICATE' : 'SYNCED' };
       }
       case 'STOCK_RECEPTION': {

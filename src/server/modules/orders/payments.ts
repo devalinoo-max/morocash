@@ -1,7 +1,9 @@
 import { z } from 'zod';
+import type { CashRegisterMode } from '@prisma/client';
 import { runInTenantTransaction } from '@/server/repositories/base';
 import { AppError } from '@/server/shared/errors';
 import { applyDailyStatsDelta } from '@/server/modules/reports/dailyStats';
+import { ensureOpenRegisterForPayment } from '@/server/modules/cash/service';
 
 export const addOrderPaymentSchema = z.object({
   clientUuid: z.string().uuid(),
@@ -14,7 +16,7 @@ export const addOrderPaymentSchema = z.object({
 export type AddOrderPaymentInput = z.infer<typeof addOrderPaymentSchema>;
 
 export async function addOrderPayment(
-  ctx: { businessId: string; userId: string },
+  ctx: { businessId: string; userId: string; cashRegisterMode: CashRegisterMode },
   orderId: string,
   input: AddOrderPaymentInput
 ) {
@@ -44,12 +46,13 @@ export async function addOrderPayment(
       throw new AppError('PAYMENT_EXCEEDS_REMAINING', 'Le montant dépasse le reste à payer.');
     }
 
-    const register = await tx.cashRegister.findFirst({
-      where: { businessId: ctx.businessId, statut: 'OUVERTE' },
-    });
-    if (!register) {
-      throw new AppError('CASH_REGISTER_CLOSED', 'Aucune caisse ouverte pour encaisser ce paiement.');
-    }
+    // Même règle que pour un encaissement à la vente (createOrder étape 6) :
+    // en mode LIBRE, une caisse virtuelle s'ouvre toute seule ; seul le mode
+    // STRICT exige une caisse explicitement ouverte. Sans ça, encaisser le
+    // reste d'une commande à crédit échouait avec « Aucune caisse ouverte »
+    // alors que la même boutique venait d'encaisser une vente comptant sans
+    // rien ouvrir — le commerçant ne pouvait plus solder ses créances.
+    const register = await ensureOpenRegisterForPayment(tx, ctx);
 
     const payment = await tx.payment.create({
       data: {

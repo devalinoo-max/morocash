@@ -20,7 +20,15 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // addOrderPayment() journalise déjà ORDER_PAYMENT_ADDED dans sa propre
     // transaction (voir orders/payments.ts) — pas de second auditable() ici.
-    const result = await addOrderPayment(ctx, id, parsed.data);
+    const result = await addOrderPayment(
+      {
+        businessId: ctx.businessId,
+        userId: ctx.userId,
+        cashRegisterMode: ctx.business.cashRegisterMode,
+      },
+      id,
+      parsed.data
+    );
 
     return ok(
       { status: result.status, payment: result.payment },

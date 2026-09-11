@@ -18,7 +18,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       throw new AppError('VALIDATION_ERROR', 'Données invalides.', parsed.error.flatten());
     }
 
-    const result = await repayDebt(ctx, id, parsed.data);
+    const result = await repayDebt(
+      {
+        businessId: ctx.businessId,
+        userId: ctx.userId,
+        cashRegisterMode: ctx.business.cashRegisterMode,
+      },
+      id,
+      parsed.data
+    );
 
     return ok(
       { status: result.status, payment: result.payment },

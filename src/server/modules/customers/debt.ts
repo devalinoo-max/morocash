@@ -1,7 +1,9 @@
 import { z } from 'zod';
+import type { CashRegisterMode } from '@prisma/client';
 import { runInTenantTransaction } from '@/server/repositories/base';
 import { AppError } from '@/server/shared/errors';
 import { applyDailyStatsDelta } from '@/server/modules/reports/dailyStats';
+import { ensureOpenRegisterForPayment } from '@/server/modules/cash/service';
 
 /**
  * Solde débiteur d'un client = Σ(total des commandes non annulées) − Σ(paiements
@@ -62,7 +64,7 @@ export type RepayDebtInput = z.infer<typeof repayDebtSchema>;
  * Augmente `recu`, jamais `totalVendu` ni `gagne` (spec §7.5).
  */
 export async function repayDebt(
-  ctx: { businessId: string; userId: string },
+  ctx: { businessId: string; userId: string; cashRegisterMode: CashRegisterMode },
   customerId: string,
   input: RepayDebtInput
 ) {
@@ -79,12 +81,11 @@ export async function repayDebt(
       throw new AppError('RESOURCE_NOT_OWNED', 'Client introuvable.');
     }
 
-    const register = await tx.cashRegister.findFirst({
-      where: { businessId: ctx.businessId, statut: 'OUVERTE' },
-    });
-    if (!register) {
-      throw new AppError('CASH_REGISTER_CLOSED', 'Aucune caisse ouverte pour encaisser ce remboursement.');
-    }
+    // Même règle que pour un encaissement à la vente (createOrder étape 6) :
+    // en mode LIBRE une caisse virtuelle s'ouvre toute seule, seul le mode
+    // STRICT exige une caisse ouverte. Sinon un commerçant qui n'ouvre jamais
+    // sa caisse pouvait vendre à crédit mais jamais encaisser la dette.
+    const register = await ensureOpenRegisterForPayment(tx, ctx);
 
     const payment = await tx.payment.create({
       data: {
