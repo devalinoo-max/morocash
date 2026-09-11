@@ -27,6 +27,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // Les tests de scannabilité relisent un QR avec le moteur embarqué dans
+      // l'app (ZXing), installé côté frontend — on pointe dessus plutôt que de
+      // dupliquer la dépendance à la racine.
+      '@zxing/library': path.resolve(import.meta.dirname, './frontend/node_modules/@zxing/library'),
     },
   },
 });

@@ -236,7 +236,11 @@ async function generateQrDataUri(text: string): Promise<string> {
     const svg = await QRCode.toString(text, {
       type: 'svg',
       errorCorrectionLevel: 'M',
-      margin: 0,
+      // Zone de silence : sans marge blanche autour du symbole, un lecteur
+      // n'en trouve pas les bords des que l'etiquette est collee contre un
+      // autre element imprime. La norme demande 4 modules ; 2 suffisent en
+      // pratique et gardent les modules assez gros sur une etiquette de 17 mm.
+      margin: 2,
     });
     return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
   } catch (err) {

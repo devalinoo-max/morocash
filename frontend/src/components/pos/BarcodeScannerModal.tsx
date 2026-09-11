@@ -18,7 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/currency';
-import { playScanSuccessBeep } from '../../utils/barcodeEngine';
+import { decodeFromVideoFrame, playScanSuccessBeep } from '../../utils/barcodeEngine';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -40,6 +40,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const animFrameRef = useRef<number | null>(null);
   const lastScanTimeRef = useRef<number>(0);
   const lastScannedCodeRef = useRef<string>('');
+  // Canvas de travail du repli ZXing, reutilise d'une image a l'autre.
+  const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Une seule lecture ZXing a la fois : elle dure plusieurs dizaines de ms et
+  // en lancer une par image saturerait le fil principal du telephone.
+  const decodingRef = useRef(false);
 
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [hasTorch, setHasTorch] = useState(false);
@@ -156,6 +161,36 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     }
 
     const now = Date.now();
+
+    // Repli ZXing quand le navigateur n'expose pas BarcodeDetector : iPhone,
+    // navigateurs de bureau, beaucoup de WebView Android. Sans lui, la camera
+    // s'ouvrait et rien n'etait jamais lu, sans aucun message.
+    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
+      if (!decodingRef.current) {
+        decodingRef.current = true;
+        if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
+        decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
+          .then((lu) => {
+            if (!lu) return;
+            const raw = lu.code.trim();
+            if (raw !== lastScannedCodeRef.current || Date.now() - lastScanTimeRef.current > 1200) {
+              lastScannedCodeRef.current = raw;
+              lastScanTimeRef.current = Date.now();
+              handleRecognizedCode(raw);
+            }
+          })
+          .catch(() => {
+            // Une image illisible n'est pas une erreur : on retentera.
+          })
+          .finally(() => {
+            decodingRef.current = false;
+          });
+      }
+
+      animFrameRef.current = requestAnimationFrame(scanVideoLoop);
+      return;
+    }
+
     // Native BarcodeDetector
     if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
       try {

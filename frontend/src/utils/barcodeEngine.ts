@@ -314,6 +314,24 @@ export function mapFormatStringToBarcodeFormat(rawFormat: string): BarcodeFormat
 }
 
 /**
+ * RGBA (4 octets par pixel, ce que rend getImageData) -> luminance (1 octet).
+ *
+ * RGBLuminanceSource n'accepte de l'ARGB que sous forme d'Int32Array ; un
+ * Uint8ClampedArray est pris tel quel, UN OCTET PAR PIXEL. Lui passer les
+ * pixels RGBA bruts, comme on le faisait, revenait a lui donner une image
+ * quatre fois trop longue et pleine de canaux alpha : le repli ZXing ne
+ * decodait jamais rien, meme sur un code parfaitement net.
+ */
+function toLuminance(rgba: Uint8ClampedArray): Uint8ClampedArray {
+  const luminances = new Uint8ClampedArray(rgba.length / 4);
+  for (let i = 0, p = 0; i < luminances.length; i++, p += 4) {
+    // Moyenne favorisant le vert, comme ZXing le fait pour l'ARGB.
+    luminances[i] = (rgba[p] + 2 * rgba[p + 1] + rgba[p + 2]) / 4;
+  }
+  return luminances;
+}
+
+/**
  * Decode barcode from image element using native BarcodeDetector if available,
  * with MultiFormat ZXing reader fallback.
  */
@@ -366,7 +384,11 @@ async function tryDecodeImage(canvas: HTMLCanvasElement): Promise<{ code: string
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const luminanceSource = new RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
+    const luminanceSource = new RGBLuminanceSource(
+      toLuminance(imgData.data),
+      canvas.width,
+      canvas.height
+    );
     const binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource));
     const reader = new MultiFormatReader();
     reader.setHints(hints);
@@ -383,6 +405,40 @@ async function tryDecodeImage(canvas: HTMLCanvasElement): Promise<{ code: string
   }
 
   return null;
+}
+
+/**
+ * Lit UNE image de la camera en direct.
+ *
+ * Le scan en caisse n'essayait que `BarcodeDetector`, l'API native du
+ * navigateur. Elle n'existe ni sur iPhone (Safari ne l'implemente pas), ni sur
+ * les navigateurs de bureau, ni dans beaucoup de WebView Android : la camera
+ * s'ouvrait, le commercant promenait son etiquette devant, et RIEN ne se
+ * passait — sans le moindre message. Ce chemin-ci retombe sur ZXing, deja
+ * present dans l'app et utilise pour les photos.
+ *
+ * Le canvas est fourni par l'appelant et reutilise d'une image a l'autre : en
+ * creer un par image sature la memoire d'un telephone d'entree de gamme.
+ */
+export async function decodeFromVideoFrame(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement
+): Promise<{ code: string; format: BarcodeFormat } | null> {
+  const largeur = video.videoWidth;
+  const hauteur = video.videoHeight;
+  if (!largeur || !hauteur) return null;
+
+  // On travaille sur une image reduite : ZXing y est nettement plus rapide, et
+  // un QR de 20 mm reste largement lisible a cette resolution.
+  const echelle = Math.min(1, 960 / largeur);
+  canvas.width = Math.round(largeur * echelle);
+  canvas.height = Math.round(hauteur * echelle);
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  return tryDecodeImage(canvas);
 }
 
 /**

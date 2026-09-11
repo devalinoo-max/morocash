@@ -19,7 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // Les tests relisent un QR avec le meme moteur que l app (ZXing), installe
+      // cote frontend : on pointe dessus plutot que de dupliquer la dependance.
+      "@zxing/library": ["./frontend/node_modules/@zxing/library"]
     }
   },
   "include": [

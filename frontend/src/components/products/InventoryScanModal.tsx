@@ -16,7 +16,7 @@ import {
   SwitchCamera,
   Keyboard,
 } from 'lucide-react';
-import { playScanSuccessBeep } from '../../utils/barcodeEngine';
+import { decodeFromVideoFrame, playScanSuccessBeep } from '../../utils/barcodeEngine';
 
 interface InventoryScanModalProps {
   isOpen: boolean;
@@ -40,6 +40,8 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
   const animFrameRef = useRef<number | null>(null);
   const lastScanTimeRef = useRef<number>(0);
   const lastScannedCodeRef = useRef<string>('');
+  const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const decodingRef = useRef(false);
 
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [hasTorch, setHasTorch] = useState(false);
@@ -145,6 +147,35 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
     }
 
     const now = Date.now();
+
+    // Meme repli que le scanner de caisse : sans BarcodeDetector (iPhone,
+    // navigateurs de bureau, WebView Android), rien n'etait jamais lu.
+    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
+      if (!decodingRef.current) {
+        decodingRef.current = true;
+        if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
+        decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
+          .then((lu) => {
+            if (!lu) return;
+            const raw = lu.code.trim();
+            if (raw !== lastScannedCodeRef.current || Date.now() - lastScanTimeRef.current > 1200) {
+              lastScannedCodeRef.current = raw;
+              lastScanTimeRef.current = Date.now();
+              handleRegisterScan(raw);
+            }
+          })
+          .catch(() => {
+            // Image illisible : on retentera a la suivante.
+          })
+          .finally(() => {
+            decodingRef.current = false;
+          });
+      }
+
+      animFrameRef.current = requestAnimationFrame(scanLoop);
+      return;
+    }
+
     if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
       try {
         const detector = new (window as any).BarcodeDetector({
