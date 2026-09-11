@@ -75,17 +75,28 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
         throw new AppError('PRODUCT_NOT_FOUND', 'Un ou plusieurs produits sont introuvables.');
       }
 
+      // Deux lignes du même produit sont fusionnées en une seule, dans l'ordre
+      // d'apparition. Le mouvement de stock d'une commande porte un clientUuid
+      // dérivé du produit (étape 8) : deux lignes du même produit violaient sa
+      // contrainte d'unicité et faisaient échouer TOUTE la vente en erreur
+      // serveur, la transaction étant annulée. Un reçu ne doit de toute façon
+      // jamais afficher deux fois le même article.
+      const qteParProduit = new Map<string, number>();
+      for (const item of input.items) {
+        qteParProduit.set(item.productId, (qteParProduit.get(item.productId) ?? 0) + item.qte);
+      }
+
       // 3. Recalculer sousTotal — IGNORER les montants envoyés par le client
       // 4. Figer coutUnitaire = product.cmp sur chaque ligne
       let sousTotal = 0;
-      const lines = input.items.map((item) => {
-        const product = productById.get(item.productId)!;
-        const totalLigne = product.prixVente * item.qte;
+      const lines = [...qteParProduit].map(([productId, qte]) => {
+        const product = productById.get(productId)!;
+        const totalLigne = product.prixVente * qte;
         sousTotal += totalLigne;
         return {
           productId: product.id,
           libelle: product.nom,
-          qte: item.qte,
+          qte,
           prixUnitaire: product.prixVente,
           coutUnitaire: product.cmp,
           totalLigne,
