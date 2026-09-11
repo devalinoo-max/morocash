@@ -69,7 +69,28 @@ export async function createReception(
       },
     });
 
-    for (const ligne of input.lignes) {
+    // Deux lignes du même produit sont fusionnées, au prix d'achat moyen des
+    // deux. Le mouvement de stock porte un clientUuid dérivé du produit : deux
+    // lignes du même produit violaient sa contrainte d'unicité et faisaient
+    // échouer TOUTE la réception, la transaction étant annulée. Or saisir deux
+    // fois le même article dans un bon de livraison est courant.
+    const lignesFusionnees = [...
+      input.lignes
+        .reduce((acc, ligne) => {
+          const cumul = acc.get(ligne.productId) ?? { quantite: 0, montant: 0 };
+          acc.set(ligne.productId, {
+            quantite: cumul.quantite + ligne.quantite,
+            montant: cumul.montant + ligne.quantite * ligne.prixAchatUnitaire,
+          });
+          return acc;
+        }, new Map<string, { quantite: number; montant: number }>())
+    ].map(([productId, { quantite, montant }]) => ({
+      productId,
+      quantite,
+      prixAchatUnitaire: Math.round(montant / quantite),
+    }));
+
+    for (const ligne of lignesFusionnees) {
       const product = await tx.product.findFirst({ where: { id: ligne.productId, businessId } });
       if (!product) {
         throw new AppError('PRODUCT_NOT_FOUND', `Produit introuvable: ${ligne.productId}`);
@@ -172,6 +193,17 @@ export async function cancelMovement(businessId: string, userId: string, movemen
     }
     if (original.annule) {
       throw new AppError('ORDER_ALREADY_CANCELLED', 'Ce mouvement est déjà annulé.');
+    }
+    // Un mouvement né d'une vente n'a pas d'existence propre : le rendre au
+    // stock ici laissait la commande intacte (articles toujours vendus,
+    // paiement toujours encaissé) avec un stock déjà rendu — puis annuler la
+    // commande le rendait une seconde fois. On renvoie donc vers l'annulation
+    // de commande, qui défait l'ensemble de façon cohérente (spec §7.2).
+    if (original.orderId) {
+      throw new AppError(
+        'ORDER_IMMUTABLE',
+        "Ce mouvement vient d'une vente : annule la commande, pas le mouvement."
+      );
     }
 
     const product = await tx.product.findFirst({ where: { id: original.productId, businessId } });
