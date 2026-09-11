@@ -295,33 +295,136 @@
   transform: scale(1);
 }
 
-/* --- Switch de thème (piste + bille en transform) --- */
-.morocash-landing .theme-knob {
-  transform: translateX(0);
-  transition: transform 0.4s var(--landing-ease);
+/* --- Pastille de thème ---------------------------------------------------
+   Piste 46x26, bille blanche 20x20 qui coulisse de 20px. L'icône vit DANS la
+   bille : c'est elle qui annonce le mode courant, pas la piste. Le mode est
+   lu sur l'attribut data-theme du bouton (et non sur .light du conteneur) —
+   la pastille reste ainsi lisible partout où on la pose.
+   -------------------------------------------------------------------------- */
+.morocash-landing .theme-pill {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background-color: #2f2c50;
+  transition: background-color 0.26s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.morocash-landing.light .theme-knob {
+.morocash-landing .theme-pill[data-theme='light'] {
+  background-color: #e2e8f0;
+}
+.morocash-landing .theme-pill:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+.morocash-landing .theme-pill-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Sombre = bille à droite, clair = bille à gauche. */
   transform: translateX(20px);
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.morocash-landing .theme-icon-dark,
-.morocash-landing .theme-icon-light {
-  transition: opacity 0.3s var(--landing-ease), transform 0.3s var(--landing-ease);
+.morocash-landing .theme-pill[data-theme='light'] .theme-pill-knob {
+  transform: translateX(0);
 }
-.morocash-landing .theme-icon-dark {
-  opacity: 1;
-  transform: scale(1);
+.morocash-landing .theme-pill-icon {
+  width: 12px;
+  height: 12px;
+  color: #334155;
 }
-.morocash-landing .theme-icon-light {
+
+/* Infobulle au survol : même texte que l'aria-label, donc rien à deviner. */
+.morocash-landing .theme-pill-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  white-space: nowrap;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
   opacity: 0;
-  transform: scale(0.5);
+  transform: translateY(-3px);
+  pointer-events: none;
+  transition: opacity 0.18s cubic-bezier(0.32, 0.72, 0, 1),
+    transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.morocash-landing.light .theme-icon-dark {
-  opacity: 0;
-  transform: scale(0.5);
-}
-.morocash-landing.light .theme-icon-light {
+.morocash-landing .theme-pill:hover .theme-pill-tip,
+.morocash-landing .theme-pill:focus-visible .theme-pill-tip {
   opacity: 1;
-  transform: scale(1);
+  transform: translateY(0);
+}
+
+/* --- Boutons de droite du menu ------------------------------------------ */
+.morocash-landing .menu-link {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #c6c2e4;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  transition: color 0.18s var(--landing-ease);
+}
+.morocash-landing.light .menu-link {
+  color: #475569;
+}
+.morocash-landing .menu-link:hover {
+  color: #ffffff;
+}
+.morocash-landing.light .menu-link:hover {
+  color: #0f172a;
+}
+.morocash-landing .menu-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  background-color: #4f46e5;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.18s var(--landing-ease),
+    transform 0.18s var(--landing-ease), box-shadow 0.18s var(--landing-ease);
+}
+.morocash-landing .menu-cta:hover {
+  background-color: #6366f1;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+}
+.morocash-landing .menu-cta:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+/* Variante compacte du bandeau mobile (sous 1000px). */
+.morocash-landing .menu-cta-compact {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.morocash-landing .menu-cta-block {
+  width: 100%;
 }
 
 /* --- Toggle mensuel/annuel --- */

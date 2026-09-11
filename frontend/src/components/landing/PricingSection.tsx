@@ -83,8 +83,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) 
             onClick={() => onSelectPlan('solo')}
             className="mt-8 block w-full border theme-border theme-card-hover theme-text font-extrabold text-sm py-4 rounded-xl text-center transition-colors cursor-pointer"
           >
-            Commencer mon essai libre
+            Choisir Solo
           </button>
+          {/* La durée ne vit plus dans le bouton : elle est ici, sous lui. */}
+          <p className="mt-3 text-center text-[11px] theme-text-muted">
+            ✓ 14 jours · sans carte bancaire · sans engagement
+          </p>
         </Reveal>
 
         <Reveal
@@ -131,8 +135,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) 
             onClick={() => onSelectPlan('business')}
             className="mt-8 block w-full bg-accent-emerald text-[#06110B] font-extrabold text-sm py-4 rounded-xl text-center transition-transform hover:scale-[1.02] cursor-pointer"
           >
-            Lancer mon essai gratuit
+            Choisir Business
           </button>
+          {/* La durée ne vit plus dans le bouton : elle est ici, sous lui. */}
+          <p className="mt-3 text-center text-[11px] theme-text-muted">
+            ✓ 14 jours · sans carte bancaire · sans engagement
+          </p>
         </Reveal>
       </div>
 
