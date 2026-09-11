@@ -23,9 +23,14 @@ import {
 } from 'lucide-react';
 import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
 import { Sale, Customer } from '../../types';
-
-type PeriodFilter = 'today' | '7days' | '30days' | 'thisMonth' | 'custom';
-type StatusFilter = 'ALL' | 'PAID' | 'PARTIAL' | 'CREDIT' | 'CANCELLED';
+import {
+  computePeriodInterval,
+  countByStatus,
+  filterSales,
+  sumSales,
+  type PeriodFilter,
+  type StatusFilter,
+} from '../../utils/salesFilters';
 
 export const SalesTab: React.FC = () => {
   const {
@@ -97,84 +102,32 @@ export const SalesTab: React.FC = () => {
     return Array.from(set);
   }, [baseSales]);
 
-  // Compute date range for period filter
-  const dateInterval = useMemo(() => {
-    const now = new Date();
-    let start = new Date();
-    let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  // Période, filtrage et compteurs vivent dans utils/salesFilters.ts : ce sont
+  // eux qui décident ce que le commerçant voit et quel total s'affiche en haut,
+  // ils doivent donc être vérifiables hors de l'écran (tests/vente).
+  const dateInterval = useMemo(
+    () => computePeriodInterval(periodFilter, customStart, customEnd),
+    [periodFilter, customStart, customEnd]
+  );
 
-    if (periodFilter === 'today') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    } else if (periodFilter === '7days') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
-    } else if (periodFilter === '30days') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0);
-    } else if (periodFilter === 'thisMonth') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    } else {
-      // custom
-      const partsS = customStart.split('-');
-      const partsE = customEnd.split('-');
-      start = new Date(Number(partsS[0]), Number(partsS[1]) - 1, Number(partsS[2]), 0, 0, 0, 0);
-      end = new Date(Number(partsE[0]), Number(partsE[1]) - 1, Number(partsE[2]), 23, 59, 59, 999);
-    }
+  const statusCounts = useMemo(
+    () => countByStatus(baseSales, dateInterval),
+    [baseSales, dateInterval]
+  );
 
-    return { start, end };
-  }, [periodFilter, customStart, customEnd]);
-
-  // Calculate status counts on the period selection (Point 6: Chaque filtre affiche son compteur)
-  const statusCounts = useMemo(() => {
-    const inPeriod = baseSales.filter((s) => {
-      const d = new Date(s.createdAt);
-      return d >= dateInterval.start && d <= dateInterval.end;
-    });
-
-    return {
-      ALL: inPeriod.length,
-      PAID: inPeriod.filter((s) => !s.isCancelled && s.paymentStatus === 'PAID').length,
-      PARTIAL: inPeriod.filter((s) => !s.isCancelled && s.paymentStatus === 'PARTIAL').length,
-      CREDIT: inPeriod.filter((s) => !s.isCancelled && s.paymentStatus === 'CREDIT').length,
-      CANCELLED: inPeriod.filter((s) => s.isCancelled).length,
-    };
-  }, [baseSales, dateInterval]);
-
-  // Full filtering logic
-  const filteredSales = useMemo(() => {
-    return baseSales.filter((s) => {
-      // Date interval check
-      const d = new Date(s.createdAt);
-      if (d < dateInterval.start || d > dateInterval.end) return false;
-
-      // Status check
-      if (statusFilter === 'PAID' && (s.isCancelled || s.paymentStatus !== 'PAID')) return false;
-      if (statusFilter === 'PARTIAL' && (s.isCancelled || s.paymentStatus !== 'PARTIAL')) return false;
-      if (statusFilter === 'CREDIT' && (s.isCancelled || s.paymentStatus !== 'CREDIT')) return false;
-      if (statusFilter === 'CANCELLED' && !s.isCancelled) return false;
-
-      // Seller filter
-      if (selectedSeller !== 'ALL' && s.sellerName !== selectedSeller) return false;
-
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchRef = s.reference.toLowerCase().includes(q);
-        const matchCust = s.customerName && s.customerName.toLowerCase().includes(q);
-        const matchSeller = s.sellerName && s.sellerName.toLowerCase().includes(q);
-        const matchItem = s.items.some((it) => it.name.toLowerCase().includes(q));
-        if (!matchRef && !matchCust && !matchSeller && !matchItem) return false;
-      }
-
-      return true;
-    });
-  }, [baseSales, dateInterval, statusFilter, selectedSeller, searchQuery]);
+  const filteredSales = useMemo(
+    () =>
+      filterSales(baseSales, {
+        interval: dateInterval,
+        status: statusFilter,
+        seller: selectedSeller,
+        query: searchQuery,
+      }),
+    [baseSales, dateInterval, statusFilter, selectedSeller, searchQuery]
+  );
 
   // Point 2: CORRIGE LE TOTAL EN HAUT (hors annulées)
-  const totalFilteredSum = useMemo(() => {
-    return filteredSales
-      .filter((s) => !s.isCancelled)
-      .reduce((sum, s) => sum + s.totalAmount, 0);
-  }, [filteredSales]);
+  const totalFilteredSum = useMemo(() => sumSales(filteredSales), [filteredSales]);
 
   const totalRemainingSum = useMemo(() => {
     return filteredSales

@@ -41,6 +41,7 @@ import {
   getTerminology,
 } from '../utils/formatters';
 import { validateBarcodeChecksum } from '../utils/barcodeEngine';
+import { findProductByCode as lookupProductByCode } from '../utils/productCodeLookup';
 import confetti from 'canvas-confetti';
 import { PLANS } from '../data/plans';
 import * as authApi from '../api/auth';
@@ -1731,22 +1732,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // --- Scannable Product Codes Management ---
-  const findProductByCode = (rawCode: string): Product | undefined => {
-    if (!rawCode) return undefined;
-    const clean = rawCode.trim().toLowerCase();
-    return products.find((p) => {
-      if (p.internalCode && p.internalCode.toLowerCase() === clean) return true;
-      if (p.barcode && p.barcode.toLowerCase() === clean) return true;
-      if (p.productCodes && p.productCodes.some((c) => c.code.toLowerCase() === clean)) return true;
-      // Filet de securite pour les etiquettes deja collees : tant que le
-      // catalogue ne recevait pas les codes du serveur, le generateur
-      // d'etiquettes se rabattait sur l'identifiant du produit (voir
-      // labelPdfGenerator, `p.internalCode || p.barcode || p.id`). Ces QR-la
-      // sont dans la boutique et doivent continuer a scanner.
-      if (p.id.toLowerCase() === clean) return true;
-      return false;
-    });
-  };
+  // La reconnaissance elle-meme vit dans utils/productCodeLookup.ts, sans
+  // dependance au navigateur : c'est le maillon entre l'etiquette collee sur
+  // l'article et le panier, il doit rester verifiable (tests/vente).
+  const findProductByCode = (rawCode: string): Product | undefined =>
+    lookupProductByCode(products, rawCode);
 
   const addProductCode = (
     productId: string,
