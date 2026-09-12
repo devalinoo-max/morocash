@@ -63,7 +63,7 @@ export const ReceiptsTab: React.FC = () => {
   // 1. Filter sales based on Role & Permissions
   const roleFilteredSales = useMemo(() => {
     if (settings.role === 'SELLER') {
-      const sellerName = settings.currentSellerName || 'Awa Traoré';
+      const sellerName = settings.currentSellerName || settings.ownerName || 'Vendeur';
       return sales.filter(
         (s) => (s.sellerName || '').toLowerCase().trim() === sellerName.toLowerCase().trim()
       );

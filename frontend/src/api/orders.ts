@@ -68,6 +68,25 @@ export function cancelOrder(orderId: string, motif: string) {
   return api.post<{ order: ApiOrder }>(`/orders/${orderId}/cancel`, { motif }).then((d) => d.order);
 }
 
+/**
+ * Encaisse tout ou partie du reste dû sur une commande.
+ *
+ * Le clientUuid rend l'appel rejouable sans risque : si le réseau lâche entre
+ * l'envoi et la réponse, le serveur reconnaît le même encaissement et répond
+ * DUPLICATE au lieu de l'enregistrer deux fois.
+ */
+export function addOrderPayment(
+  orderId: string,
+  montant: number,
+  methode: PaymentMethod,
+  clientUuid = generateClientUuid()
+) {
+  return api.post<{ status: 'CREATED' | 'DUPLICATE'; payment: ApiPayment }>(
+    `/orders/${orderId}/payments`,
+    { clientUuid, montant, methode: toApiPaymentMethode(methode) }
+  );
+}
+
 function toSaleItem(item: ApiOrderItem): SaleItem {
   return {
     productId: item.productId ?? '',
@@ -93,6 +112,15 @@ export function toFrontendSale(
     clientUuid: order.clientUuid,
     reference: order.numero,
     items: order.items.map(toSaleItem),
+    // Les encaissements sont conservés un par un : le détail de commande en
+    // fait la liste, et l'historique s'en sert pour dater ce qui est arrivé.
+    payments: order.payments.map((p) => ({
+      id: p.id,
+      amount: p.montant,
+      method: toFrontendPaymentMethod(p.methode),
+      createdAt: p.createdAt,
+      isCancelled: p.statut !== 'VALIDE',
+    })),
     subtotal: order.sousTotal,
     discount: order.remiseMontant,
     discountMode: order.remiseMode === 'POURCENTAGE' ? 'PERCENTAGE' : order.remiseMode === 'MONTANT' ? 'AMOUNT' : undefined,

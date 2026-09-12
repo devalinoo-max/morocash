@@ -50,7 +50,7 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
   const houseCode =
     currentProduct.internalCode ||
     currentProduct.productCodes?.find((c) => c.origine === 'GENERE')?.code ||
-    `MC-${settings.shopCode || 'A7K2X'}-${currentProduct.id.slice(-6)}`;
+    `MC-${settings.shopCode || 'BOUTIQUE'}-${currentProduct.id.slice(-6)}`;
 
   // Generate QR code for house code
   useEffect(() => {

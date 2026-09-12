@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Users,
@@ -15,6 +15,7 @@ import {
   Send,
 } from 'lucide-react';
 import { formatMoney, formatDate } from '../../utils/formatters';
+import { countLabel } from '../../utils/plural';
 import { Customer, PaymentMethod } from '../../types';
 import { MoneyInput } from '../common/UIStates';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
@@ -31,9 +32,24 @@ export const CustomersTab: React.FC = () => {
     setCustomersDebtorsFilter: setFilterDebtorsOnly,
     isWriteLocked,
     gateWrite,
+    customerToFocus,
+    clearCustomerFocus,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Arrive du detail d'une commande : on cadre la liste sur ce client-la, en
+  // passant par la recherche pour que le commercant voie pourquoi la liste est
+  // reduite et puisse l'elargir d'un geste.
+  useEffect(() => {
+    if (!customerToFocus) return;
+    const cible = customers.find((c) => c.id === customerToFocus);
+    if (cible) {
+      setSearchQuery(cible.name);
+      setFilterDebtorsOnly(false);
+    }
+    clearCustomerFocus();
+  }, [customerToFocus, customers, clearCustomerFocus, setFilterDebtorsOnly]);
 
   // New Customer Modal
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
@@ -150,7 +166,7 @@ export const CustomersTab: React.FC = () => {
             {formatMoney(totalDebts)}
           </div>
           <p className="text-xs text-rose-600 font-medium">
-            Réparti sur {debtorCount} client(s)
+            Réparti sur {countLabel(debtorCount, 'client')}
           </p>
         </div>
         <button
@@ -357,7 +373,7 @@ export const CustomersTab: React.FC = () => {
                         </div>
                         {hasDebt && (
                           <span className="inline-block text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded-md mt-0.5">
-                            Dette depuis {cust.debtAgeDays} jour(s)
+                            Dette depuis {countLabel(cust.debtAgeDays, 'jour')}
                           </span>
                         )}
                       </div>

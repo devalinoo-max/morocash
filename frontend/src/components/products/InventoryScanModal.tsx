@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
+import { countLabel } from '../../utils/plural';
 import {
   ClipboardCheck,
   X,
@@ -238,7 +239,10 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
     const toUpdate = countedItems.filter((item) => item.countedQty !== item.theoreticalQty);
     await Promise.all(toUpdate.map((item) => updateProduct(item.product.id, { stock: item.countedQty })));
 
-    showToast(`Inventaire validé : stock de ${toUpdate.length} article(s) mis à jour !`, 'success');
+    showToast(
+      `Inventaire validé : stock de ${countLabel(toUpdate.length, 'article')} mis à jour !`,
+      'success'
+    );
     onClose();
   };
 

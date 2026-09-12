@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
 import { MessageSquare, Sparkles, Check, AlertCircle, X, ArrowRight, Clipboard } from 'lucide-react';
 import { formatMoney } from '../../utils/currency';
+import { countLabel } from '../../utils/plural';
 
 interface WhatsAppOrderModalProps {
   isOpen: boolean;
@@ -119,7 +120,10 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
     }
 
     onApplyItems(validItems);
-    showToast(`${validItems.length} article(s) ajoutés à la commande`, 'success');
+    showToast(
+      `${countLabel(validItems.length, 'article')} ${validItems.length > 1 ? 'ajoutés' : 'ajouté'} à la commande`,
+      'success'
+    );
     onClose();
   };
 

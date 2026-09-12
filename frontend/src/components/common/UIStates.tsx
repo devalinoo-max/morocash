@@ -10,8 +10,6 @@ import {
   AlertCircle,
   X,
   UploadCloud,
-  Crown,
-  ArrowRight,
 } from 'lucide-react';
 
 /**
@@ -187,9 +185,19 @@ export const ReadOnlyBanner: React.FC = () => {
   );
 };
 
+/** Fermé une fois, le bandeau d'essai ne revient pas avant le lendemain. */
+const TRIAL_BANNER_DISMISS_KEY = 'morocash_trial_banner_dismissed_on';
+
 export const TrialBanner: React.FC = () => {
   const { settings, setActiveTab, setActiveMoreSubTab } = useApp();
-  const [dismissed, setDismissed] = useState(false);
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(TRIAL_BANNER_DISMISS_KEY) === aujourdhui;
+    } catch {
+      return false;
+    }
+  });
 
   if (settings.planStatus !== 'TRIAL' || dismissed) return null;
 
@@ -198,42 +206,53 @@ export const TrialBanner: React.FC = () => {
     setActiveMoreSubTab('subscription');
   };
 
+  const fermer = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(TRIAL_BANNER_DISMISS_KEY, aujourdhui);
+    } catch {
+      // Stockage indisponible : le bandeau reviendra au prochain chargement,
+      // ce qui reste préférable à un écran cassé.
+    }
+  };
+
+  const jours = settings.trialDaysLeft;
+
+  /*
+   * Une ligne de 44 px, pas un bloc jaune à couronne.
+   *
+   * Le bandeau dit un fait — combien de jours il reste — au lieu de vendre.
+   * « Premium » n'existe pas dans le produit : les offres s'appellent Solo et
+   * Business, et toute l'application tutoie.
+   */
   return (
     <div
       id="banner-trial"
-      className="mx-3 sm:mx-4 my-2.5 flex items-center justify-between gap-3 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-amber-50/60 to-white px-3.5 sm:px-4 py-3 shadow-xs"
+      className="h-11 mx-3 sm:mx-4 my-2 px-3 rounded-xl flex items-center gap-2 min-w-0"
+      style={{ backgroundColor: '#EEF2FF' }}
     >
-      <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={goToOffers}>
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30">
-          <Crown className="w-5 h-5 text-white" fill="currentColor" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-extrabold text-slate-900 truncate">Passez en Premium</p>
-          <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-            <span className="hidden sm:inline">Plus de produits, plus de ventes, et toutes les fonctionnalités avancées. · </span>
-            {settings.trialDaysLeft} {settings.trialDaysLeft > 1 ? 'jours' : 'jour'} d'essai restants
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <button
-          id="btn-trial-see-offers"
-          onClick={goToOffers}
-          className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-full bg-slate-900 hover:bg-black active:scale-95 text-white text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
-        >
-          <span className="hidden sm:inline">Voir les offres</span>
-          <span className="sm:hidden">Offres</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-        <button
-          id="btn-trial-dismiss"
-          onClick={() => setDismissed(true)}
-          aria-label="Fermer"
-          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-900/5 transition-all cursor-pointer shrink-0"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      <span className="text-[12px] font-bold truncate" style={{ color: '#4F46E5' }}>
+        Essai — {jours} {jours > 1 ? 'jours restants' : 'jour restant'}
+      </span>
+      <span className="flex-1" />
+      <button
+        id="btn-trial-see-offers"
+        type="button"
+        onClick={goToOffers}
+        className="shrink-0 text-[12px] font-bold hover:underline cursor-pointer whitespace-nowrap"
+        style={{ color: '#4F46E5' }}
+      >
+        Voir les offres ›
+      </button>
+      <button
+        id="btn-trial-dismiss"
+        type="button"
+        onClick={fermer}
+        aria-label="Fermer"
+        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 transition-all cursor-pointer"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 };

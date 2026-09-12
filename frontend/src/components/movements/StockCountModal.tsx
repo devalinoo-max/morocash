@@ -13,6 +13,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
+import { countLabel } from '../../utils/plural';
 
 interface StockCountModalProps {
   isOpen: boolean;
@@ -356,7 +357,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                     totalEcarts > 0 ? 'text-amber-400' : 'text-emerald-400'
                   }`}
                 >
-                  {totalEcarts} produit(s)
+                  {countLabel(totalEcarts, 'produit')}
                 </span>
               </div>
               <div className="h-6 w-px bg-slate-700" />

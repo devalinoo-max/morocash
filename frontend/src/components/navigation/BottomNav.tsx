@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { getTerminology } from '../../utils/formatters';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
+import { isUnpaid } from '../../utils/saleStatus';
 
 export const BottomNav: React.FC = () => {
   const {
@@ -25,7 +26,10 @@ export const BottomNav: React.FC = () => {
   } = useApp();
 
   const terminology = getTerminology(settings.activityType);
-  const salesCount = sales.length;
+  // Le badge compte ce qui demande un geste — les commandes dont il reste de
+  // l'argent a aller chercher — et non les commandes du jour, qui ne demandent
+  // rien a personne. Zero a traiter, pas de badge.
+  const unpaidCount = sales.filter(isUnpaid).length;
   const debtorsCount = customers.filter((c) => c.totalDebt > 0).length;
   const lowStockCount = products.filter((p) => !p.isService && p.stock <= p.alertThreshold).length;
 
@@ -69,9 +73,9 @@ export const BottomNav: React.FC = () => {
         >
           <div className={`p-1.5 rounded-xl transition-all relative ${activeTab === 'sales' ? 'bg-indigo-50 text-[#4F46E5]' : ''}`}>
             <Receipt className="w-5 h-5" />
-            {salesCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4F46E5] text-white text-[9px] font-extrabold flex items-center justify-center ring-2 ring-white">
-                {salesCount}
+            {unpaidCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-extrabold flex items-center justify-center ring-2 ring-white">
+                {unpaidCount}
               </span>
             )}
           </div>

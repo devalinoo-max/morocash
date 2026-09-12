@@ -98,11 +98,28 @@ export interface SaleItem {
   total: number;
 }
 
+/**
+ * Un encaissement, tel qu'il s'est réellement passé.
+ *
+ * Une commande peut en compter plusieurs : un acompte à la livraison, le
+ * solde trois jours plus tard. Le détail de commande les liste un par un —
+ * le seul `paymentMethod` de la commande ne dit que le dernier.
+ */
+export interface SalePayment {
+  id: string;
+  amount: number;
+  method: PaymentMethod;
+  createdAt: string;
+  /** Un paiement annulé reste dans l'historique, mais ne compte plus. */
+  isCancelled: boolean;
+}
+
 export interface Sale {
   id: string;
   clientUuid: string;
   reference: string;
   items: SaleItem[];
+  payments?: SalePayment[];
   subtotal: number;
   discount: number;
   discountMode?: 'PERCENTAGE' | 'AMOUNT';

@@ -28,6 +28,7 @@ import {
 
 import { NavigationTab } from '../../types';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
+import { avatarInitials } from '../../utils/avatar';
 
 interface DesktopSidebarProps {
   onOpenSearch?: () => void;
@@ -142,7 +143,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
               </span>
             </div>
             <p className="text-[10.5px] text-slate-400 font-medium truncate">
-              {settings.shopName || 'Boutique Étoile d’Afrique'}
+              {settings.shopName || 'Ma boutique'}
             </p>
           </div>
         </div>
@@ -588,12 +589,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
       {/* 5. Ligne identité utilisateur / rôle */}
       <div className="p-2.5 lg:p-3 border-t border-[#2F2C50] flex items-center gap-2.5 shrink-0">
         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#4F46E5] to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-[#2F2C50]">
-          {settings.ownerName
-            .split(' ')
-            .map((n) => n[0])
-            .slice(0, 2)
-            .join('')
-            .toUpperCase() || 'MK'}
+          {avatarInitials(settings.ownerName)}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-white truncate leading-tight">

@@ -584,3 +584,39 @@
   animation: posCustomerAttention 600ms ease-in-out;
   border-color: rgba(245, 158, 11, 0.9);
 }
+
+/* ==========================================================================
+   Règle absolue sur téléphone : rien hors de l'écran.
+
+   Une colonne cachée à droite est une colonne que le commerçant ne verra
+   jamais — il ne sait même pas qu'elle existe. Le seul défilement latéral
+   toléré est celui des pastilles de filtre, et il s'annonce par un dégradé
+   sur son bord droit.
+   ========================================================================== */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Barre de défilement masquée (rangées de pastilles, listes horizontales). */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* La rangée de filtres est la seule à défiler : le dégradé de bord dit qu'il
+   y a une suite, au lieu de la laisser deviner. */
+.filter-pill-row {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+}
+@media (min-width: 768px) {
+  .filter-pill-row {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}

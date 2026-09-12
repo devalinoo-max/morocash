@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { PageMenuProvider } from './context/PageMenuContext';
 import {
   LOGIN_PATH,
   canonicalPath,
@@ -425,7 +426,12 @@ const MainLayout: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
-      <MainLayout />
+      {/* Les actions occasionnelles d'une page (etiquettes, inventaire,
+          export) remontent dans le menu « ... » de la barre haute : le
+          fournisseur doit donc envelopper a la fois la barre et l'onglet. */}
+      <PageMenuProvider>
+        <MainLayout />
+      </PageMenuProvider>
     </AppProvider>
   );
 }

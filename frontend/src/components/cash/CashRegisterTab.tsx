@@ -23,6 +23,7 @@ import {
   Users,
 } from 'lucide-react';
 import { formatMoney, formatMoneyCompact, formatDate, formatShortDate } from '../../utils/formatters';
+import { countLabel } from '../../utils/plural';
 import { PaymentMethod, CashMovement } from '../../types';
 import { getPeriodRange, isWithinRange, SimplePeriod } from '../../utils/period';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
@@ -492,7 +493,12 @@ export const CashRegisterTab: React.FC = () => {
               {formatMoneyCompact(todayExpenses)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
-              {expenses.filter((e) => isWithinRange(e.date, getPeriodRange('TODAY'))).length} note(s) de frais aujourd'hui
+              {countLabel(
+                expenses.filter((e) => isWithinRange(e.date, getPeriodRange('TODAY'))).length,
+                'note de frais',
+                'notes de frais'
+              )}{' '}
+              aujourd'hui
             </p>
           </div>
           <div className="h-1 w-full bg-[#DC2626] -mx-4 -mb-4 mt-3"></div>

@@ -20,6 +20,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
+import { countLabel } from '../../utils/plural';
 import { StockMovement, StockMovementType } from '../../types';
 import { ReceptionModal } from './ReceptionModal';
 import { BreakageModal } from './BreakageModal';
@@ -457,7 +458,7 @@ export const MovementsTab: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500">unités en stock</span>
           </div>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            {filteredMovements.length} mouvement(s)
+            {countLabel(filteredMovements.length, 'mouvement')}
           </p>
         </div>
       </div>
@@ -822,7 +823,7 @@ export const MovementsTab: React.FC = () => {
                           count.nb_ecarts > 0 ? 'text-amber-600' : 'text-emerald-600'
                         }`}
                       >
-                        {count.nb_ecarts} produit(s)
+                        {countLabel(count.nb_ecarts, 'produit')}
                       </span>
                     </div>
                     <div>

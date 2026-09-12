@@ -8,6 +8,7 @@ import {
   LabelCodeType,
   LabelSettings,
 } from '../../types';
+import { countLabel } from '../../utils/plural';
 import {
   X,
   Printer,
@@ -1028,7 +1029,9 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                     F. Commencer à l'étiquette n°
                   </label>
                   <span className="text-[11px] font-bold text-slate-600">
-                    {startIndex > 1 ? `${startIndex - 1} case(s) sautée(s)` : 'Planche neuve'}
+                    {startIndex > 1
+                      ? countLabel(startIndex - 1, 'case sautée', 'cases sautées')
+                      : 'Planche neuve'}
                   </span>
                 </div>
 

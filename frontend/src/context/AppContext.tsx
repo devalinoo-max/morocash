@@ -37,9 +37,11 @@ import {
   initialStockCounts,
 } from '../data/mockInitialData';
 import {
+  formatMoney,
   generateUUID,
   getTerminology,
 } from '../utils/formatters';
+import { countLabel } from '../utils/plural';
 import { validateBarcodeChecksum } from '../utils/barcodeEngine';
 import { findProductByCode as lookupProductByCode } from '../utils/productCodeLookup';
 import confetti from 'canvas-confetti';
@@ -128,6 +130,11 @@ interface AppContextType {
   // liste déjà filtrée sur les débiteurs plutôt que la liste complète des clients.
   customersDebtorsFilter: boolean;
   setCustomersDebtorsFilter: (value: boolean) => void;
+  // Ouvre la liste des clients en avant sur un client precis (depuis le detail
+  // d'une commande). La liste consomme la demande puis la remet a null.
+  customerToFocus: string | null;
+  focusCustomer: (customerId: string) => void;
+  clearCustomerFocus: () => void;
   
   // Modals & Flows
   isNewSaleOpen: boolean;
@@ -179,6 +186,7 @@ interface AppContextType {
     notes?: string;
   }) => Promise<Sale | null>;
   cancelSale: (saleId: string, reason?: string) => Promise<void>;
+  collectSalePayment: (saleId: string, amount: number, paymentMethod: PaymentMethod) => Promise<boolean>;
   assignCustomerToSale: (saleId: string, customerId: string, customerName: string, customerPhone?: string) => void;
 
   addProduct: (product: Omit<Product, 'id' | 'salesCount' | 'createdAt'>) => Promise<Product | null>;
@@ -271,6 +279,7 @@ interface AppContextType {
   pendingMutations: PendingMutation[];
   /** Vrai tant qu'une reprise de la file est en cours. */
   isSyncing: boolean;
+  hasLoadedOnce: boolean;
   /** Etat reel du reseau, independant du bascule manuel des reglages. */
   isOnline: boolean;
   /**
@@ -302,78 +311,16 @@ const STORAGE_KEYS = {
   RECEIPT_DELIVERIES: 'morocash_receipt_deliveries_v3',
 };
 
-const defaultReceiptDeliveries: ReceiptDelivery[] = [
-  {
-    id: 'del-1',
-    businessId: 'A7K2X',
-    orderId: 'sale-1',
-    orderReference: 'CMD-20260904-0046',
-    canal: 'WHATSAPP',
-    userId: 'owner',
-    userName: 'Mamadou Koné',
-    createdAt: '2026-09-04T06:32:00Z',
-  },
-  {
-    id: 'del-2',
-    businessId: 'A7K2X',
-    orderId: 'sale-2',
-    orderReference: 'CMD-20260904-0045',
-    canal: 'IMPRESSION',
-    userId: 'owner',
-    userName: 'Mamadou Koné',
-    createdAt: '2026-09-04T05:50:00Z',
-  },
-  {
-    id: 'del-3',
-    businessId: 'A7K2X',
-    orderId: 'sale-3',
-    orderReference: 'CMD-20260903-0044',
-    canal: 'WHATSAPP',
-    userId: 'owner',
-    userName: 'Mamadou Koné',
-    createdAt: '2026-09-03T16:20:00Z',
-  },
-  {
-    id: 'del-4',
-    businessId: 'A7K2X',
-    orderId: 'sale-5',
-    orderReference: 'CMD-20260902-0042',
-    canal: 'WHATSAPP',
-    userId: 'owner',
-    userName: 'Mamadou Koné',
-    createdAt: '2026-09-02T14:45:00Z',
-  },
-  {
-    id: 'del-5',
-    businessId: 'A7K2X',
-    orderId: 'sale-6',
-    orderReference: 'CMD-20260902-0041',
-    canal: 'WHATSAPP',
-    userId: 'emp-1',
-    userName: 'Awa Traoré',
-    createdAt: '2026-09-02T09:20:00Z',
-  },
-  {
-    id: 'del-6',
-    businessId: 'A7K2X',
-    orderId: 'sale-8',
-    orderReference: 'CMD-20260901-0039',
-    canal: 'IMPRESSION',
-    userId: 'owner',
-    userName: 'Mamadou Koné',
-    createdAt: '2026-09-01T10:15:00Z',
-  },
-  {
-    id: 'del-7',
-    businessId: 'A7K2X',
-    orderId: 'sale-9',
-    orderReference: 'CMD-20260828-0038',
-    canal: 'WHATSAPP',
-    userId: 'owner',
-    userName: 'Mamadou Koné',
-    createdAt: '2026-08-28T15:30:00Z',
-  },
-];
+/*
+ * Aucun envoi de recu pre-rempli.
+ *
+ * Ces cinq lignes de demonstration portaient de vraies references de commande
+ * ("CMD-20260904-0046") et un nom de commercant invente : l'historique d'une
+ * commande reelle affichait donc des envois qui n'avaient jamais eu lieu, au
+ * nom de quelqu'un d'autre. L'historique ne montre desormais que ce qui s'est
+ * reellement passe sur cet appareil.
+ */
+const defaultReceiptDeliveries: ReceiptDelivery[] = [];
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // 1. Settings State
@@ -569,6 +516,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [customersDebtorsFilter, setCustomersDebtorsFilter] = useState(
     initialRoute?.debtorsOnly ?? false
   );
+  const [customerToFocus, setCustomerToFocus] = useState<string | null>(null);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(initialRoute?.modal === 'new-sale');
   const [isNewProductOpen, setIsNewProductOpen] = useState(initialRoute?.modal === 'new-product');
 
@@ -578,6 +526,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // fermeture de l'app (c'est ce qui rend le mode avion utilisable).
   const [pendingMutations, setPendingMutations] = useState<PendingMutation[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  // Premier chargement termine ? Sert aux ecrans a choisir entre un squelette
+  // et un vrai etat vide — les deux se ressemblent, et les confondre fait dire
+  // "aucune commande" a une app qui n'a simplement pas fini de charger.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isOnline, setIsOnline] = useState(
     typeof navigator === 'undefined' ? true : navigator.onLine
   );
@@ -890,6 +842,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // aucun message d'erreur technique ne doit s'afficher (point 2).
       if (isNetworkFailure(error)) return;
       showToast(apiErrorMessage(error), 'error');
+    } finally {
+      // Le premier chargement est passe : les ecrans peuvent arreter d'afficher
+      // leurs squelettes, meme si le reseau a echoue (l'instantane local a
+      // alors pris le relais).
+      setHasLoadedOnce(true);
     }
   };
 
@@ -1562,13 +1519,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const sale = sales.find((s) => s.id === orderId || s.reference === orderId);
     const ref = orderReference || (sale ? sale.reference : orderId);
     const currentUserName = settings.role === 'SELLER'
-      ? (settings.currentSellerName || 'Awa Traoré')
-      : (settings.ownerName || 'Mamadou Koné');
-    const currentUserId = settings.role === 'SELLER' ? 'emp-1' : 'owner';
+      ? (settings.currentSellerName || currentUser?.nom || 'Vendeur')
+      : (settings.ownerName || currentUser?.nom || 'Commerçant');
+    const currentUserId = currentUser?.id ?? (settings.role === 'SELLER' ? 'vendeur' : 'owner');
 
     const delivery: ReceiptDelivery = {
       id: `del-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      businessId: settings.shopCode || 'A7K2X',
+      businessId: currentBusiness?.id ?? settings.shopCode,
       orderId: sale ? sale.id : orderId,
       orderReference: ref,
       canal,
@@ -1895,6 +1852,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  /**
+   * Ouvre la liste des clients en avant sur un client précis.
+   *
+   * Le detail d'une commande y envoie quand on tape la ligne du client : sans
+   * ca, le commercant retombe sur une liste entiere et doit rechercher a la
+   * main le nom qu'il vient de lire.
+   */
+  const focusCustomer = (customerId: string) => {
+    setCustomerToFocus(customerId);
+    setActiveTab('customers');
+    setActiveMoreSubTab(null);
+  };
+
+  const clearCustomerFocus = () => setCustomerToFocus(null);
+
+  /**
+   * Encaisse le reste dû sur une commande.
+   *
+   * Passe par le serveur sans file d'attente locale : un encaissement touche
+   * la caisse et la dette du client, deux choses qu'on ne veut pas voir
+   * bouger à l'écran avant d'être sûr qu'elles ont bougé pour de vrai.
+   */
+  const collectSalePayment = async (
+    saleId: string,
+    amount: number,
+    paymentMethod: PaymentMethod
+  ): Promise<boolean> => {
+    const targetSale = sales.find((s) => s.id === saleId);
+    if (!targetSale) return false;
+    if (targetSale.isCancelled) {
+      showToast('Cette commande est annulée : on ne peut plus rien encaisser dessus', 'warning');
+      return false;
+    }
+    if (amount <= 0 || amount > targetSale.remainingAmount) {
+      showToast(`Le montant doit être compris entre 1 F et ${formatMoney(targetSale.remainingAmount)}`, 'error');
+      return false;
+    }
+    try {
+      await ordersApi.addOrderPayment(saleId, amount, paymentMethod);
+      showToast(`${formatMoney(amount)} encaissés sur ${targetSale.reference}`, 'success');
+      await loadRealData(currentUser?.nom ?? 'Vendeur');
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
+  };
+
   // Business Action: Assign Customer to Sale
   const assignCustomerToSale = (saleId: string, customerId: string, customerName: string, customerPhone?: string) => {
     setSales((prev) =>
@@ -2192,7 +2197,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       const stockCount = stockApi.toFrontendStockCount(created, currentUser?.nom ?? 'Vendeur');
       showToast(
-        `Comptage validé : ${params.items.length} produits vérifiés, ${created.nbEcarts} écart(s)`,
+        `Comptage validé : ${countLabel(params.items.length, 'produit vérifié', 'produits vérifiés')}, ${countLabel(created.nbEcarts, 'écart')}`,
         'success'
       );
       await loadRealData(currentUser?.nom ?? 'Vendeur');
@@ -2329,6 +2334,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setActiveMoreSubTab,
         customersDebtorsFilter,
         setCustomersDebtorsFilter,
+        customerToFocus,
+        focusCustomer,
+        clearCustomerFocus,
         isNewSaleOpen,
         setIsNewSaleOpen,
         isNewProductOpen,
@@ -2353,6 +2361,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cartItemCount,
         completeSale,
         cancelSale,
+        collectSalePayment,
         assignCustomerToSale,
         addProduct,
         updateProduct,
@@ -2381,6 +2390,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         resetToDefaultData,
         pendingMutations,
         isSyncing,
+        hasLoadedOnce,
         isOnline,
         pendingFailure,
         dismissPendingFailure,
