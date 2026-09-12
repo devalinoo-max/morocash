@@ -272,7 +272,9 @@ interface AppContextType {
   // Sync & Offline Engine
   syncPendingOperations: () => Promise<void>;
   toggleOfflineMode: () => void;
-  resetToDefaultData: () => void;
+  // Efface tout ce qui est garde sur cet appareil, puis recharge depuis la
+  // base. Ne restaure plus une boutique de demonstration : il n'y en a plus.
+  clearLocalData: () => Promise<void>;
 
   // ── Envoi differe (points 1 et 2) ─────────────────────────────────────
   /** Ecritures pas encore confirmees par le serveur. */
@@ -2267,7 +2269,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const resetToDefaultData = () => {
+  /**
+   * Efface ce que cet appareil garde en local, puis recharge depuis la base.
+   *
+   * Ce bouton restaurait autrefois une boutique de demonstration. Elle n'existe
+   * plus : les listes de depart sont vides, et la verite vient du serveur. Le
+   * geste est donc devenu « repartir propre », pas « remettre les exemples ».
+   */
+  const clearLocalData = async () => {
     localStorage.clear();
     setSettings(initialSettings);
     setProducts(initialProducts);
@@ -2292,7 +2301,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     void idbClear(QUEUE_STORE);
     void idbClear(CACHE_STORE);
 
-    showToast('Données réinitialisées avec succès', 'info');
+    showToast('Données locales effacées — rechargement depuis le serveur', 'info');
+
+    // Sans ce rechargement, l'écran resterait vide jusqu'à la prochaine
+    // action : la session vit dans un cookie, pas dans localStorage, donc
+    // effacer le local ne déconnecte personne et les données peuvent revenir
+    // tout de suite.
+    await loadRealData(currentUser?.nom ?? 'Vendeur');
   };
 
   return (
@@ -2387,7 +2402,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addCashMovement,
         syncPendingOperations,
         toggleOfflineMode,
-        resetToDefaultData,
+        clearLocalData,
         pendingMutations,
         isSyncing,
         hasLoadedOnce,

@@ -22,7 +22,7 @@ export const StateSwitcherDrawer: React.FC = () => {
     setUiState,
     settings,
     updateSettings,
-    resetToDefaultData,
+    clearLocalData,
     showToast,
   } = useApp();
 
@@ -176,13 +176,13 @@ export const StateSwitcherDrawer: React.FC = () => {
               <div className="pt-2">
                 <button
                   onClick={() => {
-                    resetToDefaultData();
+                    void clearLocalData();
                     setIsOpen(false);
                   }}
                   className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Réinitialiser les données d’exemple</span>
+                  <span>Effacer les données de cet appareil</span>
                 </button>
               </div>
             </div>

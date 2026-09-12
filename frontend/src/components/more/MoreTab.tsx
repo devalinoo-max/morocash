@@ -56,7 +56,6 @@ export const MoreTab: React.FC = () => {
     settings,
     updateSettings,
     showToast,
-    resetToDefaultData,
     activeCashSession,
     currentUser,
     currentBusiness,
