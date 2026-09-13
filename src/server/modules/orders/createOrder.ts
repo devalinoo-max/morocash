@@ -226,6 +226,10 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
             type: 'ENTREE',
             origine: 'COMMANDE',
             paymentId: payment.id,
+            // Sans ca, une ligne de caisse ne se rattache a sa vente que par
+            // le paiement — et l'ecran Caisse, qui lit referenceId, n'affiche
+            // rien. Le commercant voit « COMMANDE » sans savoir laquelle.
+            referenceId: order.id,
             montant: payment.montant,
             methode: payment.methode,
             userId: ctx.userId,

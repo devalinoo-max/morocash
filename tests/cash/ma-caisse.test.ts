@@ -261,28 +261,28 @@ describe('Ma caisse — ce qui entre et ce qui sort tout seul', () => {
     const commande = await vente(b, 5, 2_000, 'ESPECES'); // 5 000 F dus, 2 000 verses
     expect(commande.order.total).toBe(5_000);
     expect(commande.cashMovement?.montant).toBe(2_000);
+    // La ligne de caisse sait de quelle vente elle vient : c'est ce que
+    // l'ecran Caisse affiche au commercant.
+    expect(commande.cashMovement?.referenceId).toBe(commande.order.id);
   });
 
-  it('encaisser le reste plus tard fait une seconde entree', async () => {
-    // C'est le geste ajoute au detail de commande : il doit atterrir en caisse.
+  it('encaisser le reste plus tard fait une seconde entree, sur la meme commande', async () => {
+    // C'est le geste ajoute au detail de commande : il doit atterrir en caisse,
+    // et rester rattache a la vente d'origine.
     const commande = await vente(b, 4, 1_000, 'ESPECES'); // 4 000 dus, 1 000 verses
-    const solde = await addOrderPayment(b.ctx, commande.order.id, {
+    await addOrderPayment(b.ctx, commande.order.id, {
       clientUuid: randomUUID(),
       montant: 3_000,
       methode: 'ESPECES',
     });
 
-    // Une entree de caisse se rattache a sa commande par le paiement, jamais
-    // directement (voir le test d'asymetrie plus bas).
-    const idsPaiement = [commande.payment!.id, solde.payment.id];
-    const mouvements = await listMovements(b.ctx.businessId);
-    const liees = mouvements.filter(
-      (m) => m.type === 'ENTREE' && m.paymentId && idsPaiement.includes(m.paymentId)
+    const liees = (await listMovements(b.ctx.businessId)).filter(
+      (m) => m.type === 'ENTREE' && m.referenceId === commande.order.id
     );
     expect(liees.map((m) => m.montant).sort((x, y) => x - y)).toEqual([1_000, 3_000]);
   });
 
-  it('un remboursement de dette entre en caisse', async () => {
+  it('un remboursement de dette entre en caisse, au nom du client', async () => {
     const avant = (await listMovements(b.ctx.businessId)).filter((m) => m.type === 'ENTREE').length;
     await repayDebt(b.ctx, b.customerId, {
       clientUuid: randomUUID(),
@@ -291,6 +291,11 @@ describe('Ma caisse — ce qui entre et ce qui sort tout seul', () => {
     });
     const apres = (await listMovements(b.ctx.businessId)).filter((m) => m.type === 'ENTREE');
     expect(apres).toHaveLength(avant + 1);
+
+    // Un remboursement ne vient d'aucune commande : il vient d'un client, et
+    // c'est son nom que l'ecran Caisse doit pouvoir afficher.
+    const remboursement = apres.find((m) => m.origine === 'REMBOURSEMENT');
+    expect(remboursement?.referenceId).toBe(b.customerId);
   });
 });
 
@@ -322,30 +327,28 @@ describe('Ma caisse — annuler une commande retire l argent', () => {
     expect(mouvements.filter((m) => m.montant === 11_000)).toHaveLength(2);
   });
 
-  it('ASYMETRIE CONNUE : l entree porte paymentId, la sortie porte referenceId', async () => {
+  it('les deux sens designent la meme commande', async () => {
     /*
-     * Ce test ne celebre pas le comportement, il l'enregistre.
+     * L'entree et sa contre-passation se retrouvent desormais par la meme cle.
      *
-     * Une entree de caisse liee a une commande ne porte QUE paymentId ; la
-     * sortie de contre-passation ne porte QUE referenceId. On ne peut donc pas
-     * rattacher les deux sens d'un meme mouvement par la meme cle.
-     *
-     * Consequence visible : l'ecran Caisse affiche referenceId a cote du motif
-     * (CashRegisterTab). Un encaissement n'affiche donc rien, et une annulation
-     * affiche un identifiant technique (cuid) au lieu du numero CMD-....
-     * Si quelqu'un corrige ca un jour, ce test tombera — et c'est voulu.
+     * Avant, une entree ne portait que paymentId et la sortie que referenceId :
+     * impossible de les rapprocher, et l'ecran Caisse — qui lit referenceId —
+     * n'affichait rien du tout sur un encaissement. Trois lignes « COMMANDE »
+     * identiques, sans moyen de savoir laquelle etait quelle vente.
      */
     const commande = await vente(b, 1, 1_000, 'ESPECES');
-    await cancelOrder(b.ctx, commande.order.id, 'Verification de l asymetrie');
+    await cancelOrder(b.ctx, commande.order.id, 'Verification du rattachement');
 
-    const mouvements = await listMovements(b.ctx.businessId);
-    const entree = mouvements.find((m) => m.paymentId === commande.payment!.id);
-    const sortie = mouvements.find(
-      (m) => m.type === 'SORTIE' && m.referenceId === commande.order.id
+    const liees = (await listMovements(b.ctx.businessId)).filter(
+      (m) => m.referenceId === commande.order.id
     );
 
-    expect(entree?.referenceId).toBeNull();
-    expect(sortie?.paymentId).toBeNull();
+    expect(liees).toHaveLength(2);
+    expect(liees.filter((m) => m.type === 'ENTREE')).toHaveLength(1);
+    expect(liees.filter((m) => m.type === 'SORTIE')).toHaveLength(1);
+    // Le paiement reste rattache a l'entree : on ajoute une cle, on n'en
+    // remplace aucune.
+    expect(liees.find((m) => m.type === 'ENTREE')?.paymentId).toBe(commande.payment!.id);
   });
 
   it('la caisse revient a son niveau d avant la vente', async () => {

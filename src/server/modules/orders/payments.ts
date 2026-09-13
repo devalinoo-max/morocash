@@ -74,6 +74,9 @@ export async function addOrderPayment(
         type: 'ENTREE',
         origine: 'COMMANDE',
         paymentId: payment.id,
+        // Meme raison que dans createOrder : c'est referenceId que lit l'ecran
+        // Caisse pour dire de quelle vente vient l'argent.
+        referenceId: order.id,
         montant: payment.montant,
         methode: payment.methode,
         userId: ctx.userId,

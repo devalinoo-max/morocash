@@ -48,6 +48,43 @@ export const CashRegisterTab: React.FC = () => {
     gateWrite,
   } = useApp();
 
+  /**
+   * De quoi vient cette ligne de caisse, en clair.
+   *
+   * Le mouvement ne porte qu'un identifiant technique. Affiche tel quel, il
+   * ne disait rien a personne — et pour un encaissement, il n'y avait meme
+   * rien a afficher : trois lignes « COMMANDE » identiques, impossible de
+   * savoir laquelle etait quelle vente. On traduit donc l'identifiant avec ce
+   * que l'ecran a deja en memoire, ce qui marche aussi hors ligne.
+   *
+   * Si la reference ne correspond a rien de connu (donnee ancienne, vente pas
+   * encore redescendue), on n'ecrit rien plutot qu'un code illisible.
+   */
+  const libelleMouvement = (mov: CashMovement): string => {
+    const reference = mov.referenceId;
+    if (!reference) return mov.motif || mov.origine;
+
+    if (mov.origine === 'COMMANDE') {
+      const vente = sales.find((s) => s.id === reference);
+      if (vente) {
+        const client = vente.customerName?.trim();
+        return `${mov.motif || 'Vente'} ${vente.reference}${client ? ` · ${client}` : ''}`;
+      }
+    }
+
+    if (mov.origine === 'REMBOURSEMENT') {
+      const client = customers.find((c) => c.id === reference);
+      if (client) return `${mov.motif || 'Remboursement'} · ${client.name}`;
+    }
+
+    if (mov.origine === 'DEPENSE') {
+      const depense = expenses.find((e) => e.id === reference);
+      if (depense) return `${mov.motif || 'Dépense'} · ${depense.category}`;
+    }
+
+    return mov.motif || mov.origine;
+  };
+
   // Modals state
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [isOpenModalOpen, setIsOpenModalOpen] = useState(false);
@@ -705,12 +742,7 @@ export const CashRegisterTab: React.FC = () => {
                         {isSingleDayPeriod ? formatShortDate(mov.createdAt) : formatDate(mov.createdAt)}
                       </td>
                       <td className="py-2.5 px-4 font-bold text-slate-900">
-                        {mov.motif || mov.origine}
-                        {mov.referenceId && (
-                          <span className="text-[10px] text-slate-400 font-normal ml-1.5 font-mono">
-                            ({mov.referenceId})
-                          </span>
-                        )}
+                        {libelleMouvement(mov)}
                       </td>
                       <td className="py-2.5 px-4 text-slate-600 whitespace-nowrap">
                         {mov.userName}

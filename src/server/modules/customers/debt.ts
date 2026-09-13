@@ -106,6 +106,9 @@ export async function repayDebt(
         type: 'ENTREE',
         origine: 'REMBOURSEMENT',
         paymentId: payment.id,
+        // Un remboursement ne vient d'aucune commande en particulier : il vient
+        // d'un client. C'est donc lui que designe la reference.
+        referenceId: customerId,
         montant: payment.montant,
         methode: payment.methode,
         userId: ctx.userId,
