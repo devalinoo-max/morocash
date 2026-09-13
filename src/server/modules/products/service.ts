@@ -5,20 +5,41 @@ import { checkQuota } from '@/server/guards';
 import { AppError } from '@/server/shared/errors';
 import { generateInternalCode } from '@/server/integrations/qr';
 
-export const createProductSchema = z.object({
+/**
+ * Contraintes de chaque champ, sans valeur par défaut.
+ *
+ * Une valeur par défaut n'a de sens qu'à la création. Appliquée à une mise à
+ * jour partielle, elle réécrit en silence des champs que l'appelant n'a jamais
+ * envoyés : `createProductSchema.partial()` conservait les `.default()`, si
+ * bien qu'un PATCH ne portant que le nom (ou que le prix — voir BulkEditBar,
+ * qui change la catégorie ou le prix d'une sélection entière) remettait le
+ * stock, le seuil d'alerte et le prix d'achat à zéro, et l'unité à « pièce ».
+ */
+const productFields = {
   nom: z.string().trim().min(1).max(200),
-  type: z.enum(['PRODUIT', 'SERVICE']).default('PRODUIT'),
+  type: z.enum(['PRODUIT', 'SERVICE']),
   prixVente: z.number().int().nonnegative(),
-  prixAchat: z.number().int().nonnegative().default(0),
-  stock: z.number().int().default(0),
-  seuilAlerte: z.number().int().nonnegative().default(0),
-  unite: z.string().trim().min(1).max(30).default('pièce'),
-  categoryId: z.string().cuid().optional(),
+  prixAchat: z.number().int().nonnegative(),
+  stock: z.number().int(),
+  seuilAlerte: z.number().int().nonnegative(),
+  unite: z.string().trim().min(1).max(30),
+  categoryId: z.string().cuid(),
+};
+
+export const createProductSchema = z.object({
+  ...productFields,
+  type: productFields.type.default('PRODUIT'),
+  prixAchat: productFields.prixAchat.default(0),
+  stock: productFields.stock.default(0),
+  seuilAlerte: productFields.seuilAlerte.default(0),
+  unite: productFields.unite.default('pièce'),
+  categoryId: productFields.categoryId.optional(),
 });
 
-export const updateProductSchema = createProductSchema.partial().extend({
-  actif: z.boolean().optional(),
-});
+export const updateProductSchema = z
+  .object(productFields)
+  .partial()
+  .extend({ actif: z.boolean().optional() });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
