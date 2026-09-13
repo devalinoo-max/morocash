@@ -1,4 +1,4 @@
-import type { CartItem, PaymentMethod, PaymentStatus, Product, Sale, SaleItem } from '../types';
+import type { CartItem, Customer, PaymentMethod, PaymentStatus, Product, Sale, SaleItem } from '../types';
 
 /**
  * Construction locale de ce que le serveur repondra.
@@ -108,6 +108,38 @@ export function applySaleToStock(products: Product[], sale: Sale): Product[] {
     const line = sale.items.find((it) => it.productId === product.id);
     if (!line || product.isService) return product;
     return { ...product, stock: product.stock - line.quantity };
+  });
+}
+
+/**
+ * La dette suit la vente a l'ecran, comme le stock : le reste a payer s'ajoute
+ * tout de suite a la dette du client. Sans ca, accueil, « Qui me doit » et
+ * caisse affichaient le client « a jour » jusqu'au rechargement complet.
+ */
+export function applySaleToCustomerDebt(customers: Customer[], sale: Sale): Customer[] {
+  if (!sale.customerId || sale.remainingAmount <= 0) return customers;
+  return customers.map((c) =>
+    c.id === sale.customerId
+      ? { ...c, totalDebt: (c.totalDebt || 0) + sale.remainingAmount, debtAgeDays: Math.max(c.debtAgeDays || 0, 1) }
+      : c
+  );
+}
+
+/**
+ * Soldes relus du serveur. Un solde illisible (`null`) garde le dernier montant
+ * connu du client : il ne devient JAMAIS 0, ce qui effacait autrefois toutes les
+ * dettes de l'app au moindre appel en echec.
+ */
+export function reconcileCustomerBalances(
+  serverCustomers: Customer[],
+  balances: (number | null)[],
+  previous: Customer[]
+): Customer[] {
+  const known = new Map(previous.map((p) => [p.id, p]));
+  return serverCustomers.map((c, i) => {
+    const prev = known.get(c.id);
+    if (balances[i] !== null || !prev) return c;
+    return { ...c, totalDebt: prev.totalDebt, debtAgeDays: prev.debtAgeDays };
   });
 }
 

@@ -33,6 +33,39 @@ export async function getCustomerBalance(businessId: string, customerId: string)
   });
 }
 
+/**
+ * Soldes de TOUS les clients de la boutique, même formule que
+ * getCustomerBalance, en deux agrégats. La liste des clients les porte
+ * directement : un appel par client pour connaître sa dette multipliait les
+ * requêtes, et le moindre échec de l'un d'eux affichait « 0 dette » partout.
+ */
+export async function getCustomerBalances(businessId: string): Promise<Map<string, number>> {
+  return runInTenantTransaction(businessId, async (tx) => {
+    const [dues, received] = await Promise.all([
+      tx.order.groupBy({
+        by: ['customerId'],
+        where: { businessId, statut: { not: 'ANNULEE' } },
+        _sum: { total: true },
+      }),
+      tx.payment.groupBy({
+        by: ['customerId'],
+        where: { businessId, statut: 'VALIDE' },
+        _sum: { montant: true },
+      }),
+    ]);
+
+    const balances = new Map<string, number>();
+    for (const d of dues) {
+      balances.set(d.customerId, d._sum.total ?? 0);
+    }
+    for (const r of received) {
+      if (!r.customerId) continue;
+      balances.set(r.customerId, (balances.get(r.customerId) ?? 0) - (r._sum.montant ?? 0));
+    }
+    return balances;
+  });
+}
+
 export async function getCustomerHistory(businessId: string, customerId: string) {
   return runInTenantTransaction(businessId, async (tx) => {
     const customer = await tx.customer.findFirst({ where: { id: customerId, businessId } });

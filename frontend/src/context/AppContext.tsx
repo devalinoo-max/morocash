@@ -62,6 +62,8 @@ import {
   haptic,
   revertSaleFromStock,
   applySaleToStock,
+  applySaleToCustomerDebt,
+  reconcileCustomerBalances,
 } from '../offline/optimistic';
 import {
   SERVER_DEDUPLICATED,
@@ -550,6 +552,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const replayRef = useRef<((opts?: { silent?: boolean; force?: boolean }) => Promise<void>) | null>(
     null
   );
+  // Recalage périodique sur le serveur (voir resyncFromServer).
+  const resyncRef = useRef<(() => Promise<void>) | null>(null);
+  const lastRealLoadAt = useRef(0);
   const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
   const [saleSuccessReceipt, setSaleSuccessReceipt] = useState<Sale | null>(null);
   const [receiptDeliveries, setReceiptDeliveries] = useState<ReceiptDelivery[]>(() => {
@@ -599,12 +604,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (document.visibilityState !== 'visible') return;
       if (!navigator.onLine) return;
       if (authStatusRef.current !== 'authenticated') return;
-      void replayRef.current?.();
+      void resyncRef.current?.();
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     document.addEventListener('visibilitychange', handleVisible);
+
+    // Les dettes, la caisse et le stock bougent aussi depuis les autres
+    // appareils de la boutique (vendeur, patron) : sans ce battement, un écran
+    // resté ouvert affichait des soldes figés jusqu'au prochain rechargement.
+    const resyncTimer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (authStatusRef.current !== 'authenticated') return;
+      void resyncRef.current?.();
+    }, 120_000);
 
     // État réel du réseau au démarrage, dans les deux sens : `isOfflineMode`
     // est persisté avec les réglages, et sans cette remise à plat une app
@@ -618,6 +632,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisible);
+      clearInterval(resyncTimer);
       if (replayTimer.current) clearTimeout(replayTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -723,6 +738,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * optimiste.
    */
   const loadRealData = async (userName: string) => {
+    lastRealLoadAt.current = Date.now();
     try {
       // Toutes ces requêtes sont indépendantes les unes des autres (seul le
       // calcul des soldes clients, vague 2 ci-dessous, dépend de la liste des
@@ -771,15 +787,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       );
       setProducts((prev) => mergePending(serverProducts, prev, pendingLocalIds));
 
-      // Vague 2 : les soldes clients ont besoin de la liste des clients
-      // (vague 1 ci-dessus) pour savoir quels ids interroger.
-      const balances = await Promise.all(
-        apiCustomers.map((c) => customersApi.fetchCustomerBalance(c.id).catch(() => 0))
+      // Soldes clients : GET /customers les porte directement. Sur un serveur
+      // plus ancien (champ absent), repli sur un appel par client.
+      // Un solde qu'on n'a pas pu lire vaut `null`, JAMAIS 0 : autrefois
+      // `.catch(() => 0)` effaçait en silence toutes les dettes de l'accueil,
+      // de « Qui me doit » et de la caisse au moindre échec de ces appels.
+      const balances: (number | null)[] = await Promise.all(
+        apiCustomers.map((c) =>
+          typeof c.solde === 'number'
+            ? c.solde
+            : customersApi.fetchCustomerBalance(c.id).catch(() => null)
+        )
       );
       const serverCustomers = apiCustomers.map((c, i) =>
-        customersApi.toFrontendCustomer(c, balances[i])
+        customersApi.toFrontendCustomer(c, balances[i] ?? 0)
       );
-      setCustomers((prev) => mergePending(serverCustomers, prev, pendingLocalIds));
+      setCustomers((prev) =>
+        mergePending(reconcileCustomerBalances(serverCustomers, balances, prev), prev, pendingLocalIds)
+      );
+      const unreadCount = balances.filter((b) => b === null).length;
+      if (unreadCount > 0) {
+        showToast(
+          `Dette de ${unreadCount} client${unreadCount > 1 ? 's' : ''} non actualisée : dernier montant connu affiché.`,
+          'warning'
+        );
+      }
 
       const serverSales = apiOrders.map((o) => {
         const customer = apiCustomers.find((c) => c.id === o.customerId);
@@ -1177,6 +1209,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Version courante de replayQueue, pour les écouteurs posés une seule fois.
   replayRef.current = replayQueue;
 
+  /**
+   * Retour sur l'app ou battement périodique : on vide d'abord la file (qui
+   * recharge tout d'elle-même une fois vide), sinon on relit le serveur.
+   * Jamais pendant qu'une écriture attend : la version serveur n'en tient pas
+   * encore compte et écraserait la dette ou le stock déjà mis à jour à l'écran.
+   */
+  const resyncFromServer = async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    if (replayRunning.current) return;
+    if (Date.now() - lastRealLoadAt.current < 20_000) return;
+    const rows = await listPending();
+    if (rows.length > 0) {
+      await replayQueue({ silent: true });
+      return;
+    }
+    await loadRealData(currentUser?.nom ?? settings.ownerName ?? 'Vendeur');
+  };
+  resyncRef.current = resyncFromServer;
+
   const scheduleReplay = (delay: number) => {
     if (replayTimer.current) clearTimeout(replayTimer.current);
     replayTimer.current = setTimeout(() => {
@@ -1482,6 +1533,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setSales((prev) => [sale, ...prev]);
     setProducts((prev) => applySaleToStock(prev, sale));
+    setCustomers((prev) => applySaleToCustomerDebt(prev, sale));
     clearCart();
     setIsNewSaleOpen(false);
     setSelectedSaleForReceipt(sale);

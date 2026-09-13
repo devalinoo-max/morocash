@@ -9,6 +9,8 @@ export interface ApiCustomer {
   note: string | null;
   archive: boolean;
   createdAt: string;
+  /** Solde calculé par GET /customers (absent sur un serveur plus ancien). */
+  solde?: number;
 }
 
 export interface CreateCustomerInput {
