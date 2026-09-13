@@ -1,58 +1,100 @@
 import { Sale, ShopSettings, ReceiptDeliveryChannel } from '../types';
-import { formatMoney, formatDate, formatPaymentMethod } from './formatters';
+import { formatDate, formatPaymentMethod } from './formatters';
+import { formatMoneyFull, pageForPrefs, readPrintPrefs, type PrintPageSpec } from './receiptPrint';
 
-export function generateReceiptWhatsAppText(sale: Sale, settings: ShopSettings): string {
-  const shopName = (settings.shopName || 'MOROCASH').toUpperCase();
-  const city = settings.city || 'Abidjan';
+/**
+ * Texte du reçu. `plain` retire le gras et les émojis de WhatsApp : c'est la
+ * version « Copier », qui doit se coller proprement n'importe où (SMS, note,
+ * e-mail). Les montants restent complets : un reçu ne s'abrège pas.
+ */
+export function generateReceiptWhatsAppText(
+  sale: Sale,
+  settings: ShopSettings,
+  options: { plain?: boolean } = {}
+): string {
+  const plain = options.plain === true;
+  const b = (t: string) => (plain ? t : `*${t}*`);
+  const i = (t: string) => (plain ? t : `_${t}_`);
+  const e = (emoji: string) => (plain ? '' : `${emoji} `);
+
+  const shopName = (settings.shopName || '').toUpperCase();
+  const place = settings.adresse || settings.city;
+  const phone = settings.telephone || settings.ownerPhone;
   const clientName = sale.customerName?.trim() || 'Client de passage';
+  const line = plain ? '--------------------' : '────────────────────';
 
-  let text = `🧾 *REÇU DE PAIEMENT — ${shopName}*\n`;
-  text += `📍 ${city}\n`;
-  if (settings.showPhone && settings.ownerPhone) {
-    text += `📞 Contact : ${settings.ownerPhone}\n`;
+  let text = `${e('🧾')}${b(shopName ? `REÇU — ${shopName}` : 'REÇU')}\n`;
+  if (place) text += `${e('📍')}${place}\n`;
+  if (settings.showPhone && phone) {
+    text += `${e('📞')}Contact : ${phone}\n`;
   }
-  text += `────────────────────\n`;
-  text += `📄 Réf : ${sale.reference}\n`;
-  text += `👤 Client : ${clientName}\n`;
-  text += `📅 Date : ${formatDate(sale.createdAt)}\n`;
-  text += `👔 Vendu par : ${sale.sellerName || 'Vendeur'}\n`;
-  text += `────────────────────\n`;
-  text += `*ARTICLES :*\n`;
+  text += `${line}\n`;
+  text += `${e('📄')}N° : ${sale.reference}\n`;
+  text += `${e('👤')}Client : ${clientName}\n`;
+  text += `${e('📅')}Date : ${formatDate(sale.createdAt)}\n`;
+  if (sale.sellerName) text += `${e('👔')}Vendu par : ${sale.sellerName}\n`;
+  text += `${line}\n`;
+  text += `${b('ARTICLES :')}\n`;
   sale.items.forEach((it) => {
-    text += `• ${it.name} (x${it.quantity}) : ${formatMoney(it.total)}\n`;
+    text += `${plain ? '-' : '•'} ${it.name} (x${it.quantity}) : ${formatMoneyFull(it.total)}\n`;
   });
-  text += `────────────────────\n`;
+  text += `${line}\n`;
 
   const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0);
   if (sale.discount > 0) {
-    text += `Sous-total : ${formatMoney(subtotal)}\n`;
-    text += `Remise : −${formatMoney(sale.discount)}\n`;
+    const pct = sale.discountMode === 'PERCENTAGE' && sale.discountValue ? ` (${sale.discountValue} %)` : '';
+    text += `Sous-total : ${formatMoneyFull(subtotal)}\n`;
+    text += `Remise${pct} : − ${formatMoneyFull(sale.discount)}\n`;
   }
-  text += `*TOTAL : ${formatMoney(sale.totalAmount)}*\n`;
-  text += `Montant payé : ${formatMoney(sale.paidAmount)} (${formatPaymentMethod(sale.paymentMethod)})\n`;
+  text += `${b(`TOTAL : ${formatMoneyFull(sale.totalAmount)}`)}\n`;
+  text += `Payé : ${formatMoneyFull(sale.paidAmount)} (${formatPaymentMethod(sale.paymentMethod)})\n`;
 
   if (sale.remainingAmount > 0) {
-    text += `⚠️ *Reste à payer : ${formatMoney(sale.remainingAmount)}*\n`;
+    text += `${e('⚠️')}${b(`Reste à payer : ${formatMoneyFull(sale.remainingAmount)}`)}\n`;
   } else {
-    text += `✅ *Statut : PAYÉ INTÉGRALEMENT*\n`;
+    text += `${e('✅')}${b('PAYÉ EN ENTIER')}\n`;
   }
 
   if (settings.receiptMessage) {
-    text += `────────────────────\n`;
-    text += `_${settings.receiptMessage}_\n`;
+    text += `${line}\n`;
+    text += `${i(settings.receiptMessage)}\n`;
   }
-  text += `✨ _Reçu généré avec MoroCash_`;
+  text += `${e('✨')}${i('Reçu généré avec MoroCash')}`;
   return text;
+}
+
+/**
+ * Numéro prêt pour wa.me : chiffres seuls, indicatif compris.
+ * « 07 08 12 34 56 » + « +225 » → « 2250708123456 ». Un numéro déjà saisi
+ * avec son indicatif (+225…, 00225…) est gardé tel quel.
+ */
+export function toWhatsAppNumber(phone: string, defaultDialCode = '225'): string {
+  const raw = phone.trim();
+  let digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  if (raw.startsWith('+')) return digits;
+  if (digits.startsWith('00')) return digits.slice(2);
+  const code = defaultDialCode.replace(/\D/g, '');
+  if (code && digits.startsWith(code) && digits.length > 10) return digits;
+  return `${code}${digits}`;
+}
+
+/** « 0708123456 » → « 07 08 12 34 56 ». Laisse intact ce qui n'a pas ce format. */
+export function formatPhoneDisplay(phone: string | undefined | null): string {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (digits.length === 10) return digits.replace(/(\d{2})(?=\d)/g, '$1 ');
+  return (phone ?? '').trim();
 }
 
 export function shareReceiptOnWhatsApp(
   sale: Sale,
   settings: ShopSettings,
-  onDelivered?: (canal: ReceiptDeliveryChannel) => void
+  onDelivered?: (canal: ReceiptDeliveryChannel) => void,
+  toPhone?: string
 ): void {
   const rawText = generateReceiptWhatsAppText(sale, settings);
   const encoded = encodeURIComponent(rawText);
-  const targetPhone = sale.customerPhone?.replace(/\D/g, '');
+  const targetPhone = toWhatsAppNumber(toPhone ?? sale.customerPhone ?? '');
   const url = targetPhone
     ? `https://wa.me/${targetPhone}?text=${encoded}`
     : `https://wa.me/?text=${encoded}`;
@@ -68,7 +110,7 @@ export function copyReceiptToClipboard(
   settings: ShopSettings,
   onDelivered?: (canal: ReceiptDeliveryChannel) => void
 ): Promise<void> {
-  const text = generateReceiptWhatsAppText(sale, settings);
+  const text = generateReceiptWhatsAppText(sale, settings, { plain: true });
   return navigator.clipboard.writeText(text).then(() => {
     if (onDelivered) {
       onDelivered('COPIE_TEXTE');
@@ -76,11 +118,78 @@ export function copyReceiptToClipboard(
   });
 }
 
+/**
+ * Logo en noir et blanc, réduit, en PNG.
+ *
+ * La conversion se fait ici et non sur le serveur : le logo est déjà une image
+ * du navigateur (data URL), le canvas sait le passer en niveaux de gris, et le
+ * serveur n'a ainsi besoin d'aucune bibliothèque d'image. Le PDF, lui, reste
+ * fabriqué côté serveur.
+ */
+async function monochromeLogo(src: string | undefined): Promise<string | undefined> {
+  if (!src || typeof document === 'undefined') return undefined;
+  try {
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('logo illisible'));
+      img.src = src;
+    });
+    const size = 300;
+    const ratio = Math.min(1, size / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * ratio));
+    const h = Math.max(1, Math.round(img.height * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+    // Fond blanc d'abord : un logo transparent deviendrait sinon noir.
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h);
+    const px = data.data;
+    for (let p = 0; p < px.length; p += 4) {
+      const gray = Math.round(0.299 * px[p] + 0.587 * px[p + 1] + 0.114 * px[p + 2]);
+      px[p] = px[p + 1] = px[p + 2] = gray;
+    }
+    ctx.putImageData(data, 0, 0);
+    return canvas.toDataURL('image/png');
+  } catch {
+    // Un logo qu'on ne sait pas lire ne doit pas empêcher d'imprimer le reçu.
+    return undefined;
+  }
+}
+
+export interface ReceiptPdfOptions {
+  isMerchantCopy?: boolean;
+  /** Taille de page ; à défaut, le format par défaut de la boutique. */
+  page?: PrintPageSpec;
+  /** Dette totale du client, par commande — n'apparaît que sur la copie commerçant. */
+  customerDebts?: Record<string, number>;
+}
+
 export async function fetchReceiptsPdfBlob(
   sales: Sale[],
   settings: ShopSettings,
-  isMerchantCopy: boolean = false
+  isMerchantCopyOrOptions: boolean | ReceiptPdfOptions = false
 ): Promise<Blob> {
+  const options: ReceiptPdfOptions =
+    typeof isMerchantCopyOrOptions === 'boolean' ? { isMerchantCopy: isMerchantCopyOrOptions } : isMerchantCopyOrOptions;
+  const isMerchantCopy = options.isMerchantCopy === true;
+  const page = options.page ?? pageForPrefs(readPrintPrefs(settings.receiptSettings));
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error(
+      'Pas de connexion : le reçu PDF est fabriqué sur le serveur. Envoie-le par WhatsApp ou copie le texte en attendant le réseau.'
+    );
+  }
+
+  const wantsLogo = (settings.receiptSettings?.showLogo ?? settings.showLogo) !== false;
+  const logoMonochrome = wantsLogo ? await monochromeLogo(settings.logoTransparentUrl || settings.logoUrl) : undefined;
+
   const payload = {
     sales: sales.map((s) => ({
       id: s.id,
@@ -101,25 +210,27 @@ export async function fetchReceiptsPdfBlob(
       paymentMethod: s.paymentMethod,
       customerName: s.customerName,
       customerPhone: s.customerPhone,
+      // Envoyée seulement pour la copie commerçant : la copie client n'a pas à
+      // transporter le détail des autres dettes, même sans l'afficher.
+      customerTotalDebt: isMerchantCopy ? options.customerDebts?.[s.id] : undefined,
       createdAt: s.createdAt,
       sellerName: s.sellerName,
     })),
     settings: {
       shopName: settings.shopName,
       city: settings.city,
+      adresse: settings.adresse,
       ownerPhone: settings.ownerPhone,
+      telephone: settings.telephone,
       showPhone: settings.showPhone,
       showLogo: settings.showLogo,
       receiptMessage: settings.receiptMessage,
+      receiptSettings: settings.receiptSettings,
+      logoMonochrome,
     },
     isMerchantCopy,
+    page,
   };
-
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    throw new Error(
-      'Pas de connexion : le reçu PDF est fabriqué sur le serveur. Envoie-le par WhatsApp ou copie le texte en attendant le réseau.'
-    );
-  }
 
   let res: Response;
   try {
@@ -190,13 +301,13 @@ export function receiptErrorMessage(prefix: string, err: unknown): string {
   return detail ? `${prefix} : ${detail}` : prefix;
 }
 
-function receiptFileName(sales: Sale[]): string {
+export function receiptFileName(sales: Pick<Sale, 'reference'>[]): string {
   return sales.length === 1
     ? `recu-${sales[0].reference}.pdf`
     : `recus-groupes-${sales.length}.pdf`;
 }
 
-function triggerBlobDownload(blobUrl: string, fileName: string): void {
+export function triggerBlobDownload(blobUrl: string, fileName: string): void {
   const link = document.createElement('a');
   link.href = blobUrl;
   link.download = fileName;
@@ -213,11 +324,62 @@ function triggerBlobDownload(blobUrl: string, fileName: string): void {
  * Libère l'URL blob, mais pas tout de suite : révoquée dans la foulée du clic,
  * elle annule le téléchargement encore en cours d'amorçage sur Firefox et sur
  * plusieurs navigateurs Android (le bouton "Télécharger" semblait fonctionner,
- * aucun fichier n'arrivait). Une minute laisse le temps au navigateur d'ouvrir
- * l'onglet ou d'écrire le fichier avant que la mémoire ne soit rendue.
+ * aucun fichier n'arrivait). Dix minutes laissent aussi le temps au commerçant
+ * d'appuyer sur « Télécharger » quand l'onglet a été bloqué.
  */
 function releaseBlobUrlLater(blobUrl: string): void {
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 600_000);
+}
+
+/**
+ * Onglet ouvert AVANT l'appel réseau, dans le geste même du commerçant.
+ *
+ * Un window.open() lancé après un `await` n'est plus considéré comme déclenché
+ * par le clic : la plupart des navigateurs le bloquent en silence. On ouvre
+ * donc l'onglet tout de suite, vide, et on y charge le PDF quand il arrive.
+ */
+export function reserveTabForPdf(): Window | null {
+  try {
+    const tab = window.open('', '_blank');
+    if (tab) {
+      tab.document.title = 'Reçu en préparation…';
+      tab.document.body.style.fontFamily = 'system-ui, sans-serif';
+      tab.document.body.textContent = 'Préparation du reçu…';
+    }
+    return tab;
+  } catch {
+    return null;
+  }
+}
+
+export interface OpenedPdf {
+  /** false : l'onglet a été bloqué, il faut proposer « Télécharger ». */
+  opened: boolean;
+  download: () => void;
+}
+
+export async function openReceiptPdf(
+  sales: Sale[],
+  settings: ShopSettings,
+  options: ReceiptPdfOptions,
+  reservedTab: Window | null
+): Promise<OpenedPdf> {
+  let blob: Blob;
+  try {
+    blob = await fetchReceiptsPdfBlob(sales, settings, options);
+  } catch (err) {
+    reservedTab?.close();
+    throw err;
+  }
+  const blobUrl = URL.createObjectURL(blob);
+  releaseBlobUrlLater(blobUrl);
+  const download = () => triggerBlobDownload(blobUrl, receiptFileName(sales));
+
+  if (reservedTab && !reservedTab.closed) {
+    reservedTab.location.href = blobUrl;
+    return { opened: true, download };
+  }
+  return { opened: false, download };
 }
 
 export async function printReceiptsPdf(
@@ -226,7 +388,7 @@ export async function printReceiptsPdf(
   isMerchantCopy: boolean = false,
   onDelivered?: (canal: ReceiptDeliveryChannel) => void
 ): Promise<'opened' | 'downloaded'> {
-  const blob = await fetchReceiptsPdfBlob(sales, settings, isMerchantCopy);
+  const blob = await fetchReceiptsPdfBlob(sales, settings, { isMerchantCopy });
   const blobUrl = URL.createObjectURL(blob);
 
   // window.open() intervient après un `await` réseau : la plupart des
@@ -254,10 +416,10 @@ export async function printReceiptsPdf(
 export async function downloadReceiptsPdf(
   sales: Sale[],
   settings: ShopSettings,
-  isMerchantCopy: boolean = false,
+  isMerchantCopyOrOptions: boolean | ReceiptPdfOptions = false,
   onDelivered?: (canal: ReceiptDeliveryChannel) => void
 ): Promise<void> {
-  const blob = await fetchReceiptsPdfBlob(sales, settings, isMerchantCopy);
+  const blob = await fetchReceiptsPdfBlob(sales, settings, isMerchantCopyOrOptions);
   const blobUrl = URL.createObjectURL(blob);
   triggerBlobDownload(blobUrl, receiptFileName(sales));
   releaseBlobUrlLater(blobUrl);

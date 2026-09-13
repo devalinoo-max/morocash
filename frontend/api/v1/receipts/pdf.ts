@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { sales = [], settings = {}, isMerchantCopy = false } = req.body || {};
+  const { sales = [], settings = {}, isMerchantCopy = false, page } = req.body || {};
 
   if (!Array.isArray(sales) || sales.length === 0) {
     res.status(400).json({ error: 'Aucune commande/reçu fourni' });
@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { generateReceiptsPdfBuffer } = await import('../../_lib/receiptPdfGenerator.js');
-    const pdfBuffer = await generateReceiptsPdfBuffer({ sales, settings, isMerchantCopy });
+    const pdfBuffer = await generateReceiptsPdfBuffer({ sales, settings, isMerchantCopy, page });
     const filename =
       sales.length === 1
         ? `recu-${sales[0].reference || 'morocash'}.pdf`

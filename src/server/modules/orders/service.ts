@@ -4,7 +4,12 @@ import type { ReceiptData } from '@/server/modules/receipts/receiptText';
 
 export async function listOrders(businessId: string) {
   const repo = scoped(businessId);
-  return repo.orders.findMany({ orderBy: { createdAt: 'desc' } });
+  // Le nom du vendeur de CHAQUE commande : sans lui, l'app affichait sur tous
+  // les reçus le nom de la personne connectée, quel que soit l'auteur de la vente.
+  return repo.orders.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { items: true, payments: true, user: { select: { nom: true } } },
+  });
 }
 
 export async function getOrder(businessId: string, id: string) {

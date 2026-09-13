@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Store, Phone } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Sale, ShopSettings } from '../../types';
-import { formatMoney, formatDate, formatPaymentMethod } from '../../utils/formatters';
+import { formatMoneyCompact, formatDate, formatPaymentMethod } from '../../utils/formatters';
 
 export interface ReceiptViewProps {
   sale: Sale;
@@ -11,6 +11,16 @@ export interface ReceiptViewProps {
   customerTotalDebt?: number;
   className?: string;
   showQrCode?: boolean;
+  /**
+   * Au-delà de ce nombre d'articles, l'aperçu replie la liste derrière une
+   * ligne « + N autres articles ». Écran seulement : le PDF et le texte
+   * partagé contiennent toujours tous les articles.
+   */
+  collapseAfter?: number;
+  /** Le bloc TOTAL reste collé en bas de la zone qui défile. */
+  stickyTotal?: boolean;
+  /** Dégradé au-dessus du total collé : il reste du contenu plus bas. */
+  showBottomFade?: boolean;
 }
 
 export const ReceiptView: React.FC<ReceiptViewProps> = ({
@@ -20,8 +30,12 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   customerTotalDebt,
   className = '',
   showQrCode = true,
+  collapseAfter,
+  stickyTotal = false,
+  showBottomFade = false,
 }) => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -46,11 +60,15 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
     };
   }, [sale.reference, showQrCode]);
 
+  // Nouvelle commande affichée dans la même fenêtre : la liste repart repliée.
+  useEffect(() => setExpanded(false), [sale.id]);
+
   const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0);
   const hasDiscount = (sale.discount || 0) > 0;
   const clientName = sale.customerName?.trim() || 'Client de passage';
+  const clientFirstName = clientName.split(/\s+/)[0];
 
-  // Compute total debt for merchant copy
+  // Dette totale du client, pour la seule copie commerçant.
   const calculatedDebt =
     customerTotalDebt !== undefined
       ? customerTotalDebt
@@ -72,20 +90,33 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
 
   const phoneToDisplay = settings.telephone || settings.ownerPhone;
   const addressToDisplay = settings.adresse || settings.city;
+  // Nom de boutique et vendeur : ceux de la base, ou rien. Un nom de secours
+  // (« MoroCash Store », « Vendeur ») ressemble à une vraie valeur et passe
+  // inaperçu sur un reçu remis au client.
+  const shopName = settings.shopName?.trim();
+  const sellerName = sale.sellerName?.trim();
+
+  const isCollapsible = collapseAfter !== undefined && sale.items.length > collapseAfter;
+  const visibleItems = isCollapsible && !expanded ? sale.items.slice(0, collapseAfter) : sale.items;
+  const hiddenCount = sale.items.length - visibleItems.length;
+
+  // Écran : au-delà de 7 chiffres le montant est abrégé (111,1 M F) pour ne
+  // jamais déborder. Le PDF et le texte partagé gardent le montant complet.
+  const money = formatMoneyCompact;
 
   return (
     <div
       id={`receipt-view-${sale.id}`}
-      className={`w-full max-w-sm bg-white p-5 rounded-2xl shadow-sm border border-slate-200/90 font-mono text-xs text-slate-800 space-y-3.5 ${className}`}
+      className={`w-full max-w-sm bg-white p-5 rounded-2xl shadow-sm border border-slate-200/90 text-xs text-slate-800 space-y-3.5 ${className}`}
     >
-      {/* 1. Header & Store Info */}
+      {/* 1. Boutique */}
       <div className="text-center pb-2.5 border-b border-dashed border-slate-300">
         {showLogo && (
           <div className="mx-auto mb-2 flex items-center justify-center">
             {settings.logoUrl ? (
               <img
                 src={settings.logoUrl}
-                alt={settings.shopName}
+                alt={shopName || 'Logo'}
                 className="w-14 h-14 rounded-xl object-contain shadow-xs border border-slate-200 p-0.5 bg-white"
                 referrerPolicy="no-referrer"
               />
@@ -96,125 +127,146 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
             )}
           </div>
         )}
-        {showShopName && (
-          <h4 className="font-extrabold text-sm uppercase tracking-wider text-slate-900 font-sans">
-            {settings.shopName || 'MoroCash Store'}
-          </h4>
+        {showShopName && shopName && (
+          <h4 className="font-extrabold text-sm uppercase tracking-wider text-slate-900 break-words">{shopName}</h4>
         )}
         {showAddress && addressToDisplay && (
-          <p className="text-[11px] text-slate-500 font-sans mt-0.5">{addressToDisplay}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{addressToDisplay}</p>
         )}
         {showPhone && phoneToDisplay && (
-          <p className="text-[10px] text-slate-500 font-sans flex items-center justify-center gap-1 mt-1">
+          <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1 mt-1">
             <Phone className="w-3 h-3 text-slate-400" />
             <span>Contact : {phoneToDisplay}</span>
           </p>
         )}
         {isMerchantCopy && (
-          <div className="mt-2 inline-block px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-sans text-[10px] font-bold uppercase tracking-wider">
+          <div className="mt-2 inline-block px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold uppercase tracking-wider">
             Copie commerçant
           </div>
         )}
       </div>
 
-      {/* 2. Metadata: Réf, Client, Date, Vendu par */}
+      {/* 2. N°, client, date, vendeur */}
       <div className="space-y-1.5 text-[11px] py-1 border-b border-dashed border-slate-300">
-        <div className="flex justify-between items-center">
-          <span className="text-slate-500">Réf :</span>
-          <span className="font-bold text-slate-900 font-sans">{sale.reference}</span>
+        <div className="flex justify-between items-center gap-3">
+          <span className="text-slate-500 shrink-0">N° :</span>
+          <span className="font-bold text-slate-900 truncate">{sale.reference}</span>
         </div>
         {showCustomer && (
-          <div className="flex justify-between items-center bg-slate-50/75 px-1.5 py-0.5 rounded">
-            <span className="text-slate-600 font-sans font-medium">Client :</span>
-            <span className="font-bold font-sans text-slate-900">{clientName}</span>
+          <div className="flex justify-between items-center gap-3 bg-slate-50/75 px-1.5 py-0.5 rounded">
+            <span className="text-slate-600 font-medium shrink-0">Client :</span>
+            <span className="font-bold text-slate-900 truncate">{clientName}</span>
           </div>
         )}
-        <div className="flex justify-between items-center">
-          <span className="text-slate-500">Date :</span>
+        <div className="flex justify-between items-center gap-3">
+          <span className="text-slate-500 shrink-0">Date :</span>
           <span className="text-slate-700">{formatDate(sale.createdAt)}</span>
         </div>
-        {showSeller && (
-          <div className="flex justify-between items-center">
-            <span className="text-slate-500">Vendu par :</span>
-            <span className="text-slate-700 font-medium">{sale.sellerName || 'Vendeur'}</span>
+        {showSeller && sellerName && (
+          <div className="flex justify-between items-center gap-3">
+            <span className="text-slate-500 shrink-0">Vendu par :</span>
+            <span className="text-slate-700 font-medium truncate">{sellerName}</span>
           </div>
         )}
       </div>
 
-      {/* 3. Items list */}
+      {/* 3. Articles */}
       <div className="py-2 border-b border-dashed border-slate-300 space-y-2">
         <div className="flex justify-between font-bold text-[10px] text-slate-500 uppercase tracking-wider">
           <span>Article</span>
           <span>Total</span>
         </div>
-        {sale.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between text-[11px] leading-snug">
-            <div className="pr-3 flex-1">
-              <div className="font-semibold text-slate-800 font-sans">{item.name}</div>
-              <div className="text-[10px] text-slate-500">
-                {item.quantity} × {formatMoney(item.unitPrice)}
+        {visibleItems.map((item, idx) => (
+          <div key={idx} className="flex justify-between gap-3 text-[11px] leading-snug">
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-slate-800 break-words">{item.name}</div>
+              <div className="text-[10px] text-slate-500 tabular-nums">
+                {item.quantity} × {money(item.unitPrice)}
               </div>
             </div>
-            <span className="font-bold text-slate-900 shrink-0 font-sans">
-              {formatMoney(item.total)}
+            <span className="font-bold text-slate-900 shrink-0 tabular-nums whitespace-nowrap">
+              {money(item.total)}
             </span>
           </div>
         ))}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="w-full py-2 rounded-lg text-[11.5px] font-bold text-[#4F46E5] bg-indigo-50/70 hover:bg-indigo-50 transition-colors cursor-pointer"
+          >
+            + {hiddenCount} {hiddenCount > 1 ? 'autres articles' : 'autre article'}
+          </button>
+        )}
       </div>
 
-      {/* 4. Financial Totals */}
-      <div className="space-y-1.5 text-[11px] pt-1">
-        {hasDiscount && (
-          <>
-            <div className="flex justify-between text-slate-600">
-              <span>Sous-total :</span>
-              <span className="font-medium">{formatMoney(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-indigo-700 font-medium">
-              <span>
-                Remise
-                {sale.discountMode === 'PERCENTAGE' && sale.discountValue
-                  ? ` (${sale.discountValue} %)`
-                  : ''} :
-              </span>
-              <span>− {formatMoney(sale.discount)}</span>
-            </div>
-          </>
-        )}
-
-        <div className="flex justify-between font-extrabold text-sm text-slate-900 pt-1 border-t border-slate-200/80 font-sans">
-          <span>TOTAL :</span>
-          <span className="text-[#4F46E5]">{formatMoney(sale.totalAmount)}</span>
+      {/* 4. Montants — la remise s'intercale entre le sous-total et le total. */}
+      {hasDiscount && (
+        <div className="space-y-1.5 text-[11px] pt-1">
+          <div className="flex justify-between gap-3 text-slate-600">
+            <span>Sous-total :</span>
+            <span className="font-medium tabular-nums whitespace-nowrap">{money(subtotal)}</span>
+          </div>
+          <div className="flex justify-between gap-3 text-slate-700 font-medium">
+            <span>
+              Remise
+              {sale.discountMode === 'PERCENTAGE' && sale.discountValue ? ` (${sale.discountValue} %)` : ''} :
+            </span>
+            <span className="tabular-nums whitespace-nowrap">− {money(sale.discount)}</span>
+          </div>
         </div>
+      )}
 
-        <div className="flex justify-between text-slate-700">
-          <span>Payé ({formatPaymentMethod(sale.paymentMethod)}) :</span>
-          <span className="font-bold text-slate-900">{formatMoney(sale.paidAmount)}</span>
-        </div>
+      {/* Enfant direct de la carte, et non d'un sous-bloc : un élément collant ne
+          sort jamais de son parent, il ne suivrait donc pas le défilement de la
+          liste d'articles. */}
+      <div
+          className={
+            stickyTotal
+              ? 'sticky bottom-0 z-10 -mx-5 px-5 pt-1.5 pb-3 bg-white shadow-[0_-6px_12px_-8px_rgba(15,23,42,0.18)] space-y-1.5 text-[11px]'
+              : 'space-y-1.5 text-[11px]'
+          }
+        >
+          {stickyTotal && showBottomFade && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-0 right-0 -top-6 h-6 bg-linear-to-t from-white to-white/0"
+            />
+          )}
+          <div className="flex justify-between gap-3 font-extrabold text-sm text-slate-900 pt-1 border-t border-slate-200/80">
+            <span>TOTAL :</span>
+            <span className="text-[#4F46E5] tabular-nums whitespace-nowrap">{money(sale.totalAmount)}</span>
+          </div>
 
-        {sale.remainingAmount > 0 ? (
-          <div className="pt-1.5 space-y-1">
-            <div className="flex justify-between font-bold text-rose-700 text-xs font-sans bg-rose-50 border border-rose-200/80 p-2 rounded-xl">
+          <div className="flex justify-between gap-3 text-slate-700">
+            <span>Payé ({formatPaymentMethod(sale.paymentMethod)}) :</span>
+            <span className="font-bold text-slate-900 tabular-nums whitespace-nowrap">{money(sale.paidAmount)}</span>
+          </div>
+
+          {sale.remainingAmount > 0 ? (
+            <div className="flex justify-between gap-3 font-bold text-rose-700 text-xs bg-rose-50 border border-rose-200/80 p-2 rounded-xl">
               <span>Reste à payer :</span>
-              <span>{formatMoney(sale.remainingAmount)}</span>
+              <span className="tabular-nums whitespace-nowrap">{money(sale.remainingAmount)}</span>
             </div>
-            {/* Ligne visible uniquement sur la copie commerçant */}
-            {isMerchantCopy && (
-              <p className="text-[10.5px] font-sans text-rose-800 font-medium text-center bg-rose-50/60 p-1.5 rounded-lg border border-rose-100">
-                Après cette commande, {clientName} te devra {formatMoney(calculatedDebt)} au total
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="text-center font-bold text-emerald-700 text-[10.5px] uppercase pt-1 tracking-wider bg-emerald-50/70 py-1 rounded-lg">
-            ✓ Soldé intégralement
-          </div>
+          ) : (
+            <div className="text-center font-bold text-emerald-700 text-[10.5px] uppercase tracking-wider bg-emerald-50/70 py-1 rounded-lg">
+              ✓ Payé en entier
+            </div>
+          )}
+        </div>
+
+        {/* Copie commerçant uniquement : le client n'a pas à connaître ses autres dettes. */}
+        {isMerchantCopy && (
+          <p className="text-[10.5px] text-amber-900 font-medium text-center bg-amber-50/70 p-1.5 rounded-lg border border-amber-100">
+            {calculatedDebt > 0
+              ? `Après cette commande, ${clientFirstName} te doit ${money(calculatedDebt)} au total`
+              : `Après cette commande, ${clientFirstName} ne te doit plus rien`}
+          </p>
         )}
-      </div>
 
       {/* 5. Custom Footer Message */}
       {showMessage && settings.receiptMessage && (
-        <div className="text-center pt-2 text-[10px] text-slate-500 font-sans italic border-t border-dashed border-slate-300">
+        <div className="text-center pt-2 text-[10px] text-slate-500 italic border-t border-dashed border-slate-300">
           "{settings.receiptMessage}"
         </div>
       )}
@@ -227,13 +279,13 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
             alt={`QR ${sale.reference}`}
             className="w-16 h-16 rounded p-0.5 bg-white border border-slate-200 shadow-2xs"
           />
-          <span className="text-[9px] text-slate-400 font-mono mt-0.5">{sale.reference}</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">{sale.reference}</span>
         </div>
       )}
 
       {/* 7. Discreet MoroCash branding */}
       {showWatermark && (
-        <div className="pt-1 text-center text-[9px] text-slate-400 font-sans tracking-wide">
+        <div className="pt-1 text-center text-[9px] text-slate-400 tracking-wide">
           Reçu généré avec MoroCash
         </div>
       )}

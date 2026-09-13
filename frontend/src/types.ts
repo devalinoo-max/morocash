@@ -1,4 +1,6 @@
-export type ActivityType = 'COMMERCE' | 'SERVICES' | 'MIXTE';
+import type { ReceiptPrintPrefs } from './utils/receiptPrint';
+
+export type ActivityType ='COMMERCE' | 'SERVICES' | 'MIXTE';
 export type UserRole = 'OWNER' | 'SELLER' | 'ACCOUNTANT';
 
 export type UIState = 
@@ -28,6 +30,9 @@ export interface ReceiptDelivery {
   orderId: string; // sale id or reference
   orderReference?: string;
   canal: ReceiptDeliveryChannel;
+  /** À qui le reçu est parti (envoi WhatsApp) : le client, soi-même, un autre numéro. */
+  destinataireNom?: string;
+  destinataireTelephone?: string;
   userId: string;
   userName?: string;
   createdAt: string;
@@ -192,7 +197,7 @@ export interface CashMovement {
   createdAt: string;
 }
 
-export interface ReceiptSettings {
+export interface ReceiptSettings extends Partial<ReceiptPrintPrefs> {
   showLogo: boolean;
   showShopName: boolean;
   showPhone: boolean;

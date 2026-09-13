@@ -42,6 +42,8 @@ export interface ApiOrder {
   payments: ApiPayment[];
   // Absent pour un SELLER (spec §0 règle 7).
   coutTotal?: number;
+  /** Auteur de la commande (absent sur un serveur plus ancien). */
+  user?: { nom: string } | null;
 }
 
 export interface CreateOrderInput {
@@ -134,7 +136,7 @@ export function toFrontendSale(
     customerName: opts.customerName,
     customerPhone: opts.customerPhone,
     createdAt: order.createdAt,
-    sellerName: opts.sellerName ?? 'Vendeur',
+    sellerName: order.user?.nom ?? opts.sellerName ?? 'Vendeur',
     syncStatus: 'SYNCED',
     isCancelled: order.statut === 'ANNULEE',
     cancelReason: order.motifAnnulation ?? undefined,

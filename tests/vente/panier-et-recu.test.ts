@@ -183,7 +183,7 @@ describe('Recu — texte WhatsApp', () => {
       sellerName: 'Awa',
     });
     const texte = generateReceiptWhatsAppText(soldee, settings);
-    expect(texte).toContain('PAYÉ INTÉGRALEMENT');
+    expect(texte).toContain('PAYÉ EN ENTIER');
     expect(texte).not.toContain('Reste à payer');
   });
 
@@ -228,26 +228,49 @@ describe('Recu — PDF a imprimer', () => {
   };
 
   /**
-   * Le papier de la boutique fait 105 mm de large au maximum : un recu plus
-   * large sort rogne. La largeur est lue dans la MediaBox du PDF, c'est-a-dire
-   * exactement ce que l'imprimante applique.
+   * La largeur est lue dans la MediaBox du PDF, c'est-a-dire exactement ce que
+   * l'imprimante applique : un recu plus large que le rouleau sort rogne.
    */
-  function largeurMm(pdf: Buffer): number {
+  function boxMm(pdf: Buffer): { largeur: number; hauteur: number } {
     const box = /MediaBox\s*\[([^\]]+)\]/.exec(pdf.toString('latin1'));
     if (!box) throw new Error('PDF sans MediaBox');
-    const [, , largeurPt] = box[1].trim().split(/\s+/).map(Number);
-    return Number(((largeurPt * 25.4) / 72).toFixed(2));
+    const [, , largeurPt, hauteurPt] = box[1].trim().split(/\s+/).map(Number);
+    const toMm = (pt: number) => Number(((pt * 25.4) / 72).toFixed(2));
+    return { largeur: toMm(largeurPt), hauteur: toMm(hauteurPt) };
   }
 
-  it('copie client : 105 mm de large', async () => {
+  it('sans format demande : ticket 58 mm, le plus repandu', async () => {
     const pdf = await generateReceiptsPdfBuffer({ sales: [sale], settings, isMerchantCopy: false });
-    expect(largeurMm(pdf)).toBe(105);
+    expect(boxMm(pdf).largeur).toBe(58);
     expect(pdf.length).toBeGreaterThan(1000);
   });
 
-  it('copie commercant : 105 mm de large aussi', async () => {
-    const pdf = await generateReceiptsPdfBuffer({ sales: [sale], settings, isMerchantCopy: true });
-    expect(largeurMm(pdf)).toBe(105);
+  it('ticket 80 mm et copie commercant', async () => {
+    const pdf = await generateReceiptsPdfBuffer({
+      sales: [sale],
+      settings,
+      isMerchantCopy: true,
+      page: { largeurMm: 80, hauteurMm: null },
+    });
+    expect(boxMm(pdf).largeur).toBe(80);
+  });
+
+  it('A4 : 210 x 297 mm', async () => {
+    const pdf = await generateReceiptsPdfBuffer({
+      sales: [sale],
+      settings,
+      page: { largeurMm: 210, hauteurMm: 297 },
+    });
+    expect(boxMm(pdf)).toEqual({ largeur: 210, hauteur: 297 });
+  });
+
+  it('taille personnalisee hors bornes : ramenee entre 30 et 250 mm', async () => {
+    const pdf = await generateReceiptsPdfBuffer({
+      sales: [sale],
+      settings,
+      page: { largeurMm: 5, hauteurMm: null },
+    });
+    expect(boxMm(pdf).largeur).toBe(30);
   });
 
   it('impression groupee : une page par commande', async () => {

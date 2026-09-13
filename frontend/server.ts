@@ -161,6 +161,7 @@ async function startServer() {
         sales = [],
         settings = {},
         isMerchantCopy = false,
+        page,
       } = req.body || {};
 
       if (!Array.isArray(sales) || sales.length === 0) {
@@ -171,6 +172,7 @@ async function startServer() {
         sales,
         settings,
         isMerchantCopy,
+        page,
       });
 
       const filename = sales.length === 1

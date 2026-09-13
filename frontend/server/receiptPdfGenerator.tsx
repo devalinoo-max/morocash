@@ -1,6 +1,15 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
+import {
+  layoutForWidth,
+  formatMoneyFull,
+  MIN_WIDTH_MM,
+  MAX_WIDTH_MM,
+  PRINT_MARGIN_MM,
+  type PrintPageSpec,
+  type ReceiptLayout,
+} from '../src/utils/receiptPrint';
 
 // Translation helper for payment methods
 export function getPaymentMethodLabel(method: string | undefined): string {
@@ -28,13 +37,7 @@ export function getPaymentMethodLabel(method: string | undefined): string {
   }
 }
 
-// Format money in FCFA
-function formatMoneyPdf(amount: number): string {
-  const rounded = Math.round(amount || 0);
-  return `${rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} F`;
-}
-
-// Format date
+// Un reçu est un document : date complète, jamais « Aujourd'hui ».
 function formatDatePdf(dateString: string): string {
   try {
     const d = new Date(dateString);
@@ -50,203 +53,50 @@ function formatDatePdf(dateString: string): string {
   }
 }
 
-/**
- * Largeur du recu, en millimetres.
- *
- * Le papier utilise en boutique fait 105 mm de large au maximum : un recu plus
- * large sort rogne a l'impression, un recu plus etroit gaspille du papier. Ces
- * deux constantes sont le SEUL endroit a changer pour passer sur un autre
- * rouleau (58 mm, 80 mm...) — la mise en page suit.
- */
-const RECEIPT_WIDTH_MM = 105;
-const RECEIPT_WIDTH_PT = (RECEIPT_WIDTH_MM * 72) / 25.4; // 297.64 pt
+const MM_TO_PT = 72 / 25.4;
+const mm = (v: number) => v * MM_TO_PT;
 
-const styles = StyleSheet.create({
-  page: {
-    width: RECEIPT_WIDTH_PT,
-    paddingTop: 14,
-    paddingBottom: 20,
-    // Marge laterale : sur 105 mm, une imprimante thermique ne peut pas
-    // toujours encrer les tout derniers millimetres du bord.
-    paddingHorizontal: 18,
-    backgroundColor: '#FFFFFF',
-    fontFamily: 'Helvetica',
-    fontSize: 9,
-    color: '#1E293B',
-  },
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#CBD5E1',
-    borderBottomStyle: 'dashed',
-    paddingBottom: 8,
-  },
-  shopTitle: {
-    fontSize: 13,
-    fontFamily: 'Helvetica-Bold',
-    textTransform: 'uppercase',
-    color: '#0F172A',
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  shopSub: {
-    fontSize: 8,
-    color: '#64748B',
-    textAlign: 'center',
-    marginBottom: 1,
-  },
-  metaContainer: {
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#CBD5E1',
-    borderBottomStyle: 'dashed',
-    paddingBottom: 6,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  label: {
-    fontSize: 8,
-    color: '#64748B',
-  },
-  value: {
-    fontSize: 8,
-    fontFamily: 'Helvetica',
-    color: '#1E293B',
-  },
-  valueBold: {
-    fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-  },
-  clientHighlight: {
-    fontSize: 9,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-  },
-  itemsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 3,
-    marginBottom: 4,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-  },
-  itemLeft: {
-    flex: 1,
-    paddingRight: 6,
-  },
-  itemName: {
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#1E293B',
-  },
-  itemSub: {
-    fontSize: 7.5,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  itemTotal: {
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-  },
-  totalsContainer: {
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#CBD5E1',
-    borderTopStyle: 'dashed',
-    paddingTop: 6,
-  },
-  totalBigRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    marginBottom: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingTop: 4,
-  },
-  totalBigLabel: {
-    fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-  },
-  totalBigVal: {
-    fontSize: 12,
-    fontFamily: 'Helvetica-Bold',
-    color: '#4F46E5',
-  },
-  remainingBox: {
-    backgroundColor: '#FFF1F2',
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-    borderRadius: 4,
-    padding: 5,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  remainingText: {
-    fontSize: 9,
-    fontFamily: 'Helvetica-Bold',
-    color: '#E11D48',
-    textAlign: 'center',
-  },
-  merchantDebtText: {
-    fontSize: 7.5,
-    color: '#9F1239',
-    textAlign: 'center',
-    marginTop: 2,
-    fontFamily: 'Helvetica-Oblique',
-  },
-  paidFullText: {
-    fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
-    color: '#047857',
-    textAlign: 'center',
-    marginTop: 3,
-  },
-  customMessage: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Oblique',
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 8,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    borderTopStyle: 'dashed',
-  },
-  qrContainer: {
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  qrImage: {
-    width: 60,
-    height: 60,
-  },
-  qrCaption: {
-    fontSize: 7,
-    color: '#64748B',
-    fontFamily: 'Courier',
-    marginTop: 2,
-  },
-  footerBrand: {
-    fontSize: 7,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-});
+/** Largeur du ticket si le client n'en envoie pas : le 58 mm, le plus répandu. */
+const DEFAULT_PAGE: PrintPageSpec = { largeurMm: 58, hauteurMm: null };
+
+/**
+ * La page demandée, bornée : le formulaire bloque déjà hors de 30–250 mm, mais
+ * le serveur ne fait pas confiance au client — une largeur de 2 mm ferait
+ * planter la mise en page, une de 5 m produirait un PDF inimprimable.
+ */
+export function resolvePage(page: Partial<PrintPageSpec> | undefined): PrintPageSpec {
+  const largeur = Number(page?.largeurMm);
+  const hauteur = page?.hauteurMm == null ? null : Number(page.hauteurMm);
+  return {
+    largeurMm: Number.isFinite(largeur)
+      ? Math.min(MAX_WIDTH_MM, Math.max(MIN_WIDTH_MM, largeur))
+      : DEFAULT_PAGE.largeurMm,
+    hauteurMm: hauteur !== null && Number.isFinite(hauteur) && hauteur > 0 ? hauteur : null,
+  };
+}
+
+// Tout est noir sur blanc : les imprimantes thermiques n'impriment qu'en noir,
+// et l'encre couleur coûte cher. Le gris sert seulement aux libellés.
+const INK = '#000000';
+const MUTED = '#444444';
+
+interface LayoutSpec {
+  font: string;
+  fontBold: string;
+  fontItalic: string;
+  size: number;
+  logoMm: number;
+  marginXmm: number;
+  marginYmm: number;
+}
+
+const LAYOUTS: Record<ReceiptLayout, LayoutSpec> = {
+  // Chasse fixe : sur 48 mm, des colonnes qui tombent juste valent mieux
+  // qu'une police proportionnelle qui gagne trois caractères.
+  ETROIT: { font: 'Courier', fontBold: 'Courier-Bold', fontItalic: 'Courier-Oblique', size: 9, logoMm: 20, marginXmm: PRINT_MARGIN_MM / 2, marginYmm: 3 },
+  MOYEN: { font: 'Courier', fontBold: 'Courier-Bold', fontItalic: 'Courier-Oblique', size: 10, logoMm: 28, marginXmm: PRINT_MARGIN_MM / 2, marginYmm: 4 },
+  LARGE: { font: 'Helvetica', fontBold: 'Helvetica-Bold', fontItalic: 'Helvetica-Oblique', size: 10, logoMm: 35, marginXmm: 14, marginYmm: 14 },
+};
 
 export interface ReceiptSaleItem {
   name: string;
@@ -274,145 +124,264 @@ export interface ReceiptSaleData {
   sellerName: string;
 }
 
-interface SingleReceiptProps {
-  sale: ReceiptSaleData;
-  settings: any;
-  qrDataUrl: string;
-  isMerchantCopy?: boolean;
+export interface ReceiptPdfSettings {
+  shopName?: string;
+  city?: string;
+  adresse?: string;
+  ownerPhone?: string;
+  telephone?: string;
+  showPhone?: boolean;
+  showLogo?: boolean;
+  receiptMessage?: string;
+  /** Logo déjà converti en noir et blanc par l'application (data URL PNG). */
+  logoMonochrome?: string;
+  receiptSettings?: {
+    showLogo?: boolean;
+    showShopName?: boolean;
+    showPhone?: boolean;
+    showAddress?: boolean;
+    showSellerName?: boolean;
+    showCustomerName?: boolean;
+    showQrCode?: boolean;
+    showMessage?: boolean;
+    showWatermark?: boolean;
+  };
 }
 
-const SingleReceiptPage: React.FC<SingleReceiptProps> = ({
-  sale,
-  settings,
-  qrDataUrl,
-  isMerchantCopy = false,
-}) => {
-  const shopName = settings.shopName || 'MoroCash Store';
-  const city = settings.city || 'Abidjan';
-  const phone = settings.ownerPhone;
-  const showPhone = settings.showPhone !== false && phone;
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name;
+}
+
+function remiseLabel(sale: ReceiptSaleData): string {
+  return sale.discountMode === 'PERCENTAGE' && sale.discountValue ? `Remise (${sale.discountValue} %)` : 'Remise';
+}
+
+interface SingleReceiptProps {
+  sale: ReceiptSaleData;
+  settings: ReceiptPdfSettings;
+  qrDataUrl: string;
+  isMerchantCopy: boolean;
+  page: PrintPageSpec;
+}
+
+const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDataUrl, isMerchantCopy, page }) => {
+  const layout = layoutForWidth(page.largeurMm);
+  const L = LAYOUTS[layout];
+  const s = L.size;
+  const narrow = layout === 'ETROIT';
+  const wide = layout === 'LARGE';
+
+  const cfg = settings.receiptSettings ?? {};
+  const show = (flag: boolean | undefined, fallback: boolean) => (flag === undefined ? fallback : flag);
+
+  const shopName = settings.shopName?.trim() || '';
+  const address = settings.adresse?.trim() || settings.city?.trim() || '';
+  const phone = settings.telephone || settings.ownerPhone;
+  const clientName = sale.customerName?.trim() || 'Client de passage';
   const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0);
   const hasDiscount = (sale.discount || 0) > 0;
-  const clientName = sale.customerName || 'Client de passage';
-  const debtTotal = sale.customerTotalDebt !== undefined ? sale.customerTotalDebt : sale.remainingAmount;
+  const debtTotal = sale.customerTotalDebt ?? Math.max(0, sale.remainingAmount);
+
+  const showLogo = show(cfg.showLogo, settings.showLogo !== false) && Boolean(settings.logoMonochrome);
+  const showShopName = show(cfg.showShopName, true) && Boolean(shopName);
+  const showPhone = show(cfg.showPhone, settings.showPhone !== false) && Boolean(phone);
+  const showAddress = show(cfg.showAddress, Boolean(settings.adresse)) && Boolean(address);
+  const showSeller = show(cfg.showSellerName, true) && Boolean(sale.sellerName);
+  const showCustomer = show(cfg.showCustomerName, true);
+  const showQr = show(cfg.showQrCode, true) && Boolean(qrDataUrl);
+  const showMessage = show(cfg.showMessage, true) && Boolean(settings.receiptMessage);
+  const showWatermark = show(cfg.showWatermark, true);
+
+  const st = StyleSheet.create({
+    page: {
+      paddingHorizontal: mm(L.marginXmm),
+      paddingVertical: mm(L.marginYmm),
+      backgroundColor: '#FFFFFF',
+      fontFamily: L.font,
+      fontSize: s,
+      color: INK,
+    },
+    center: { textAlign: 'center' },
+    shop: { fontFamily: L.fontBold, fontSize: wide ? s + 6 : s + 2, textAlign: 'center', textTransform: 'uppercase' },
+    sub: { fontSize: s - 1, color: MUTED, textAlign: 'center', marginTop: 1 },
+    row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: wide ? 3 : 1.5 },
+    label: { color: MUTED },
+    bold: { fontFamily: L.fontBold },
+    // Séparateur : tirets sur ticket (une ligne de texte, rien à encrer de
+    // plus), filet fin sur document.
+    rule: wide
+      ? { borderBottomWidth: 0.75, borderBottomColor: INK, marginVertical: 6 }
+      : { marginVertical: 2 },
+    section: { marginBottom: wide ? 8 : 2 },
+    itemName: { fontFamily: L.fontBold },
+    itemSub: { fontSize: s - 1, color: MUTED },
+    total: { fontFamily: L.fontBold, fontSize: wide ? s + 4 : s + 2 },
+    stamp: { fontFamily: L.fontBold, textAlign: 'center', marginTop: 3 },
+    message: { fontFamily: L.fontItalic, fontSize: s - 1, textAlign: 'center', marginTop: 4 },
+    watermark: { fontSize: s - 2, color: MUTED, textAlign: 'center', marginTop: 3 },
+    th: { fontFamily: L.fontBold, fontSize: s - 1, paddingVertical: 4 },
+    td: { paddingVertical: 4 },
+    tableRow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: INK },
+  });
+
+  // Un ticket de 48 mm tient ~26 caractères de Courier 9 pt : la ligne de
+  // tirets est calculée pour remplir la largeur sans passer à la ligne.
+  const dashCount = Math.max(10, Math.floor((mm(page.largeurMm - 2 * L.marginXmm) / (s * 0.6)) - 1));
+  const Separator = () =>
+    wide ? <View style={st.rule} /> : <Text style={[st.rule, st.label]}>{'-'.repeat(dashCount)}</Text>;
+
+  const pageSize: [number, number] | [number, 'auto'] = page.hauteurMm
+    ? [mm(page.largeurMm), mm(page.hauteurMm)]
+    : [mm(page.largeurMm), 'auto' as const];
+
+  const Meta = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) =>
+    narrow ? (
+      // Une colonne : le libellé et la valeur ne tiennent pas côte à côte sur 48 mm
+      // dès que le client a un nom composé.
+      <Text style={{ marginBottom: 1 }}>
+        <Text style={st.label}>{label} </Text>
+        <Text style={strong ? st.bold : undefined}>{value}</Text>
+      </Text>
+    ) : (
+      <View style={st.row}>
+        <Text style={st.label}>{label}</Text>
+        <Text style={strong ? st.bold : undefined}>{value}</Text>
+      </View>
+    );
+
+  const Amount = ({ label, value, strong, big }: { label: string; value: string; strong?: boolean; big?: boolean }) => (
+    <View style={st.row}>
+      <Text style={big ? st.total : strong ? st.bold : st.label}>{label}</Text>
+      <Text style={big ? st.total : strong ? st.bold : undefined}>{value}</Text>
+    </View>
+  );
 
   return (
-    <Page size={[RECEIPT_WIDTH_PT, 'auto']} style={styles.page}>
-      {/* 1. Shop Banner */}
-      <View style={styles.headerContainer}>
-        <Text style={styles.shopTitle}>{shopName}</Text>
-        <Text style={styles.shopSub}>{city}</Text>
-        {showPhone && <Text style={styles.shopSub}>Contact : {phone}</Text>}
-      </View>
-
-      {/* 2. Metadata */}
-      <View style={styles.metaContainer}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Réf :</Text>
-          <Text style={styles.valueBold}>{sale.reference}</Text>
-        </View>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Client :</Text>
-          <Text style={styles.clientHighlight}>{clientName}</Text>
-        </View>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Date :</Text>
-          <Text style={styles.value}>{formatDatePdf(sale.createdAt)}</Text>
-        </View>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Vendu par :</Text>
-          <Text style={styles.value}>{sale.sellerName || 'Vendeur'}</Text>
-        </View>
-      </View>
-
-      {/* 3. Items Header & List */}
-      <View style={styles.itemsHeader}>
-        <Text style={[styles.label, { fontFamily: 'Helvetica-Bold' }]}>ARTICLE</Text>
-        <Text style={[styles.label, { fontFamily: 'Helvetica-Bold' }]}>TOTAL</Text>
-      </View>
-
-      {sale.items.map((it, idx) => (
-        <View key={idx} style={styles.itemRow}>
-          <View style={styles.itemLeft}>
-            <Text style={styles.itemName}>{it.name}</Text>
-            <Text style={styles.itemSub}>
-              {it.quantity} x {formatMoneyPdf(it.unitPrice)}
-            </Text>
-          </View>
-          <Text style={styles.itemTotal}>{formatMoneyPdf(it.total)}</Text>
-        </View>
-      ))}
-
-      {/* 4. Financial Totals */}
-      <View style={styles.totalsContainer}>
-        {hasDiscount && (
-          <>
-            <View style={styles.rowBetween}>
-              <Text style={styles.label}>Sous-total :</Text>
-              <Text style={styles.value}>{formatMoneyPdf(subtotal)}</Text>
-            </View>
-            <View style={styles.rowBetween}>
-              <Text style={styles.label}>
-                Remise{sale.discountMode === 'PERCENTAGE' && sale.discountValue ? ` (${sale.discountValue} %)` : ''} :
-              </Text>
-              <Text style={styles.value}>− {formatMoneyPdf(sale.discount || 0)}</Text>
-            </View>
-          </>
+    <Page size={pageSize as any} style={st.page}>
+      {/* 1. Boutique */}
+      <View style={[st.section, { alignItems: 'center' }]}>
+        {showLogo && (
+          <Image
+            src={settings.logoMonochrome!}
+            style={{ width: mm(L.logoMm), height: mm(L.logoMm), objectFit: 'contain', marginBottom: 3 }}
+          />
         )}
-
-        <View style={styles.totalBigRow}>
-          <Text style={styles.totalBigLabel}>TOTAL :</Text>
-          <Text style={styles.totalBigVal}>{formatMoneyPdf(sale.totalAmount)}</Text>
-        </View>
-
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Payé ({getPaymentMethodLabel(sale.paymentMethod)}) :</Text>
-          <Text style={styles.valueBold}>{formatMoneyPdf(sale.paidAmount)}</Text>
-        </View>
-
-        {sale.remainingAmount > 0 ? (
-          <View style={styles.remainingBox}>
-            <Text style={styles.remainingText}>
-              Reste à payer : {formatMoneyPdf(sale.remainingAmount)}
-            </Text>
-            {isMerchantCopy && (
-              <Text style={styles.merchantDebtText}>
-                Après cette commande, {clientName} te devra {formatMoneyPdf(debtTotal)} au total
-              </Text>
-            )}
-          </View>
-        ) : (
-          <Text style={styles.paidFullText}>✓ Statut : Soldé intégralement</Text>
-        )}
+        {showShopName && <Text style={st.shop}>{shopName}</Text>}
+        {showAddress && <Text style={st.sub}>{address}</Text>}
+        {showPhone && <Text style={st.sub}>Tél : {phone}</Text>}
+        {isMerchantCopy && <Text style={[st.stamp, { fontSize: s - 1 }]}>COPIE COMMERÇANT</Text>}
       </View>
+      <Separator />
 
-      {/* 5. Custom message */}
-      {settings.receiptMessage ? (
-        <Text style={styles.customMessage}>{settings.receiptMessage}</Text>
-      ) : null}
+      {/* 2. Références */}
+      <View style={st.section}>
+        <Meta label="N° :" value={sale.reference} strong />
+        <Meta label="Date :" value={formatDatePdf(sale.createdAt)} />
+        {showCustomer && <Meta label="Client :" value={clientName} strong />}
+        {showSeller && <Meta label="Vendu par :" value={sale.sellerName} />}
+      </View>
+      <Separator />
 
-      {/* 6. Discreet QR code */}
-      {qrDataUrl && (
-        <View style={styles.qrContainer}>
-          <Image src={qrDataUrl} style={styles.qrImage} />
-          <Text style={styles.qrCaption}>{sale.reference}</Text>
+      {/* 3. Articles — tous, sans exception : le repli n'existe qu'à l'écran. */}
+      {wide ? (
+        <View style={st.section}>
+          <View style={[st.tableRow, { borderBottomWidth: 1 }]}>
+            <Text style={[st.th, { flex: 1 }]}>Article</Text>
+            <Text style={[st.th, { width: '12%', textAlign: 'right' }]}>Qté</Text>
+            <Text style={[st.th, { width: '22%', textAlign: 'right' }]}>Prix unitaire</Text>
+            <Text style={[st.th, { width: '22%', textAlign: 'right' }]}>Total</Text>
+          </View>
+          {sale.items.map((it, idx) => (
+            <View key={idx} style={st.tableRow} wrap={false}>
+              <Text style={[st.td, { flex: 1, paddingRight: 6 }]}>{it.name}</Text>
+              <Text style={[st.td, { width: '12%', textAlign: 'right' }]}>{it.quantity}</Text>
+              <Text style={[st.td, { width: '22%', textAlign: 'right' }]}>{formatMoneyFull(it.unitPrice)}</Text>
+              <Text style={[st.td, st.bold, { width: '22%', textAlign: 'right' }]}>{formatMoneyFull(it.total)}</Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={st.section}>
+          {!narrow && (
+            <View style={st.row}>
+              <Text style={[st.label, st.bold]}>ARTICLE</Text>
+              <Text style={[st.label, st.bold]}>TOTAL</Text>
+            </View>
+          )}
+          {sale.items.map((it, idx) =>
+            narrow ? (
+              <View key={idx} style={{ marginBottom: 2 }} wrap={false}>
+                <Text style={[st.itemName, { maxLines: 2, textOverflow: 'ellipsis' } as any]}>{it.name}</Text>
+                <View style={st.row}>
+                  <Text style={st.itemSub}>
+                    {it.quantity} x {formatMoneyFull(it.unitPrice)}
+                  </Text>
+                  <Text style={st.bold}>{formatMoneyFull(it.total)}</Text>
+                </View>
+              </View>
+            ) : (
+              <View key={idx} style={[st.row, { marginBottom: 3 }]} wrap={false}>
+                <View style={{ flex: 1, paddingRight: 6 }}>
+                  <Text style={st.itemName}>{it.name}</Text>
+                  <Text style={st.itemSub}>
+                    {it.quantity} x {formatMoneyFull(it.unitPrice)}
+                  </Text>
+                </View>
+                <Text style={st.bold}>{formatMoneyFull(it.total)}</Text>
+              </View>
+            )
+          )}
         </View>
       )}
+      <Separator />
 
-      {/* 7. Discreet MoroCash branding */}
-      <Text style={styles.footerBrand}>Reçu généré avec MoroCash</Text>
+      {/* 4. Montants — la remise s'intercale entre sous-total et total. */}
+      <View style={[st.section, wide ? { width: '50%', alignSelf: 'flex-end' } : {}]} wrap={false}>
+        {hasDiscount && (
+          <>
+            <Amount label="Sous-total :" value={formatMoneyFull(subtotal)} />
+            <Amount label={`${remiseLabel(sale)} :`} value={`- ${formatMoneyFull(sale.discount)}`} />
+          </>
+        )}
+        <Amount label="TOTAL :" value={formatMoneyFull(sale.totalAmount)} big />
+        <Amount label={`Payé (${getPaymentMethodLabel(sale.paymentMethod)}) :`} value={formatMoneyFull(sale.paidAmount)} />
+        {sale.remainingAmount > 0 ? (
+          <Amount label="Reste à payer :" value={formatMoneyFull(sale.remainingAmount)} strong />
+        ) : (
+          <Text style={st.stamp}>PAYÉ EN ENTIER</Text>
+        )}
+        {/* Jamais sur la copie client : il n'a pas à lire le détail de ses autres dettes. */}
+        {isMerchantCopy && (
+          <Text style={[st.message, { fontFamily: L.fontBold, fontSize: s - 1 }]}>
+            {debtTotal > 0
+              ? `Après cette commande, ${firstName(clientName)} te doit ${formatMoneyFull(debtTotal)} au total`
+              : `Après cette commande, ${firstName(clientName)} ne te doit plus rien`}
+          </Text>
+        )}
+      </View>
+
+      {/* 5. Message, QR, mention */}
+      {(showMessage || showQr || showWatermark) && <Separator />}
+      {showMessage && <Text style={st.message}>{settings.receiptMessage}</Text>}
+      {showQr && (
+        <View style={{ alignItems: 'center', marginTop: 4 }} wrap={false}>
+          <Image src={qrDataUrl} style={{ width: mm(narrow ? 18 : 22), height: mm(narrow ? 18 : 22) }} />
+        </View>
+      )}
+      {showWatermark && <Text style={st.watermark}>Reçu généré avec MoroCash</Text>}
     </Page>
   );
 };
 
 export async function generateReceiptsPdfBuffer(params: {
   sales: ReceiptSaleData[];
-  settings: any;
+  settings: ReceiptPdfSettings;
   isMerchantCopy?: boolean;
+  page?: Partial<PrintPageSpec>;
 }): Promise<Buffer> {
   const { sales, settings, isMerchantCopy = false } = params;
+  const page = resolvePage(params.page);
 
-  // Generate QR codes for all sales
   const qrMap: Record<string, string> = {};
   for (const sale of sales) {
     try {
@@ -420,6 +389,7 @@ export async function generateReceiptsPdfBuffer(params: {
         margin: 1,
         width: 120,
         errorCorrectionLevel: 'M',
+        color: { dark: '#000000', light: '#FFFFFF' },
       });
     } catch {
       qrMap[sale.id] = '';
@@ -435,6 +405,7 @@ export async function generateReceiptsPdfBuffer(params: {
           settings={settings}
           qrDataUrl={qrMap[sale.id]}
           isMerchantCopy={isMerchantCopy}
+          page={page}
         />
       ))}
     </Document>

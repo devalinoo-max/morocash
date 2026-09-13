@@ -26,6 +26,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { CategoriesManager } from './CategoriesManager';
 import { ShopLogoUploader } from './ShopLogoUploader';
+import { DefaultPrintFormatSetting } from '../receipts/DefaultPrintFormatSetting';
 import {
   ActivityType,
   ReceiptSettings,
@@ -686,7 +687,7 @@ export const SettingsPage: React.FC = () => {
                       {/* Meta */}
                       <div className="space-y-1 text-[10.5px] pb-2 border-b border-dashed border-slate-200">
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Réf :</span>
+                          <span className="text-slate-400">N° :</span>
                           <span className="font-bold">{settings.receiptSettings?.prefix || 'CMD'}-2026-0042</span>
                         </div>
                         {settings.receiptSettings?.showCustomerName !== false && (
@@ -779,6 +780,15 @@ export const SettingsPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Format d'impression par défaut */}
+              <div className="space-y-2 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">Format d'impression par défaut</label>
+                  <SavedBadge fieldKey="receipt_formatImpression" />
+                </div>
+                <DefaultPrintFormatSetting onSaved={() => triggerSavedFeedback('receipt_formatImpression')} />
               </div>
             </section>
           )}

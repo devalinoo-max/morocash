@@ -162,7 +162,12 @@ interface AppContextType {
   saleSuccessReceipt: Sale | null;
   setSaleSuccessReceipt: (sale: Sale | null) => void;
   receiptDeliveries: ReceiptDelivery[];
-  recordReceiptDelivery: (orderId: string, canal: ReceiptDeliveryChannel, orderReference?: string) => void;
+  recordReceiptDelivery: (
+    orderId: string,
+    canal: ReceiptDeliveryChannel,
+    orderReference?: string,
+    destinataire?: { nom: string; telephone?: string }
+  ) => void;
   toastMessage: { text: string; type: 'success' | 'warning' | 'error' | 'info' } | null;
   showToast: (text: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
   
@@ -209,6 +214,7 @@ interface AppContextType {
   setPrimaryProductCode: (productId: string, codeId: string) => void;
 
   addCustomer: (customer: Omit<Customer, 'id' | 'debtAgeDays' | 'lastActivity'>) => Promise<Customer | null>;
+  updateCustomerPhone: (customerId: string, phone: string) => Promise<boolean>;
   recordDebtPayment: (customerId: string, amount: number, paymentMethod: PaymentMethod) => Promise<void>;
 
   addExpense: (expense: Omit<Expense, 'id' | 'syncStatus'>) => Promise<Expense | null>;
@@ -1569,7 +1575,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return sale;
   };
 
-  const recordReceiptDelivery = (orderId: string, canal: ReceiptDeliveryChannel, orderReference?: string) => {
+  const recordReceiptDelivery = (
+    orderId: string,
+    canal: ReceiptDeliveryChannel,
+    orderReference?: string,
+    destinataire?: { nom: string; telephone?: string }
+  ) => {
     const sale = sales.find((s) => s.id === orderId || s.reference === orderId);
     const ref = orderReference || (sale ? sale.reference : orderId);
     const currentUserName = settings.role === 'SELLER'
@@ -1583,6 +1594,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       orderId: sale ? sale.id : orderId,
       orderReference: ref,
       canal,
+      destinataireNom: destinataire?.nom,
+      destinataireTelephone: destinataire?.telephone,
       userId: currentUserId,
       userName: currentUserName,
       createdAt: new Date().toISOString(),
@@ -1875,6 +1888,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     return customer;
+  };
+
+  /**
+   * Numéro d'un client, écrit en base. Pas de file hors ligne ici : on ne le
+   * fait qu'à la demande explicite du commerçant, depuis l'envoi d'un reçu, et
+   * il doit savoir tout de suite si c'est enregistré ou non.
+   */
+  const updateCustomerPhone = async (customerId: string, phone: string): Promise<boolean> => {
+    const telephone = phone.trim();
+    try {
+      await customersApi.updateCustomer(customerId, { telephone });
+      const target = customers.find((c) => c.id === customerId);
+      setCustomers((prev) => prev.map((c) => (c.id === customerId ? { ...c, phone: telephone } : c)));
+      setSales((prev) =>
+        prev.map((s) =>
+          s.customerId === customerId || (target && s.customerName === target.name && !s.customerId)
+            ? { ...s, customerPhone: telephone }
+            : s
+        )
+      );
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
   };
 
   const recordDebtPayment = async (customerId: string, amount: number, paymentMethod: PaymentMethod) => {
@@ -2439,6 +2477,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeProductCode,
         setPrimaryProductCode,
         addCustomer,
+        updateCustomerPhone,
         recordDebtPayment,
         addExpense,
         employees,

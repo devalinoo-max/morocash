@@ -27,6 +27,10 @@ export function createCustomer(input: CreateCustomerInput) {
   return api.post<{ customer: ApiCustomer }>('/customers', input).then((d) => d.customer);
 }
 
+export function updateCustomer(id: string, input: Partial<CreateCustomerInput>) {
+  return api.patch<{ customer: unknown }>(`/customers/${id}`, input);
+}
+
 export function repayDebt(customerId: string, montant: number, methode: PaymentMethod) {
   return api.post<{ status: 'CREATED' | 'DUPLICATE'; payment: unknown }>(
     `/customers/${customerId}/payments`,

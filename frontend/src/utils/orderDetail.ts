@@ -92,8 +92,13 @@ export function buildHistory(sale: Sale, deliveries: ReceiptDelivery[]): History
     if (envoi.orderId !== sale.id && envoi.orderReference !== sale.reference) continue;
     lignes.push({
       at: envoi.createdAt,
-      titre: LIBELLE_CANAL[envoi.canal],
-      detail: envoi.userName,
+      titre: envoi.destinataireNom
+        ? `${LIBELLE_CANAL[envoi.canal]} à ${envoi.destinataireNom}`
+        : LIBELLE_CANAL[envoi.canal],
+      detail:
+        [envoi.destinataireTelephone, envoi.userName ? `par ${envoi.userName}` : undefined]
+          .filter(Boolean)
+          .join(' · ') || undefined,
     });
   }
 

@@ -970,7 +970,9 @@ export const ReceiptsTab: React.FC = () => {
                           <div>
                             <div className="font-semibold text-slate-800">
                               {del.canal === 'WHATSAPP'
-                                ? 'Envoyé sur WhatsApp'
+                                ? del.destinataireNom
+                                  ? `Envoyé sur WhatsApp à ${del.destinataireNom}`
+                                  : 'Envoyé sur WhatsApp'
                                 : del.canal === 'IMPRESSION'
                                 ? 'Imprimé sur papier'
                                 : del.canal === 'COPIE_TEXTE'
