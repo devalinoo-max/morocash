@@ -33,21 +33,29 @@ export function resolveInitialTheme(): LandingTheme {
 }
 
 /**
- * Le choix est pose sur <html data-theme> et non sur le seul conteneur de la
- * page publique : c'est ainsi une preference de compte, lisible par n'importe
- * quel ecran de l'app. Un commercant qui choisit le clair ici le retrouve
- * ailleurs, sans avoir a le redire.
+ * La pastille ne concerne QUE le site public.
  *
- * Les styles de la page publique restent, eux, scopes a .morocash-landing :
- * poser l'attribut ne repeint rien d'autre par accident.
+ * L'attribut est pose sur <html> parce que les elements natifs de la page —
+ * barre de defilement, champs de saisie — ne savent pas lire une classe posee
+ * plus bas ; sans lui, un formulaire reste clair sur une page sombre. Il est
+ * retire des qu'on quitte la page publique (voir le nettoyage ci-dessous),
+ * pour ne rien laisser trainer sur les ecrans de l'app.
+ *
+ * Le tableau de bord n'a pas de mode sombre et n'en aura pas tant que personne
+ * ne l'aura demande : il est fait pour etre lu en plein jour, dans une
+ * boutique. Faire croire le contraire par un interrupteur serait une promesse
+ * que l'app ne tient pas.
  */
 function applyTheme(theme: LandingTheme) {
   if (typeof document === 'undefined') return;
   document.documentElement.setAttribute('data-theme', theme);
-  // Indique au navigateur comment peindre les elements natifs (barres de
-  // defilement, champs de saisie) : sans ca, un formulaire reste clair sur
-  // une page sombre.
   document.documentElement.style.colorScheme = theme;
+}
+
+function clearTheme() {
+  if (typeof document === 'undefined') return;
+  document.documentElement.removeAttribute('data-theme');
+  document.documentElement.style.colorScheme = '';
 }
 
 export function useLandingTheme() {
@@ -62,6 +70,11 @@ export function useLandingTheme() {
       // simplement non persisté pour cette session.
     }
   }, [theme]);
+
+  // Quitter la page publique remet le document a neutre. Le choix reste
+  // memorise pour la prochaine visite ; il ne suit simplement pas le visiteur
+  // dans l'app.
+  useEffect(() => clearTheme, []);
 
   // Tant que le visiteur n'a rien choisi, on suit le systeme s'il change en
   // cours de route (bascule automatique jour/nuit du telephone).
@@ -79,15 +92,4 @@ export function useLandingTheme() {
   }, []);
 
   return { theme, toggleTheme };
-}
-
-/**
- * Pose le thème retenu dès le démarrage de l'app, avant tout rendu.
- *
- * Sans ça, la préférence ne s'appliquerait qu'en passant par la page
- * publique : un commerçant qui ouvre directement son tableau de bord
- * repartirait du thème par défaut à chaque visite.
- */
-export function applyStoredTheme() {
-  applyTheme(resolveInitialTheme());
 }
