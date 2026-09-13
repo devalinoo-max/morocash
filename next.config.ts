@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  typescript: {
+    // Sans les tests : voir tsconfig.build.json.
+    tsconfigPath: 'tsconfig.build.json',
+  },
 };
 
 // SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN ([HUMAN INPUT REQUIRED]) ne sont

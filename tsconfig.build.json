@@ -1,0 +1,9 @@
+{
+  // Vérification de types du `next build` (voir next.config.ts) : les tests
+  // en sont exclus. Ils dépendent de modules installés côté frontend
+  // (@zxing/library), absents du déploiement Vercel du backend — leur seule
+  // présence faisait échouer chaque build. `tsc` et l'éditeur gardent le
+  // tsconfig.json complet, tests compris.
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "frontend", "tests", "vitest.config.mts"]
+}
