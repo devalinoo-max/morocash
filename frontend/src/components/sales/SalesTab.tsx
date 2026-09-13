@@ -14,6 +14,7 @@ import {
   X,
   ArrowRight,
   Plus,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
 import { Sale } from '../../types';
@@ -75,6 +76,7 @@ export const SalesTab: React.FC = () => {
 
   const [saleForCustomerAssign, setSaleForCustomerAssign] = useState<Sale | null>(null);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [filtresAvancesOuverts, setFiltresAvancesOuverts] = useState(false);
 
   // 1. Filter out debt repayments (Point 1: UN REMBOURSEMENT DE DETTE N'EST PAS UNE COMMANDE)
   // and normalize all references to CMD-AAAAMMJJ-NNNN (Point 3: UNE SEULE NUMÉROTATION)
@@ -129,11 +131,10 @@ export const SalesTab: React.FC = () => {
     [activeSales]
   );
 
-  const filtresActifs =
-    searchQuery.trim() !== '' ||
-    statusFilter !== 'ALL' ||
-    selectedSeller !== 'ALL' ||
-    periodFilter !== PERIODE_PAR_DEFAUT;
+  // Un réglage avancé actif doit rester visible depuis la liste : sinon le
+  // commerçant cherche pourquoi il manque des commandes.
+  const reglagesAvancesActifs =
+    selectedSeller !== 'ALL' || periodFilter === 'custom' || statusFilter === 'CANCELLED';
 
   // Point 9: GROUPE PAR JOUR
   const groupedByDay = useMemo(() => {
@@ -239,6 +240,12 @@ export const SalesTab: React.FC = () => {
    */
   usePageMenu([
     {
+      id: 'filtres-avances',
+      label: 'Filtres avancés',
+      icon: SlidersHorizontal,
+      onSelect: () => setFiltresAvancesOuverts(true),
+    },
+    {
       id: 'export-pdf',
       label: 'Imprimer / PDF',
       icon: FileText,
@@ -321,7 +328,6 @@ export const SalesTab: React.FC = () => {
               { id: 'PAID', label: `Payées (${statusCounts.PAID})` },
               { id: 'PARTIAL', label: `Payées en partie (${statusCounts.PARTIAL})` },
               { id: 'CREDIT', label: `Pas payées (${statusCounts.CREDIT})` },
-              { id: 'CANCELLED', label: `Annulées (${statusCounts.CANCELLED})` },
             ] as const
           ).map((st) => {
             const active = statusFilter === st.id;
@@ -342,52 +348,27 @@ export const SalesTab: React.FC = () => {
           })}
         </div>
 
-        {/* Vendeur et période libre : deux réglages rares, repliés derrière une
-            ligne discrète plutôt qu'affichés en permanence. */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px]">
+        {/* Les réglages rares — vendeur, période libre, commandes annulées —
+            vivent derrière « Filtres avancés » dans le menu « ⋯ » de la barre
+            haute. Affichés en permanence, ils coûtaient deux rangées à un
+            écran qui doit d'abord montrer des commandes. Une pastille
+            récapitule ici ceux qui sont actifs, pour qu'un filtre oublié ne
+            reste jamais invisible. */}
+        {reglagesAvancesActifs && (
           <button
             type="button"
-            onClick={() => setPeriodFilter(periodFilter === 'custom' ? PERIODE_PAR_DEFAUT : 'custom')}
-            className="font-bold text-slate-500 hover:text-[#4F46E5] cursor-pointer"
+            onClick={() => setFiltresAvancesOuverts(true)}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-[#4F46E5] hover:underline cursor-pointer"
           >
-            {periodFilter === 'custom' ? 'Fermer la période libre' : 'Choisir une période libre'}
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {[
+              selectedSeller !== 'ALL' ? `Vendu par ${selectedSeller}` : null,
+              periodFilter === 'custom' ? 'Période libre' : null,
+              statusFilter === 'CANCELLED' ? 'Commandes annulées' : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </button>
-          {sellerNames.length > 1 && (
-            <label className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-semibold">Vendu par</span>
-              <select
-                value={selectedSeller}
-                onChange={(e) => setSelectedSeller(e.target.value)}
-                className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-bold text-slate-800 text-[11px] focus:outline-none focus:ring-2 focus:ring-[#4F46E5] cursor-pointer max-w-[45vw]"
-              >
-                <option value="ALL">Tous</option>
-                {sellerNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-
-        {periodFilter === 'custom' && (
-          <div className="flex flex-wrap items-center gap-2 text-[11px] bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-            <span className="text-slate-500 font-medium">Du</span>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer min-w-0"
-            />
-            <span className="text-slate-500 font-medium">au</span>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer min-w-0"
-            />
-          </div>
         )}
       </div>
 
@@ -740,6 +721,116 @@ export const SalesTab: React.FC = () => {
                 Annuler la commande
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          FILTRES AVANCÉS — les réglages rares, hors du chemin quotidien
+          ===================================================================== */}
+      {filtresAvancesOuverts && (
+        <div
+          className="fixed inset-0 z-[65] bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4"
+          onClick={() => setFiltresAvancesOuverts(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl p-5 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-black text-slate-900">Filtres avancés</h3>
+              <button
+                type="button"
+                onClick={() => setFiltresAvancesOuverts(false)}
+                aria-label="Fermer"
+                className="w-8 h-8 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {sellerNames.length > 1 && (
+              <div className="space-y-1.5">
+                <label htmlFor="filtre-vendeur" className="text-xs font-bold text-slate-700">
+                  Vendu par
+                </label>
+                <select
+                  id="filtre-vendeur"
+                  value={selectedSeller}
+                  onChange={(e) => setSelectedSeller(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
+                >
+                  <option value="ALL">Tous les vendeurs</option>
+                  {sellerNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold text-slate-700">Période libre</span>
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-[12px] min-w-0">
+                <span className="text-slate-500 shrink-0">Du</span>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => {
+                    setCustomStart(e.target.value);
+                    setPeriodFilter('custom');
+                  }}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer min-w-0 flex-1"
+                />
+                <span className="text-slate-500 shrink-0">au</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => {
+                    setCustomEnd(e.target.value);
+                    setPeriodFilter('custom');
+                  }}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer min-w-0 flex-1"
+                />
+              </div>
+            </div>
+
+            {/* Les commandes annulées ne méritent pas une pastille dans la
+                rangée de tous les jours, mais elles doivent rester atteignables :
+                c'est ici qu'on va les chercher quand on en cherche une. */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'CANCELLED' ? 'ALL' : 'CANCELLED')}
+              className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border text-[13px] font-bold transition-all cursor-pointer ${
+                statusFilter === 'CANCELLED'
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <span>Voir les commandes annulées</span>
+              <span className="tabular-nums opacity-70">{statusCounts.CANCELLED}</span>
+            </button>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  resetAllFilters();
+                  setFiltresAvancesOuverts(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+              >
+                Tout réinitialiser
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltresAvancesOuverts(false)}
+                className="flex-1 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-black shadow-xs cursor-pointer"
+              >
+                Voir les commandes
+              </button>
+            </div>
           </div>
         </div>
       )}

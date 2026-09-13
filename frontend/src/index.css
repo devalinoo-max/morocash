@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Le menu de la page publique bascule en mode telephone a 1000px — la largeur
+   a laquelle ses cinq entrees cessent de tenir a cote du logo et des boutons.
+   Ce n est aucun des paliers de Tailwind, d ou ce palier maison. */
+@theme {
+  --breakpoint-menu: 1000px;
+}
+
 /* ==========================================================================
    MoroCash Landing — thème double "Midnight Obsidian / Afrique Premium"
    Toutes les variables et classes ci-dessous sont scopées sous

@@ -72,7 +72,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           <Logo size={30} onDark={theme === 'dark'} className="transition-transform group-hover:scale-105" />
         </button>
 
-        <div className="hidden lg:flex items-center gap-6 text-xs font-semibold theme-text-muted">
+        <div className="hidden menu:flex items-center gap-6 text-xs font-semibold theme-text-muted">
           {NAV_LINKS.map((link) => (
             <button
               key={link.id}
@@ -86,7 +86,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         </div>
 
         {/* Partie droite — grand écran */}
-        <div className="hidden lg:flex items-center gap-4">
+        <div className="hidden menu:flex items-center gap-4">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           {isAuthenticated ? (
             <button type="button" onClick={onOpenDashboard} className="menu-cta">
@@ -106,7 +106,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
         {/* Partie droite — petit écran : la pastille reste toujours dans la
             barre, l'essai est réduit, le reste passe dans le panneau. */}
-        <div className="flex lg:hidden items-center gap-2.5">
+        <div className="flex menu:hidden items-center gap-2.5">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           {isAuthenticated ? (
             <button type="button" onClick={onOpenDashboard} className="menu-cta menu-cta-compact">
@@ -130,7 +130,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       </nav>
 
       {panneauOuvert && (
-        <div className="lg:hidden fixed inset-0 z-50">
+        <div className="menu:hidden fixed inset-0 z-50">
           <button
             type="button"
             aria-label="Fermer le menu"
