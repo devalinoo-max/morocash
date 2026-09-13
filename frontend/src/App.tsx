@@ -399,7 +399,10 @@ const MainLayout: React.FC = () => {
             <TrialBanner />
             <ReadOnlyBanner />
 
-            <main className="flex-1 px-4 sm:px-6 pt-6 pb-28 md:pb-10 overflow-y-auto">
+            {/* Sur téléphone, 24 px de vide sous la barre haute repoussaient le
+                premier produit hors de l'écran : 12 px suffisent, l'ordinateur
+                garde sa respiration. */}
+            <main className="flex-1 px-4 sm:px-6 pt-3 md:pt-6 pb-28 md:pb-10 overflow-y-auto">
               <div className="max-w-[1460px] mx-auto">
                 {renderActiveView()}
               </div>

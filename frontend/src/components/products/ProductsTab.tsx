@@ -1,37 +1,24 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import {
-  Package,
-  Search,
-  Plus,
-  AlertTriangle,
-  Scissors,
-  Edit2,
-  Trash2,
-  Printer,
-  ClipboardCheck,
-  Camera,
-  QrCode,
-  Barcode,
-  ArrowRight,
-} from 'lucide-react';
-import { formatMoney, getTerminology } from '../../utils/formatters';
+import { Package, Search, Plus, Printer, ClipboardCheck, Camera } from 'lucide-react';
+import { formatMoneyCompact, getTerminology } from '../../utils/formatters';
+import { countLabel } from '../../utils/plural';
 import { Product } from '../../types';
 import { ProductFormModal } from './ProductFormModal';
+import { ProductCard } from './ProductCard';
 import { LabelPrintModal } from './LabelPrintModal';
 import { BulkEditBar } from './BulkEditBar';
 import { InventoryScanModal } from './InventoryScanModal';
 import { BarcodeScannerModal } from '../pos/BarcodeScannerModal';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
+import { usePageMenu } from '../../context/PageMenuContext';
 
 export const ProductsTab: React.FC = () => {
   const {
     products,
-    updateProduct,
     recordStockReception,
     settings,
     showToast,
-    findProductByCode,
     isWriteLocked,
     gateWrite,
     isNewProductOpen,
@@ -64,8 +51,8 @@ export const ProductsTab: React.FC = () => {
   const [adjustStockProduct, setAdjustStockProduct] = useState<Product | null>(null);
   const [stockAddAmount, setStockAddAmount] = useState<number>(10);
 
-  // Sélection multiple : n'apparaît qu'une fois un premier produit coché, pour
-  // ne pas encombrer la liste de cases à cocher chez qui n'en a jamais besoin.
+  // Sélection multiple : la case reste visible sur chaque carte, c'est elle qui
+  // fait apparaître la barre d'édition groupée une fois cochée.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const toggleSelected = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -82,6 +69,27 @@ export const ProductsTab: React.FC = () => {
     setIsFormOpen(true);
     setIsNewProductOpen(true);
   };
+
+  // Étiquettes et inventaire : deux actions de fin de mois, pas de la journée.
+  // Elles vivent dans le menu « ... » de la barre haute, où elles ne coûtent
+  // plus une rangée de boutons au-dessus de la liste.
+  usePageMenu([
+    {
+      id: 'labels',
+      label: 'Imprimer les étiquettes',
+      icon: Printer,
+      onSelect: () => {
+        setSelectedProductForPrint(null);
+        setIsPrintModalOpen(true);
+      },
+    },
+    {
+      id: 'inventory',
+      label: 'Inventaire continu',
+      icon: ClipboardCheck,
+      onSelect: () => gateWrite(() => setIsInventoryOpen(true)),
+    },
+  ]);
 
   // L'adresse /produits/nouveau ouvre le formulaire, et le formulaire met
   // l'adresse à jour : les deux ne peuvent pas diverger.
@@ -114,21 +122,19 @@ export const ProductsTab: React.FC = () => {
     setAdjustStockProduct(null);
   };
 
+  const matchesFilterType = (p: Product, filtre: typeof filterType) => {
+    if (filtre === 'LOW_STOCK') return !p.isService && p.stock > 0 && p.stock <= p.alertThreshold;
+    if (filtre === 'OUT_OF_STOCK') return !p.isService && p.stock <= 0;
+    if (filtre === 'SERVICES') return !!p.isService;
+    return true;
+  };
+
   // Filter products (supports searching by name, category, OR barcode/internal code)
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const q = searchQuery.trim().toLowerCase();
-      if (!q) {
-        let matchesFilter = true;
-        if (filterType === 'LOW_STOCK') {
-          matchesFilter = !p.isService && p.stock > 0 && p.stock <= p.alertThreshold;
-        } else if (filterType === 'OUT_OF_STOCK') {
-          matchesFilter = !p.isService && p.stock <= 0;
-        } else if (filterType === 'SERVICES') {
-          matchesFilter = !!p.isService;
-        }
-        return matchesFilter;
-      }
+      if (!matchesFilterType(p, filterType)) return false;
+      if (!q) return true;
 
       const matchesName = p.name.toLowerCase().includes(q);
       const matchesCategory = !!(p.category && p.category.toLowerCase().includes(q));
@@ -138,25 +144,34 @@ export const ProductsTab: React.FC = () => {
         p.productCodes && p.productCodes.some((c) => c.code.toLowerCase().includes(q))
       );
 
-      const matchesSearch =
-        matchesName ||
-        matchesCategory ||
-        matchesInternalCode ||
-        matchesBarcode ||
-        matchesCodesList;
-
-      let matchesFilter = true;
-      if (filterType === 'LOW_STOCK') {
-        matchesFilter = !p.isService && p.stock > 0 && p.stock <= p.alertThreshold;
-      } else if (filterType === 'OUT_OF_STOCK') {
-        matchesFilter = !p.isService && p.stock <= 0;
-      } else if (filterType === 'SERVICES') {
-        matchesFilter = !!p.isService;
-      }
-
-      return matchesSearch && matchesFilter;
+      return (
+        matchesName || matchesCategory || matchesInternalCode || matchesBarcode || matchesCodesList
+      );
     });
   }, [products, searchQuery, filterType]);
+
+  // Les compteurs portent sur tout le catalogue, pas sur la recherche en cours :
+  // ils disent combien il y en a, pas combien la recherche en montre.
+  const counts = useMemo(
+    () => ({
+      ALL: products.length,
+      LOW_STOCK: products.filter((p) => matchesFilterType(p, 'LOW_STOCK')).length,
+      OUT_OF_STOCK: products.filter((p) => matchesFilterType(p, 'OUT_OF_STOCK')).length,
+      SERVICES: products.filter((p) => matchesFilterType(p, 'SERVICES')).length,
+    }),
+    [products]
+  );
+
+  // Valeur du stock : elle se calcule sur le prix d'achat, donc elle ne
+  // s'affiche que pour qui a le droit de le voir.
+  const stockValue = useMemo(
+    () =>
+      products.reduce(
+        (total, p) => (p.isService ? total : total + Math.max(0, p.stock) * p.purchasePrice),
+        0
+      ),
+    [products]
+  );
 
   // When scanned from search bar
   const handleProductScannedFromSearch = (product: Product) => {
@@ -165,285 +180,155 @@ export const ProductsTab: React.FC = () => {
     handleOpenEdit(product);
   };
 
+  const filtres = [
+    { id: 'ALL' as const, label: `Tous (${counts.ALL})`, dot: null },
+    ...(terminology.stockVisible
+      ? [
+          { id: 'LOW_STOCK' as const, label: `Stock bas (${counts.LOW_STOCK})`, dot: '#F59E0B' },
+          { id: 'OUT_OF_STOCK' as const, label: `Rupture (${counts.OUT_OF_STOCK})`, dot: '#DC2626' },
+        ]
+      : []),
+    { id: 'SERVICES' as const, label: `Prestations (${counts.SERVICES})`, dot: null },
+  ];
+
   return (
-    <div id="products-tab-content" className="space-y-4 pb-24 animate-in fade-in duration-200">
-      {/* Top Header with Print & Inventory actions */}
-      <div className="mx-4 sm:mx-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            {terminology.catalogTitle}
-          </h2>
-          <p className="text-xs text-slate-500">
-            {products.length} {terminology.itemPlural.toLowerCase()} dans le catalogue · Codes-barres & QR activés
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Label print button */}
-          <button
-            id="btn-open-label-printer"
-            onClick={() => {
-              setSelectedProductForPrint(null);
-              setIsPrintModalOpen(true);
-            }}
-            className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-            title="Imprimer une planche de 24 étiquettes A4"
-          >
-            <Printer className="w-4 h-4 text-indigo-600" />
-            <span className="hidden sm:inline">Imprimer les étiquettes</span>
-            <span className="sm:hidden">Étiquettes</span>
-          </button>
-
-          {/* Continuous inventory button */}
-          <button
-            id="btn-open-inventory-scan"
-            onClick={() => gateWrite(() => setIsInventoryOpen(true))}
-            className={`px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
-            title="Faire un inventaire physique en scannant les rayons"
-          >
-            <ClipboardCheck className="w-4 h-4 text-emerald-600" />
-            <span className="hidden sm:inline">Inventaire continu</span>
-            <span className="sm:hidden">Inventaire</span>
-          </button>
-
-          {/* Create Product button */}
-          <button
-            id="btn-add-new-product"
-            onClick={() => gateWrite(() => handleOpenCreate())}
-            className={`px-4 py-2.5 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Ajouter {terminology.itemSingular.toLowerCase()}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Search Bar with Camera Scanner button & Quick Filters */}
-      <div className="mx-4 sm:mx-0 space-y-2.5">
+    <div id="products-tab-content" className="space-y-3 pb-24 animate-in fade-in duration-200">
+      {/* =====================================================================
+          RECHERCHE ET FILTRES
+          La carte blanche « Produits & Stocks » a disparu : son titre est déjà
+          dans la barre haute, et son sous-titre répétait un réglage que le
+          commerçant ne peut pas changer. Elle coûtait la moitié de l'écran
+          avant le premier produit.
+          ===================================================================== */}
+      <div className="space-y-2.5">
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               id="input-search-catalog"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Rechercher par nom, catégorie ou code (MC-..., EAN)...`}
-              className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] transition-all shadow-xs"
+              placeholder="Cherche un produit, un code"
+              className="w-full h-11 pl-10 pr-3 rounded-full bg-white border border-slate-200 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] transition-all"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
-              >
-                Effacer
-              </button>
-            )}
           </div>
 
-          {/* Scanner Button right next to search */}
           <button
             id="btn-scan-to-search"
             type="button"
             onClick={() => setIsSearchScannerOpen(true)}
-            className="px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95 shrink-0"
+            className="w-11 h-11 shrink-0 rounded-full bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center cursor-pointer transition-all active:scale-95"
             title="Scanner pour rechercher"
+            aria-label="Scanner un code pour rechercher"
           >
-            <Camera className="w-4 h-4 text-indigo-400" />
-            <span className="hidden sm:inline">Scanner</span>
+            <Camera className="w-[18px] h-[18px] text-indigo-300" />
           </button>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-          {[
-            { id: 'ALL', label: 'Tous' },
-            ...(terminology.stockVisible
-              ? [
-                  { id: 'LOW_STOCK', label: '⚠️ Stock bas' },
-                  { id: 'OUT_OF_STOCK', label: '🚨 Rupture / Négatif' },
-                ]
-              : []),
-            { id: 'SERVICES', label: '⚡ Prestations' },
-          ].map((flt) => (
-            <button
-              key={flt.id}
-              id={`filter-prod-${flt.id}`}
-              onClick={() => setFilterType(flt.id as any)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                filterType === flt.id
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {flt.label}
-            </button>
-          ))}
+        {/* Pastilles de filtre, sans emoji : un point coloré dit l'alerte mieux
+            qu'un pictogramme de messagerie. « + Ajouter » tient la droite de la
+            rangée plutôt qu'une pleine largeur à lui seul. */}
+        <div className="flex items-center gap-2">
+          {/* La rangée défile quand les pastilles ne tiennent pas, et elle
+              l'annonce par son dégradé de bord : sans lui, la dernière pastille
+              se coupe net contre « + Ajouter » et se lit comme recouverte. */}
+          <div className="filter-pill-row flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {filtres.map((flt) => {
+              const actif = filterType === flt.id;
+              return (
+                <button
+                  key={flt.id}
+                  id={`filter-prod-${flt.id}`}
+                  type="button"
+                  onClick={() => setFilterType(flt.id)}
+                  className={`shrink-0 h-8 px-3 rounded-full text-[11.5px] font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
+                    actif
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {flt.dot && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: flt.dot }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {flt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            id="btn-add-new-product"
+            type="button"
+            onClick={() => gateWrite(() => handleOpenCreate())}
+            className={`shrink-0 h-8 pl-2.5 pr-3.5 rounded-full bg-[#4F46E5] hover:bg-indigo-700 active:scale-95 text-white text-[11.5px] font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer ${
+              isWriteLocked ? LOCKED_BTN_CLASS : ''
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Ajouter
+          </button>
         </div>
       </div>
 
-      {/* Product List */}
-      <div className="mx-4 sm:mx-0 space-y-2.5">
+      {/* =====================================================================
+          LIGNE DE RÉSUMÉ — ce que l'ancien sous-titre aurait dû dire
+          ===================================================================== */}
+      <div className="h-9 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200/80 flex items-center gap-2 text-[12px] min-w-0">
+        <span className="font-bold text-slate-800 shrink-0">
+          {countLabel(counts.ALL, settings.activityType === 'SERVICES' ? 'prestation' : 'produit')}
+        </span>
+        {terminology.stockVisible && counts.LOW_STOCK > 0 && (
+          <>
+            <span className="text-slate-300 shrink-0">·</span>
+            <span className="font-bold shrink-0" style={{ color: '#F59E0B' }}>
+              {counts.LOW_STOCK} en stock bas
+            </span>
+          </>
+        )}
+        {terminology.stockVisible && isOwner && stockValue > 0 && (
+          <>
+            <span className="text-slate-300 shrink-0">·</span>
+            <span className="text-slate-600 tabular-nums truncate">
+              valeur {formatMoneyCompact(stockValue)}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Product List — une colonne sur téléphone (aucune grille à colonnes
+          fixes sous 400 px), deux ou trois dès qu'il y a la place. */}
+      <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-2.5">
         {filteredProducts.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 space-y-2">
+          <div className="md:col-span-full p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 space-y-2">
             <Package className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
             <p className="text-sm font-semibold text-slate-600">Aucun article trouvé</p>
             <p className="text-xs">Ajoute un produit ou modifie tes critères de recherche.</p>
           </div>
         ) : (
-          filteredProducts.map((prod) => {
-            const isLow = !prod.isService && prod.stock > 0 && prod.stock <= prod.alertThreshold;
-            const isNegative = !prod.isService && prod.stock < 0;
-            const isZero = !prod.isService && prod.stock === 0;
-
-            const primaryCode =
-              prod.productCodes?.find((c) => c.est_principal)?.code ||
-              prod.internalCode ||
-              prod.barcode;
-
-            const isHouseCode =
-              prod.productCodes?.find((c) => c.est_principal)?.origine === 'GENERE' ||
-              (!prod.barcode && !!prod.internalCode);
-
-            return (
-              <div
-                key={prod.id}
-                id={`product-card-${prod.id}`}
-                className={`p-4 rounded-3xl bg-white border transition-all shadow-xs ${
-                  isNegative
-                    ? 'border-rose-300 bg-rose-50/20'
-                    : isLow
-                    ? 'border-amber-300 bg-amber-50/20'
-                    : 'border-slate-200/80 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(prod.id)}
-                      onChange={() => toggleSelected(prod.id)}
-                      aria-label={`Sélectionner ${prod.name}`}
-                      className="w-4 h-4 shrink-0 text-[#4F46E5] rounded-sm cursor-pointer focus:ring-[#4F46E5]"
-                    />
-                    {prod.photo ? (
-                      <img
-                        src={prod.photo}
-                        alt={prod.name}
-                        referrerPolicy="no-referrer"
-                        className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#4F46E5] font-extrabold text-lg shrink-0">
-                        {prod.isService ? <Scissors className="w-6 h-6" /> : prod.name.charAt(0)}
-                      </div>
-                    )}
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                          {prod.name}
-                        </h3>
-                        {prod.isService && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-800">
-                            Prestation
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3 mt-1 text-xs">
-                        <span className="font-extrabold text-[#4F46E5]">
-                          {formatMoney(prod.salePrice)} F
-                        </span>
-                        {isOwner && prod.purchasePrice > 0 && (
-                          <span className="text-slate-400 text-[11px]">
-                            Achat : {formatMoney(prod.purchasePrice)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Scannable Code Pill */}
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        {primaryCode && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[10px] font-bold border border-slate-200/60">
-                            {isHouseCode ? (
-                              <QrCode className="w-2.5 h-2.5 text-indigo-600" />
-                            ) : (
-                              <Barcode className="w-2.5 h-2.5 text-slate-600" />
-                            )}
-                            <span>{primaryCode}</span>
-                          </span>
-                        )}
-                        <span className="text-[10px] text-slate-400">
-                          Catégorie : {prod.category || 'Sans catégorie'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stock & Quick Actions */}
-                  <div className="text-right shrink-0">
-                    {!prod.isService && terminology.stockVisible && (
-                      <div className="mb-2">
-                        <div
-                          className={`text-xs sm:text-sm font-black ${
-                            isNegative
-                              ? 'text-rose-600'
-                              : isZero
-                              ? 'text-rose-500'
-                              : isLow
-                              ? 'text-amber-600'
-                              : 'text-slate-800'
-                          }`}
-                        >
-                          Stock : {prod.stock} {prod.unit}
-                        </div>
-                        {isNegative && (
-                          <span className="inline-block text-[10px] font-bold text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded-md mt-0.5">
-                            Stock négatif — Saisis ton entrée !
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-end gap-1.5">
-                      {/* Print single label button */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenSinglePrint(prod)}
-                        title="Imprimer l’étiquette"
-                        className="p-2 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-[#4F46E5] flex items-center justify-center transition-all cursor-pointer border border-slate-200/60"
-                      >
-                        <QrCode className="w-3.5 h-3.5" />
-                      </button>
-
-                      {!prod.isService && terminology.stockVisible && (
-                        <button
-                          id={`btn-adjust-stock-${prod.id}`}
-                          onClick={() => {
-                            setAdjustStockProduct(prod);
-                            setStockAddAmount(10);
-                          }}
-                          className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
-                        >
-                          + Entrée
-                        </button>
-                      )}
-
-                      <button
-                        id={`btn-edit-prod-${prod.id}`}
-                        onClick={() => handleOpenEdit(prod)}
-                        className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 flex items-center justify-center transition-all cursor-pointer border border-slate-200/60"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
+          filteredProducts.map((prod) => (
+            <ProductCard
+              key={prod.id}
+              product={prod}
+              selected={selectedIds.includes(prod.id)}
+              onToggleSelect={toggleSelected}
+              onOpen={handleOpenEdit}
+              onStockEntry={(p) =>
+                gateWrite(() => {
+                  setAdjustStockProduct(p);
+                  setStockAddAmount(10);
+                })
+              }
+              onShowCode={handleOpenSinglePrint}
+              showPurchasePrice={isOwner}
+              stockVisible={terminology.stockVisible}
+              locked={isWriteLocked}
+            />
+          ))
         )}
       </div>
 
@@ -473,10 +358,7 @@ export const ProductsTab: React.FC = () => {
       />
 
       {/* CONTINUOUS INVENTORY SCAN MODAL */}
-      <InventoryScanModal
-        isOpen={isInventoryOpen}
-        onClose={() => setIsInventoryOpen(false)}
-      />
+      <InventoryScanModal isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} />
 
       {/* SEARCH / LOOKUP SCANNER MODAL */}
       <BarcodeScannerModal
