@@ -37,7 +37,18 @@ import { DiscountModal } from './DiscountModal';
 import { ServiceModal } from './ServiceModal';
 import { CustomerPickerModal } from './CustomerPickerModal';
 
-type SaleStep = 'PRODUCTS' | 'PAYMENT';
+type SaleStep = 'PRODUCTS' | 'REVIEW' | 'PAYMENT';
+
+// Trois écrans, trois pastilles : l'indicateur ne doit jamais mentir sur le
+// nombre d'étapes qui restent.
+const SALE_STEPS: { id: SaleStep; label: string }[] = [
+  { id: 'PRODUCTS', label: 'Produits' },
+  { id: 'REVIEW', label: 'Vérifier' },
+  { id: 'PAYMENT', label: 'Paiement' },
+];
+
+// Masque du bord droit de la ligne des catégories : montre qu'il y a une suite.
+const CATEGORY_ROW_MASK = 'linear-gradient(90deg, #000 88%, transparent)';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -273,8 +284,14 @@ export const NewSaleModal: React.FC = () => {
     setTimeout(() => setCustomerCardAlert(false), 650);
   };
 
-  // Calculations
-  const finalTotal = Math.max(0, cartTotal - discountAmount);
+  // Calculations — les quantités restent modifiables après la remise (écran
+  // Vérifier) : une remise en % suit le sous-total, une remise fixe ne le
+  // dépasse jamais.
+  const appliedDiscount =
+    discountMode === 'PERCENTAGE' && discountValue > 0
+      ? Math.min(cartTotal, Math.round((cartTotal * discountValue) / 100))
+      : Math.min(cartTotal, discountAmount);
+  const finalTotal = Math.max(0, cartTotal - appliedDiscount);
 
   // Calculate remaining debt
   const actualPaid =
@@ -310,6 +327,12 @@ export const NewSaleModal: React.FC = () => {
     }
   }, [step, cashRegisterBlocksPayment, paymentType]);
 
+  // Dernière ligne retirée depuis l'écran Vérifier : il n'y a plus rien à
+  // vérifier ni à payer, retour au catalogue.
+  useEffect(() => {
+    if (step !== 'PRODUCTS' && cart.length === 0) setStep('PRODUCTS');
+  }, [step, cart.length]);
+
   if (!isNewSaleOpen) return null;
 
   // Selected customer object
@@ -319,9 +342,19 @@ export const NewSaleModal: React.FC = () => {
 
   // Effective discount percentage
   const discountPercent =
-    cartTotal > 0 && discountAmount > 0
-      ? Math.round((discountAmount / cartTotal) * 100)
+    cartTotal > 0 && appliedDiscount > 0
+      ? Math.round((appliedDiscount / cartTotal) * 100)
       : 0;
+  const discountLabel = `Remise (${
+    discountMode === 'PERCENTAGE' && discountValue > 0 ? discountValue : discountPercent
+  } %)`;
+
+  const clearDiscount = () => {
+    setDiscountAmount(0);
+    setDiscountMode('AMOUNT');
+    setDiscountValue(0);
+    setDiscountReason('');
+  };
 
   // Handler: Validate and finalize sale
   const handleValidateSale = async () => {
@@ -352,9 +385,11 @@ export const NewSaleModal: React.FC = () => {
     const createdSale = await completeSale({
       paidAmount: actualPaid,
       paymentMethod: selectedPaymentMethod,
-      discount: discountAmount,
+      discount: appliedDiscount,
       discountMode,
-      discountValue,
+      // Remise fixe : la valeur envoyée est le montant réellement accordé,
+      // plafonné si le panier a rétréci depuis.
+      discountValue: discountMode === 'AMOUNT' ? appliedDiscount : discountValue,
       customerId: selectedCustomerId,
       customerName: selectedCustomerObj?.name,
       customerPhone: selectedCustomerObj?.phone,
@@ -367,10 +402,7 @@ export const NewSaleModal: React.FC = () => {
 
       // Reset modal state
       setStep('PRODUCTS');
-      setDiscountAmount(0);
-      setDiscountMode('AMOUNT');
-      setDiscountValue(0);
-      setDiscountReason('');
+      clearDiscount();
       setSelectedCustomerId('');
       setPaymentType('FULL');
       setCustomPaidAmount(0);
@@ -393,6 +425,399 @@ export const NewSaleModal: React.FC = () => {
     setMobileDragDeltaY(0);
     mobileDragStartY.current = null;
   };
+
+  const openProductForm = () => {
+    setScannerPreBarcode('');
+    setIsProductFormOpen(true);
+  };
+
+  /**
+   * Barre d'outils du catalogue, identique sur téléphone et ordinateur :
+   * recherche, 4 outils, rangée de CRÉATION fixe, puis ligne des catégories
+   * qui défile. Créer et filtrer ne partagent jamais la même rangée : avec
+   * douze catégories, les boutons + finissaient hors écran.
+   */
+  const renderCatalogToolbar = (variant: 'desktop' | 'mobile') => {
+    const sfx = variant === 'mobile' ? '-mobile' : '';
+    const toolClass =
+      'w-full h-[44px] rounded-xl flex flex-col items-center justify-center gap-0.5 relative transition-colors cursor-pointer';
+    return (
+      <div className="shrink-0 px-3 pt-2 pb-2 space-y-2 bg-white">
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            id={`input-sale-search-product${sfx}`}
+            ref={variant === 'desktop' ? searchInputRef : undefined}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher ou scanner un produit…"
+            className="w-full h-[42px] pl-10 pr-9 rounded-[999px] bg-slate-50 border border-slate-200 text-[16px] md:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              aria-label="Effacer la recherche"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          <div className="relative">
+            <button
+              id={`btn-filter-category${sfx}`}
+              type="button"
+              onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+              className={`${toolClass} ${
+                selectedCategory !== 'TOUS'
+                  ? 'bg-amber-50 border border-amber-300 text-amber-800'
+                  : 'bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="text-[10px] font-bold">Filtrer</span>
+              {selectedCategory !== 'TOUS' && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-1.5 right-1.5 ring-2 ring-white" />
+              )}
+            </button>
+
+            {isCategoryDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 w-56 max-h-72 overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-1.5 animate-in fade-in slide-in-from-top-2">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-2.5 py-1 block">
+                  Catégories
+                </span>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setIsCategoryDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      selectedCategory === cat ? 'bg-indigo-50 text-[#4F46E5]' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            id={`btn-reload-catalog${sfx}`}
+            type="button"
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedCategory('TOUS');
+              showToast('Catalogue actualisé', 'info');
+            }}
+            className={`${toolClass} bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200`}
+          >
+            <RotateCw className="w-4 h-4" />
+            <span className="text-[10px] font-bold">Actualiser</span>
+          </button>
+
+          <button
+            id={`btn-open-scanner${sfx}`}
+            type="button"
+            onClick={() => setIsScannerOpen(true)}
+            className={`${toolClass} bg-slate-900 hover:bg-slate-800 text-white shadow-xs`}
+          >
+            <Scan className="w-4 h-4 text-indigo-300" />
+            <span className="text-[10px] font-bold">Scanner</span>
+          </button>
+
+          <button
+            id={`btn-open-whatsapp-order${sfx}`}
+            type="button"
+            onClick={() => setIsWhatsAppOpen(true)}
+            className={`${toolClass} bg-[#25D366] hover:bg-[#20ba59] text-white shadow-xs`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="text-[10px] font-bold">WhatsApp</span>
+          </button>
+        </div>
+
+        {/* Rangée de création : ne défile jamais. Bordure pointillée = créer ;
+            les pastilles pleines en dessous = filtrer. */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            id={`btn-add-product-pos${sfx}`}
+            type="button"
+            onClick={openProductForm}
+            className="h-10 rounded-[11px] border-[1.5px] border-dashed border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5] text-xs font-[750] flex items-center justify-center gap-1 whitespace-nowrap cursor-pointer active:scale-[0.98] transition-transform"
+          >
+            <span>+ Nouveau produit</span>
+          </button>
+          <button
+            id={`btn-add-service-pos${sfx}`}
+            type="button"
+            onClick={() => setIsServiceModalOpen(true)}
+            className="h-10 rounded-[11px] border-[1.5px] border-dashed border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5] text-xs font-[750] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer active:scale-[0.98] transition-transform"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            <span>+ Service</span>
+          </button>
+        </div>
+
+        {/* Catégories : défilement horizontal assumé. Les pastilles ne
+            rétrécissent jamais (libellé entier ou hors champ), le masque du
+            bord droit annonce la suite. */}
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pr-10"
+          style={{ WebkitMaskImage: CATEGORY_ROW_MASK, maskImage: CATEGORY_ROW_MASK }}
+        >
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                selectedCategory === cat
+                  ? 'bg-[#4F46E5] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  /**
+   * Étape 2 — « Vérifie ta commande ». Plein écran sur téléphone, colonne de
+   * droite sur ordinateur. Existe pour une raison : que le commerçant voie son
+   * panier, la remise et le total AVANT d'encaisser.
+   */
+  const renderReviewPanel = () => (
+    <div className="flex-1 min-h-0 flex flex-col bg-white">
+      <div className="shrink-0 h-14 px-2 flex items-center gap-1 border-b border-slate-100">
+        <button
+          id="btn-review-back"
+          type="button"
+          aria-label="Revenir aux produits"
+          onClick={() => setStep('PRODUCTS')}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-slate-700 hover:bg-slate-100 cursor-pointer"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[14px] font-[750] text-slate-900 leading-tight truncate">Vérifie ta commande</h3>
+          <p className="text-[11px] text-slate-500 leading-tight">
+            {cartItemCount} article{cartItemCount > 1 ? 's' : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Fermer la vérification"
+          onClick={() => setStep('PRODUCTS')}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-4">
+        {/* a) Le client et sa dette actuelle */}
+        {selectedCustomerObj ? (
+          <div className="rounded-[14px] bg-[#F0FDF4] border-l-4 border-l-[#16A34A] border-y border-r border-emerald-200/70 p-3 flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-10 h-10 min-w-10 rounded-full flex items-center justify-center font-bold text-white text-xs shrink-0 ${getAvatarColor(
+                  selectedCustomerObj.name
+                )}`}
+              >
+                {getInitials(selectedCustomerObj.name)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-[650] text-slate-900 truncate leading-snug">{selectedCustomerObj.name}</p>
+                {selectedCustomerObj.phone && selectedCustomerObj.phone !== 'Non renseigné' && (
+                  <p className="text-[11px] text-slate-500 font-medium truncate">{selectedCustomerObj.phone}</p>
+                )}
+                {selectedCustomerObj.totalDebt > 0 ? (
+                  <p className="text-[11px] font-bold text-[#DC2626]">
+                    doit déjà {formatMoney(selectedCustomerObj.totalDebt)}
+                  </p>
+                ) : (
+                  <p className="text-[11px] font-bold text-[#16A34A]">à jour</p>
+                )}
+              </div>
+            </div>
+            <button
+              id="btn-change-customer-review"
+              type="button"
+              onClick={() => setIsCustomerPickerOpen(true)}
+              className="shrink-0 text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer px-2 py-2"
+            >
+              Changer
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsCustomerPickerOpen(true)}
+            className="w-full h-14 rounded-[14px] bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-amber-200/70 px-3 flex items-center justify-between text-left cursor-pointer"
+          >
+            <span className="text-[13px] font-[650] text-slate-900">À qui est cette commande ?</span>
+            <span className="text-xs font-bold text-amber-700">Choisir</span>
+          </button>
+        )}
+
+        {/* b) Ce que tu vends — quantités modifiables ici */}
+        <section>
+          <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
+            Ce que tu vends
+          </h4>
+          <div>
+            {cart.map((item) => (
+              <div
+                key={item.product.id}
+                className="flex items-center gap-2.5 py-2 border-b border-slate-100 last:border-b-0"
+              >
+                {item.product.photo ? (
+                  <img
+                    src={item.product.photo}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-[34px] h-[34px] min-w-[34px] rounded-[9px] object-cover bg-slate-100"
+                  />
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className="w-[34px] h-[34px] min-w-[34px] rounded-[9px] flex items-center justify-center text-white font-black text-[13px] select-none"
+                    style={{ backgroundColor: getProductThumbColor(item.product.name) }}
+                  >
+                    {getProductInitial(item.product.name)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-bold text-slate-900 truncate leading-snug">{item.product.name}</p>
+                  <p className="text-[11px] text-slate-500 tabular-nums">{formatMoney(item.unitPrice)}</p>
+                </div>
+                <div className="flex items-center rounded-xl border border-slate-200 bg-white shrink-0">
+                  <button
+                    type="button"
+                    aria-label={`Retirer un ${item.product.name}`}
+                    onClick={() => updateCartQuantity(item.product.id, -1)}
+                    className="w-9 h-9 rounded-l-xl flex items-center justify-center text-slate-700 active:bg-slate-100 cursor-pointer"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="min-w-[22px] text-center text-[13px] font-black text-slate-900 tabular-nums">
+                    {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Ajouter un ${item.product.name}`}
+                    onClick={() => updateCartQuantity(item.product.id, 1)}
+                    className="w-9 h-9 rounded-r-xl flex items-center justify-center text-[#4F46E5] active:bg-indigo-50 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <span className="min-w-[64px] text-right text-[13px] font-[750] text-slate-900 tabular-nums shrink-0">
+                  {formatMoney(item.unitPrice * item.quantity)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* c) La ligne Remise — toujours visible */}
+        {appliedDiscount > 0 ? (
+          <div className="h-12 pr-3 rounded-[11px] bg-[#FEF2F2] flex items-center gap-2">
+            <button
+              id="btn-review-edit-discount"
+              type="button"
+              onClick={() => setIsDiscountModalOpen(true)}
+              className="flex-1 min-w-0 h-full pl-3 flex items-center justify-between gap-2 text-left cursor-pointer"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Tag className="w-4 h-4 text-[#DC2626] shrink-0" />
+                <span className="text-[13px] font-bold text-rose-950 truncate">{discountLabel}</span>
+              </span>
+              <span className="text-[14px] font-[800] text-[#DC2626] tabular-nums whitespace-nowrap">
+                − {formatMoney(appliedDiscount)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={clearDiscount}
+              className="shrink-0 text-[12px] font-semibold text-slate-500 underline cursor-pointer py-2"
+            >
+              Retirer
+            </button>
+          </div>
+        ) : (
+          <div className="h-12 px-3 rounded-[11px] bg-[#F8FAFC] flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-[#4F46E5]" />
+              <span className="text-[13px] font-bold text-slate-800">Remise</span>
+            </span>
+            <button
+              id="btn-review-add-discount"
+              type="button"
+              onClick={() => setIsDiscountModalOpen(true)}
+              className="h-8 px-3.5 rounded-lg bg-[#EEF2FF] text-[#4F46E5] text-xs font-bold cursor-pointer"
+            >
+              Ajouter
+            </button>
+          </div>
+        )}
+
+        {/* d) Le récapitulatif */}
+        <div className="rounded-2xl border border-slate-200 p-3.5 space-y-2">
+          <div className="flex justify-between items-center text-[13px] text-slate-600">
+            <span>Sous-total</span>
+            <span className="font-semibold text-slate-900 tabular-nums">{formatMoney(cartTotal)}</span>
+          </div>
+          {appliedDiscount > 0 && (
+            <div className="flex justify-between items-center text-[13px] text-[#DC2626]">
+              <span>Remise</span>
+              <span className="font-bold tabular-nums">− {formatMoney(appliedDiscount)}</span>
+            </div>
+          )}
+          <div className="pt-2.5 border-t border-slate-200 flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-bold text-slate-900">Total à payer</span>
+            <span className="text-[24px] font-[800] text-slate-900 tabular-nums leading-none">
+              {formatMoney(finalTotal)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Barre d'actions : le montant est DANS le bouton */}
+      <div
+        className="shrink-0 px-3 pt-3 bg-white border-t border-slate-200 space-y-1"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
+      >
+        <button
+          id="btn-review-pay"
+          type="button"
+          onClick={() => setStep('PAYMENT')}
+          className="w-full h-[52px] rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white text-[15px] font-[750] flex items-center justify-center gap-1.5 shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer transition-all"
+        >
+          <span className="tabular-nums">Payer {formatMoney(finalTotal)}</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setStep('PRODUCTS')}
+          className="w-full py-2 text-[12px] font-semibold text-slate-500 text-center cursor-pointer"
+        >
+          ← Ajouter d'autres produits
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex flex-col justify-end md:justify-center md:items-center md:p-4 animate-in fade-in duration-150 overflow-x-hidden">
@@ -421,73 +846,53 @@ export const NewSaleModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Stepper — compact sur mobile (point 6) : une seule ligne, ne
-                se replie jamais ; sous 360px, seul le libellé de l'étape en
-                cours reste affiché (l'autre garde sa pastille numérotée). */}
-            <div className="flex items-center gap-1 md:gap-2 select-none shrink-0">
-              {/* Step 1: Produits */}
-              <button
-                type="button"
-                onClick={() => setStep('PRODUCTS')}
-                className={`flex items-center gap-1 md:gap-2 cursor-pointer transition-all ${
-                  step === 'PRODUCTS'
-                    ? 'text-slate-900 font-black'
-                    : 'text-indigo-600 font-bold hover:opacity-80'
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
-                    step === 'PRODUCTS'
-                      ? 'bg-[#4F46E5] text-white shadow-xs'
-                      : 'bg-indigo-50 text-[#4F46E5]'
-                  }`}
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                </div>
-                <span
-                  className={`text-[10.5px] md:text-xs whitespace-nowrap ${
-                    step === 'PRODUCTS' ? '' : 'hidden min-[420px]:inline'
-                  }`}
-                >
-                  1. Produits
-                </span>
-              </button>
-
-              <div className="w-5 md:w-8 h-[1.5px] bg-slate-200 shrink-0" />
-
-              {/* Step 2: Paiement */}
-              <button
-                type="button"
-                disabled={cart.length === 0 || !selectedCustomerId}
-                onClick={() => setStep('PAYMENT')}
-                className={`flex items-center gap-1 md:gap-2 transition-all ${
-                  cart.length === 0 || !selectedCustomerId
-                    ? 'opacity-40 cursor-not-allowed'
-                    : 'cursor-pointer'
-                } ${
-                  step === 'PAYMENT'
-                    ? 'text-slate-900 font-black'
-                    : 'text-slate-400 font-medium'
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0 ${
-                    step === 'PAYMENT'
-                      ? 'bg-[#4F46E5] text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-400'
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                </div>
-                <span
-                  className={`text-[10.5px] md:text-xs whitespace-nowrap ${
-                    step === 'PAYMENT' ? '' : 'hidden min-[420px]:inline'
-                  }`}
-                >
-                  2. Paiement
-                </span>
-              </button>
-            </div>
+            {/* Indicateur d'étapes : trois pastilles pour trois écrans. Une
+                étape franchie ramène en arrière sans rien perdre (tout l'état
+                vit dans ce composant) ; une étape à venir ne s'ouvre que par
+                le bouton de l'écran en cours. Sous 440px, seul le libellé de
+                l'étape en cours reste affiché. */}
+            <nav aria-label="Étapes de la commande" className="flex items-center gap-1.5 select-none shrink-0">
+              {SALE_STEPS.map((s, i) => {
+                const currentIndex = SALE_STEPS.findIndex((x) => x.id === step);
+                const isCurrent = i === currentIndex;
+                const isDone = i < currentIndex;
+                return (
+                  <React.Fragment key={s.id}>
+                    {i > 0 && <span aria-hidden="true" className="w-[13px] h-[1.5px] bg-[#E2E8F0] shrink-0" />}
+                    <button
+                      type="button"
+                      disabled={!isDone}
+                      aria-current={isCurrent ? 'step' : undefined}
+                      onClick={() => isDone && setStep(s.id)}
+                      className={`flex items-center gap-1 shrink-0 ${isDone ? 'cursor-pointer' : 'cursor-default'}`}
+                    >
+                      <span
+                        className={`w-[22px] h-[22px] rounded-[50%] flex items-center justify-center text-[11px] font-[750] tabular-nums ${
+                          isCurrent
+                            ? 'bg-[#4F46E5] text-white'
+                            : isDone
+                              ? 'bg-[#EEF2FF] text-[#4F46E5]'
+                              : 'bg-[#F1F5F9] text-[#94A3B8]'
+                        }`}
+                      >
+                        {isDone ? <Check className="w-3 h-3" strokeWidth={3} /> : i + 1}
+                      </span>
+                      <span
+                        className={`text-[10.5px] whitespace-nowrap ${
+                          isCurrent
+                            ? 'text-[#0F172A] font-[750]'
+                            : isDone
+                              ? 'text-[#4F46E5] font-[650] hidden min-[440px]:inline'
+                              : 'text-[#94A3B8] font-[600] hidden min-[440px]:inline'
+                        }`}
+                      >
+                        {s.label}
+                      </span>
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </nav>
 
             {/* Right: Close button — 36x36 sur mobile (point 7), 32x32 sur
                 ordinateur (inchangé) */}
@@ -518,180 +923,12 @@ export const NewSaleModal: React.FC = () => {
         {/* ========================================================================= */}
         {/* STEP 1 : PRODUITS (GRILLE UNIQUE + PANIER FIXE 400PX) */}
         {/* ========================================================================= */}
-        {step === 'PRODUCTS' && (
+        {step !== 'PAYMENT' && (
           <>
           <div className="hidden md:flex flex-1 min-h-0 bg-slate-50/50">
             {/* GAUCHE : CATALOGUE PRODUITS (flex-1) */}
             <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-white border-r border-slate-200/80">
-              {/* BARRE D'OUTILS */}
-              <div className="p-3 border-b border-slate-100 bg-white space-y-2 shrink-0">
-                {/* Recherche + filtre catégorie — ligne toujours entière, jamais coupée.
-                    Avant, ces deux-là partageaient une seule ligne "flex" avec 5 autres
-                    boutons à largeur fixe (shrink-0) : sur mobile, ça ne rentrait jamais
-                    et le champ de recherche se retrouvait écrasé à quelques pixels
-                    pendant que les boutons de droite (recharger/scanner/WhatsApp)
-                    sortaient de l'écran sans aucun moyen d'y accéder (pas de scroll ni
-                    de retour à la ligne). Le filtre catégorie reste hors de la ligne
-                    défilante ci-dessous : son menu déroulant serait sinon rogné
-                    verticalement (overflow-x-auto force aussi overflow-y en "auto"
-                    tant que l'axe Y n'est pas explicitement "visible" — limite CSS,
-                    pas un choix). */}
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1 min-w-0">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      id="input-sale-search-product"
-                      ref={searchInputRef}
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Rechercher un produit..."
-                      className="w-full h-11 pl-10 pr-9 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white transition-all"
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Filtre catégorie [ ▽ ] */}
-                  <div className="relative shrink-0">
-                    <button
-                      id="btn-filter-category"
-                      type="button"
-                      onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                      title="Filtrer par catégorie"
-                      className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all cursor-pointer relative shrink-0 ${
-                        selectedCategory !== 'TOUS'
-                          ? 'bg-amber-50 border-amber-300 text-amber-800 shadow-xs'
-                          : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      <SlidersHorizontal className="w-4 h-4" />
-                      {selectedCategory !== 'TOUS' && (
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500 absolute top-1.5 right-1.5 ring-2 ring-white" />
-                      )}
-                    </button>
-
-                    {isCategoryDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-1.5 animate-in fade-in slide-in-from-top-2">
-                        <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-2.5 py-1 block">
-                          Catégories
-                        </span>
-                        {categories.map((cat) => (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={() => {
-                              setSelectedCategory(cat);
-                              setIsCategoryDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                              selectedCategory === cat
-                                ? 'bg-indigo-50 text-[#4F46E5]'
-                                : 'text-slate-700 hover:bg-slate-100'
-                            }`}
-                          >
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Boutons d'action secondaires — ligne à défilement horizontal (comme
-                    les pastilles de catégories juste en dessous) : sur un écran étroit,
-                    on glisse pour les atteindre plutôt que de les perdre hors champ. */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
-                  {/* POINT 3 : LE BOUTON + SERVICE EN PILULE PLEINE #EEF2FF TEXTE #4F46E5 */}
-                  <button
-                    id="btn-add-service-pos"
-                    type="button"
-                    onClick={() => setIsServiceModalOpen(true)}
-                    title="Ajouter un service ou une prestation"
-                    className="h-10 px-3.5 rounded-full bg-[#EEF2FF] hover:bg-indigo-100 text-[#4F46E5] font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors cursor-pointer"
-                  >
-                    <Wrench className="w-3.5 h-3.5" />
-                    <span>+ Service</span>
-                  </button>
-
-                  {/* POINT 5: LE BOUTON [+] AVEC ICÔNE ET TEXTE DIRECTEMENT À DROITE */}
-                  <button
-                    id="btn-add-product-pos"
-                    type="button"
-                    onClick={() => {
-                      setScannerPreBarcode('');
-                      setIsProductFormOpen(true);
-                    }}
-                    title="Ajouter un nouveau produit au catalogue"
-                    className="h-11 px-3.5 sm:px-4 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-xs transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Ajouter un produit</span>
-                  </button>
-
-                  {/* Bouton Recharger [ ⟳ ] */}
-                  <button
-                    id="btn-reload-catalog"
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setSelectedCategory('TOUS');
-                      showToast('Catalogue actualisé', 'info');
-                    }}
-                    title="Recharger le catalogue"
-                    className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer shrink-0"
-                  >
-                    <RotateCw className="w-4 h-4" />
-                  </button>
-
-                  {/* Bouton Scanner [ ⛶ ] */}
-                  <button
-                    id="btn-open-scanner"
-                    type="button"
-                    onClick={() => setIsScannerOpen(true)}
-                    title="Scanner un code-barres"
-                    className="w-11 h-11 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-                  >
-                    <Scan className="w-4 h-4 text-indigo-300" />
-                  </button>
-
-                  {/* Bouton Commande WhatsApp [ ✆ ] */}
-                  <button
-                    id="btn-open-whatsapp-order"
-                    type="button"
-                    onClick={() => setIsWhatsAppOpen(true)}
-                    title="Commande reçue par WhatsApp"
-                    className="w-11 h-11 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Categories Scrollable Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 pt-1">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                        selectedCategory === cat
-                          ? 'bg-[#4F46E5] text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <div className="border-b border-slate-100">{renderCatalogToolbar('desktop')}</div>
 
               {/* POINT 1 & 2 : GRILLE UNIQUE À 3 COLONNES — MODÈLE DE CARTE STANDARD 88PX */}
               <div className="flex-1 overflow-y-auto p-3 sm:p-4">
@@ -793,7 +1030,13 @@ export const NewSaleModal: React.FC = () => {
               </div>
             </div>
 
-            {/* DROITE : COLONNE DE COMMANDE (LARGEUR FIXE 400PX) */}
+            {/* DROITE : COLONNE DE COMMANDE (LARGEUR FIXE 400PX) — devient le
+                panneau « Vérifie ta commande » à l'étape 2 */}
+            {step === 'REVIEW' ? (
+              <div className="w-[400px] shrink-0 flex flex-col min-h-0 border-l border-slate-200">
+                {renderReviewPanel()}
+              </div>
+            ) : (
             <div className="w-full md:w-[400px] shrink-0 flex flex-col bg-white border-t md:border-t-0 md:border-l border-slate-200">
               {/* POINT 1 : BLOC CLIENT MIS EN ÉVIDENCE EN HAUT DE LA COLONNE */}
               <div className="p-3 border-b border-slate-100 shrink-0">
@@ -1003,7 +1246,7 @@ export const NewSaleModal: React.FC = () => {
                 <div className="flex justify-between items-center text-xs font-semibold text-slate-600">
                   <span>Sous-total</span>
                   <div className="flex items-center gap-1.5">
-                    {discountAmount > 0 && (
+                    {appliedDiscount > 0 && (
                       <span className="line-through text-slate-400 font-semibold text-xs">
                         {formatMoney(cartTotal)}
                       </span>
@@ -1013,7 +1256,7 @@ export const NewSaleModal: React.FC = () => {
                 </div>
 
                 {/* POINT 2 & 6.5 : LIGNE REMISE (TOUJOURS VISIBLE, MÊME PANIER VIDE) */}
-                {discountAmount > 0 ? (
+                {appliedDiscount > 0 ? (
                   /* AVEC REMISE : fond #FEF2F2, hauteur 48px, rayon 11px */
                   <div className="h-[48px] px-3 rounded-[11px] bg-[#FEF2F2] border border-rose-200 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1026,7 +1269,7 @@ export const NewSaleModal: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[14px] font-[750] text-[#DC2626] mr-1">
-                        − {formatMoney(discountAmount)}
+                        − {formatMoney(appliedDiscount)}
                       </span>
                       <button
                         type="button"
@@ -1076,7 +1319,7 @@ export const NewSaleModal: React.FC = () => {
                     <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider block">
                       Total
                     </span>
-                    {discountAmount > 0 && (
+                    {appliedDiscount > 0 && (
                       <span className="text-xs text-slate-400 line-through font-semibold">
                         {formatMoney(cartTotal)}
                       </span>
@@ -1087,38 +1330,40 @@ export const NewSaleModal: React.FC = () => {
                   </span>
                 </div>
 
-                {/* POINT 6.7 : BOUTON ENCAISSER (HAUTEUR 52PX) */}
+                {/* Étape suivante : on VOIT la commande avant de payer */}
                 <div>
                   <button
                     id="btn-pos-checkout"
                     type="button"
-                    disabled={cart.length === 0 || !selectedCustomerId}
-                    onClick={() => {
-                      setCustomPaidAmount(finalTotal);
-                      setPaymentType('FULL');
-                      setStep('PAYMENT');
-                    }}
+                    disabled={!isCheckoutReady}
+                    onClick={() => setStep('REVIEW')}
                     className={`w-full h-[52px] rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
-                      cart.length === 0 || !selectedCustomerId
+                      !isCheckoutReady
                         ? 'bg-[#94A3B8] text-white cursor-not-allowed opacity-100'
                         : 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md cursor-pointer'
                     }`}
                   >
-                    <span>Encaisser {formatMoney(finalTotal)}</span>
+                    <span>Voir la commande</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
-                  {!selectedCustomerId && (
+                  {!isCheckoutReady && (
                     <p className="text-center text-xs font-semibold text-amber-700 mt-1.5">
-                      Choisis d'abord un client
+                      {cart.length === 0 ? 'Ajoute un produit' : "Choisis d'abord un client"}
                     </p>
                   )}
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* ===================================================================== */}
           {/* VUE MOBILE (< md) — CATALOGUE PLEIN ÉCRAN + TIROIR PANIER EN BAS      */}
+          {/* Étape Vérifier : l'écran entier lui revient.                          */}
           {/* ===================================================================== */}
+          {step === 'REVIEW' ? (
+            <div className="flex md:hidden flex-1 flex-col min-h-0">{renderReviewPanel()}</div>
+          ) : (
           <div className="flex md:hidden flex-1 flex-col min-h-0 bg-white relative overflow-x-hidden">
             {/* Carte client — juste sous l'indicateur d'étapes, avant la recherche (point 3) */}
             <div className="shrink-0 px-3 pt-2" ref={mobileCustomerCardRef}>
@@ -1181,153 +1426,7 @@ export const NewSaleModal: React.FC = () => {
               )}
             </div>
 
-            {/* Barre d'outils (point 2) : recherche pleine largeur, puis 4
-                boutons carrés à égalité. + Ajouter un produit / + Service ont
-                quitté cette barre (bouton flottant + pastille catégorie). */}
-            <div className="shrink-0 px-3 pt-2 pb-1.5 space-y-2">
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                <input
-                  id="input-sale-search-product-mobile"
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher ou scanner un produit…"
-                  className="w-full h-[46px] pl-10 pr-9 rounded-full bg-slate-50 border border-slate-200 text-[16px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                <div className="relative">
-                  <button
-                    id="btn-filter-category-mobile"
-                    type="button"
-                    onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                    className={`w-full h-[46px] rounded-xl flex flex-col items-center justify-center gap-0.5 relative transition-all cursor-pointer ${
-                      selectedCategory !== 'TOUS'
-                        ? 'bg-amber-50 border border-amber-300 text-amber-800'
-                        : 'bg-slate-100 border border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    <span className="text-[10px] font-bold">Filtrer</span>
-                    {selectedCategory !== 'TOUS' && (
-                      <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-1.5 right-1.5 ring-2 ring-white" />
-                    )}
-                  </button>
-
-                  {isCategoryDropdownOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-1.5 animate-in fade-in slide-in-from-top-2">
-                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-2.5 py-1 block">
-                        Catégories
-                      </span>
-                      {categories.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategory(cat);
-                            setIsCategoryDropdownOpen(false);
-                          }}
-                          className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            selectedCategory === cat
-                              ? 'bg-indigo-50 text-[#4F46E5]'
-                              : 'text-slate-700 hover:bg-slate-100'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  id="btn-reload-catalog-mobile"
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategory('TOUS');
-                    showToast('Catalogue actualisé', 'info');
-                  }}
-                  className="w-full h-[46px] rounded-xl bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
-                >
-                  <RotateCw className="w-4 h-4" />
-                </button>
-
-                <button
-                  id="btn-open-scanner-mobile"
-                  type="button"
-                  onClick={() => setIsScannerOpen(true)}
-                  className="w-full h-[46px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs"
-                >
-                  <Scan className="w-4 h-4 text-indigo-300" />
-                  <span className="text-[10px] font-bold">Scanner</span>
-                </button>
-
-                <button
-                  id="btn-open-whatsapp-order-mobile"
-                  type="button"
-                  onClick={() => setIsWhatsAppOpen(true)}
-                  className="w-full h-[46px] rounded-xl bg-[#25D366] text-white flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span className="text-[10px] font-bold">WhatsApp</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Pastilles catégories, puis les deux actions d'ajout en dernière
-                position. Elles portent une bordure pointillée indigo sur fond
-                #EEF2FF pour ne pas se confondre avec un filtre de catégorie —
-                c'est ici que vit "Ajouter un produit", plus dans un bouton
-                flottant que personne ne savait interpréter. */}
-            <div className="shrink-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar px-3 pb-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                    selectedCategory === cat
-                      ? 'bg-[#4F46E5] text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-              <button
-                id="btn-add-service-pos-mobile"
-                type="button"
-                onClick={() => setIsServiceModalOpen(true)}
-                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 border border-dashed border-[#4F46E5]/60 bg-[#EEF2FF] text-[#4F46E5] flex items-center gap-1 cursor-pointer"
-              >
-                <Wrench className="w-3 h-3" />
-                <span>+ Service</span>
-              </button>
-              <button
-                id="btn-add-product-pos-mobile"
-                type="button"
-                onClick={() => {
-                  setScannerPreBarcode('');
-                  setIsProductFormOpen(true);
-                }}
-                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 border border-dashed border-[#4F46E5]/60 bg-[#EEF2FF] text-[#4F46E5] flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3 h-3" />
-                <span>Nouveau produit</span>
-              </button>
-            </div>
+            {renderCatalogToolbar('mobile')}
 
             {/* Catalogue produits — occupe tout l'espace restant (point 4) */}
             <div className="flex-1 overflow-y-auto min-h-0 relative">
@@ -1495,18 +1594,8 @@ export const NewSaleModal: React.FC = () => {
                       </span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span
-                        className={`block text-[10px] leading-tight truncate ${
-                          cart.length > 0 && !selectedCustomerId
-                            ? 'text-[#B45309] font-bold'
-                            : 'text-[#94A3B8] font-[600]'
-                        }`}
-                      >
-                        {cart.length === 0
-                          ? 'Ton panier est vide'
-                          : !selectedCustomerId
-                            ? "Choisis d'abord un client"
-                            : 'Commande en cours'}
+                      <span className="block text-[10px] leading-tight truncate text-[#94A3B8] font-[600]">
+                        {cart.length === 0 ? 'Ton panier est vide' : 'Commande en cours'}
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="text-[17px] font-[800] text-slate-900 tabular-nums leading-tight">
@@ -1517,6 +1606,10 @@ export const NewSaleModal: React.FC = () => {
                     </span>
                   </button>
 
+                  {/* « Voir » annonce qu'un écran s'ouvre ; « Payer » laissait
+                      croire que la transaction se terminait là. Bloqué, le
+                      motif s'écrit dessous en ambre. */}
+                  <div className="self-center flex flex-col items-center shrink-0">
                   <button
                     id="btn-pos-checkout-mobile-bar"
                     type="button"
@@ -1526,19 +1619,23 @@ export const NewSaleModal: React.FC = () => {
                         handleBlockedCheckout();
                         return;
                       }
-                      setCustomPaidAmount(finalTotal);
-                      setPaymentType('FULL');
-                      setStep('PAYMENT');
+                      setStep('REVIEW');
                     }}
-                    className={`self-center h-12 px-[18px] rounded-xl text-[14px] font-[750] flex items-center gap-1 shrink-0 transition-colors ${
+                    className={`${isCheckoutReady ? 'h-12' : 'h-10'} px-[16px] rounded-xl text-[14px] font-[750] flex items-center gap-1 shrink-0 whitespace-nowrap transition-colors ${
                       isCheckoutReady
                         ? 'bg-[#4F46E5] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] active:scale-[0.98] cursor-pointer'
                         : 'bg-[#E2E8F0] text-[#94A3B8] cursor-default'
                     }`}
                   >
-                    <span>Payer</span>
+                    <span>Voir la commande</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
+                  {!isCheckoutReady && (
+                    <span className="mt-0.5 text-[10px] font-bold text-[#B45309] leading-tight whitespace-nowrap">
+                      {cart.length === 0 ? 'Ajoute un produit' : "Choisis d'abord un client"}
+                    </span>
+                  )}
+                  </div>
                 </div>
               ) : (
                 /* DÉPLIÉ : monte à 70% de la hauteur, voile noir à 40% derrière */
@@ -1623,7 +1720,7 @@ export const NewSaleModal: React.FC = () => {
                       <span className="font-bold text-slate-900">{formatMoney(cartTotal)}</span>
                     </div>
 
-                    {discountAmount > 0 ? (
+                    {appliedDiscount > 0 ? (
                       <div className="h-11 px-3 rounded-[11px] bg-[#FEF2F2] border border-rose-200 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Tag className="w-3.5 h-3.5 text-[#DC2626]" />
@@ -1635,7 +1732,7 @@ export const NewSaleModal: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[13px] font-[750] text-[#DC2626]">
-                            − {formatMoney(discountAmount)}
+                            − {formatMoney(appliedDiscount)}
                           </span>
                           <button
                             type="button"
@@ -1683,9 +1780,7 @@ export const NewSaleModal: React.FC = () => {
                           handleBlockedCheckout();
                           return;
                         }
-                        setCustomPaidAmount(finalTotal);
-                        setPaymentType('FULL');
-                        setStep('PAYMENT');
+                        setStep('REVIEW');
                         setIsMobileCartOpen(false);
                       }}
                       className={`w-full h-12 rounded-xl text-[14px] font-[750] flex items-center justify-center gap-1 transition-colors ${
@@ -1694,7 +1789,7 @@ export const NewSaleModal: React.FC = () => {
                           : 'bg-[#E2E8F0] text-[#94A3B8] cursor-default'
                       }`}
                     >
-                      <span>Payer</span>
+                      <span>Voir la commande</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     {!isCheckoutReady && (
@@ -1707,6 +1802,7 @@ export const NewSaleModal: React.FC = () => {
               )}
             </div>
           </div>
+          )}
           </>
         )}
 
@@ -1895,21 +1991,21 @@ export const NewSaleModal: React.FC = () => {
 
                 {/* Remise récap */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className={discountAmount > 0 ? 'font-bold text-rose-600' : 'text-slate-500'}>
-                    {discountAmount > 0
+                  <span className={appliedDiscount > 0 ? 'font-bold text-rose-600' : 'text-slate-500'}>
+                    {appliedDiscount > 0
                       ? `Remise (${discountMode === 'PERCENTAGE' && discountValue > 0 ? discountValue + ' %' : discountPercent + ' %'})`
                       : 'Remise'}
                   </span>
                   <div className="flex items-center gap-2">
-                    {discountAmount > 0 && (
-                      <span className="font-bold text-rose-600">− {formatMoney(discountAmount)}</span>
+                    {appliedDiscount > 0 && (
+                      <span className="font-bold text-rose-600">− {formatMoney(appliedDiscount)}</span>
                     )}
                     <button
                       type="button"
                       onClick={() => setIsDiscountModalOpen(true)}
                       className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
                     >
-                      {discountAmount > 0 ? 'Modifier' : '+ Ajouter'}
+                      {appliedDiscount > 0 ? 'Modifier' : '+ Ajouter'}
                     </button>
                   </div>
                 </div>
@@ -1971,26 +2067,33 @@ export const NewSaleModal: React.FC = () => {
             </div>
 
             {/* Bottom Step Actions */}
-            <div className="p-4 bg-white border-t border-slate-200 mt-auto flex items-center justify-between gap-3 shrink-0">
-              <button
-                id="btn-back-to-products"
-                type="button"
-                onClick={() => setStep('PRODUCTS')}
-                className="py-3.5 px-4 rounded-2xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Modifier le panier</span>
-              </button>
-
+            <div
+              className="px-4 pt-3 bg-white border-t border-slate-200 mt-auto shrink-0 sticky bottom-0 space-y-1"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
+            >
+              <div className="max-w-2xl mx-auto w-full space-y-1">
               <button
                 id="btn-confirm-and-make-receipt"
                 type="button"
                 onClick={handleValidateSale}
-                className="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:opacity-95 active:scale-[0.98] text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-700/25 cursor-pointer transition-all"
+                className="w-full h-[52px] px-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:opacity-95 active:scale-[0.98] text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-emerald-700/25 cursor-pointer transition-all"
               >
                 <Receipt className="w-5 h-5" />
-                <span>Valider la commande et faire le reçu</span>
+                <span>Valider et faire le reçu</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
+
+              {/* Retour à l'écran Vérifier : panier, remise, client et montant
+                  saisi restent tels quels. */}
+              <button
+                id="btn-back-to-review"
+                type="button"
+                onClick={() => setStep('REVIEW')}
+                className="w-full py-2 text-[12px] font-semibold text-slate-500 text-center cursor-pointer"
+              >
+                ← Revenir à la commande
+              </button>
+              </div>
             </div>
           </div>
         )}
@@ -2039,7 +2142,10 @@ export const NewSaleModal: React.FC = () => {
       <DiscountModal
         isOpen={isDiscountModalOpen}
         subtotal={cartTotal}
-        currentDiscount={discountAmount}
+        // Remonté à chaque ouverture : la fenêtre repart de la remise en cours
+        // au lieu de son tout premier état.
+        key={isDiscountModalOpen ? 'discount-open' : 'discount-closed'}
+        currentDiscount={appliedDiscount}
         initialMode={discountMode}
         initialPercent={discountValue}
         onClose={() => setIsDiscountModalOpen(false)}

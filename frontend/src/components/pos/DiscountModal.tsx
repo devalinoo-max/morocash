@@ -260,7 +260,7 @@ export const DiscountModal: React.FC<DiscountModalProps> = ({
               onClick={handleRemove}
               className="text-xs text-rose-600 hover:underline font-bold cursor-pointer"
             >
-              Supprimer la remise
+              Retirer
             </button>
           ) : (
             <button
