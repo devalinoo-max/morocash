@@ -20,6 +20,8 @@ import {
 import { formatMoney } from '../../utils/currency';
 import { decodeFromVideoFrame, playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { createScanGate } from '../../utils/productCodeLookup';
+import { resolveKeyboardScan } from '../../utils/hardwareScanner';
+import { useHardwareScanner } from '../../hooks/useHardwareScanner';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -160,56 +162,24 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       return;
     }
 
-    // Repli ZXing quand le navigateur n'expose pas BarcodeDetector : iPhone,
-    // navigateurs de bureau, beaucoup de WebView Android. Sans lui, la camera
-    // s'ouvrait et rien n'etait jamais lu, sans aucun message.
-    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
-      if (!decodingRef.current) {
-        decodingRef.current = true;
-        if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
-        decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
-          .then((lu) => {
-            if (lu && scanGateRef.current.accept(lu.code, Date.now())) {
-              handleRecognizedCodeRef.current(lu.code);
-            }
-          })
-          .catch(() => {
-            // Une image illisible n'est pas une erreur : on retentera.
-          })
-          .finally(() => {
-            decodingRef.current = false;
-          });
-      }
-
-      animFrameRef.current = requestAnimationFrame(scanVideoLoop);
-      return;
-    }
-
-    // Native BarcodeDetector
-    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-      try {
-        const BarcodeDetectorClass = (window as any).BarcodeDetector;
-        const detector = new BarcodeDetectorClass({
-          formats: [
-            'ean_13',
-            'ean_8',
-            'upc_a',
-            'upc_e',
-            'code_128',
-            'code_39',
-            'itf',
-            'qr_code',
-            'data_matrix',
-          ],
+    // Lecteur du navigateur s'il existe (Android), sinon zxing-cpp en
+    // WebAssembly (iPhone, ordinateur) — voir decodeFromVideoFrame. Une seule
+    // lecture a la fois : elle peut durer plusieurs dizaines de ms.
+    if (!decodingRef.current) {
+      decodingRef.current = true;
+      if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
+      decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
+        .then((lu) => {
+          if (lu && streamRef.current && scanGateRef.current.accept(lu.code, Date.now())) {
+            handleRecognizedCodeRef.current(lu.code);
+          }
+        })
+        .catch(() => {
+          // Une image illisible n'est pas une erreur : on retentera.
+        })
+        .finally(() => {
+          decodingRef.current = false;
         });
-        const barcodes = await detector.detect(videoRef.current);
-        const raw = barcodes?.[0]?.rawValue;
-        if (raw && scanGateRef.current.accept(raw, Date.now())) {
-          handleRecognizedCodeRef.current(raw);
-        }
-      } catch {
-        // Continue
-      }
     }
 
     animFrameRef.current = requestAnimationFrame(scanVideoLoop);
@@ -262,6 +232,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // jamais consulte. Elle passe maintenant par ce ref, tenu a jour.
   const handleRecognizedCodeRef = useRef(handleRecognizedCode);
   handleRecognizedCodeRef.current = handleRecognizedCode;
+
+  // Une douchette marche aussi, fenêtre ouverte : elle passe avant la caisse.
+  useHardwareScanner((scan) => handleRecognizedCode(resolveKeyboardScan(products, scan).code), {
+    enabled: isOpen,
+  });
 
   if (!isOpen) return null;
 
@@ -361,6 +336,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           <div className="relative z-20 max-w-xs p-4 bg-slate-900/90 rounded-2xl border border-slate-700 text-center space-y-3">
             <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
             <p className="text-xs text-slate-200 leading-relaxed">{cameraError}</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Une douchette USB ou Bluetooth marche aussi : scanne simplement l’article.
+            </p>
             <button
               type="button"
               onClick={() => setShowManualInput(true)}
@@ -371,19 +349,6 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           </div>
         )}
 
-        {/* Simulation chips on desktop / demo */}
-        <div className="absolute top-3 left-4 right-4 z-20 flex flex-wrap gap-1.5 justify-center pointer-events-auto">
-          {products.slice(0, 4).map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => handleRecognizedCode(p.internalCode || p.barcode || p.id)}
-              className="px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white hover:bg-indigo-600 hover:border-indigo-400 cursor-pointer transition-all shadow-md"
-            >
-              ⚡ {p.name}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -477,6 +442,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             <div className="flex gap-2">
               <input
                 type="text"
+                data-scanner-input
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 onKeyDown={(e) => {

@@ -12,6 +12,9 @@ import { CatalogExportModal } from './CatalogExportModal';
 import { BulkEditBar } from './BulkEditBar';
 import { InventoryScanModal } from './InventoryScanModal';
 import { BarcodeScannerModal } from '../pos/BarcodeScannerModal';
+import { useHardwareScanner } from '../../hooks/useHardwareScanner';
+import { resolveKeyboardScan } from '../../utils/hardwareScanner';
+import { playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { usePageMenu } from '../../context/PageMenuContext';
 
@@ -25,6 +28,7 @@ export const ProductsTab: React.FC = () => {
     gateWrite,
     isNewProductOpen,
     setIsNewProductOpen,
+    isNewSaleOpen,
   } = useApp();
 
   const terminology = getTerminology(settings.activityType);
@@ -185,6 +189,33 @@ export const ProductsTab: React.FC = () => {
     handleOpenEdit(product);
   };
 
+  // Douchette sur l'écran Produits : l'article scanné s'ouvre ; un code
+  // inconnu ouvre la création, code déjà rempli. Une fenêtre ouverte
+  // par-dessus (formulaire, inventaire, étiquettes, caisse) garde la main.
+  const anyModalOpen =
+    isFormOpen ||
+    isNewProductOpen ||
+    isPrintModalOpen ||
+    isLabelSelectionOpen ||
+    isExportOpen ||
+    isInventoryOpen ||
+    isSearchScannerOpen ||
+    adjustStockProduct !== null ||
+    isNewSaleOpen;
+  useHardwareScanner(
+    (scan) => {
+      const { code, product } = resolveKeyboardScan(products, scan);
+      if (product) {
+        playScanSuccessBeep();
+        handleProductScannedFromSearch(product);
+      } else {
+        showToast(`Code non reconnu (${code}) : crée le produit`, 'warning');
+        handleOpenCreate(code);
+      }
+    },
+    { enabled: !anyModalOpen }
+  );
+
   const filtres = [
     { id: 'ALL' as const, label: `Tous (${counts.ALL})`, dot: null },
     ...(terminology.stockVisible
@@ -211,6 +242,7 @@ export const ProductsTab: React.FC = () => {
             <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               id="input-search-catalog"
+              data-scanner-input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

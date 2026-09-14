@@ -31,6 +31,9 @@ import { formatMoney } from '../../utils/currency';
 import { MoneyInput } from '../common/UIStates';
 import { WhatsAppOrderModal } from './WhatsAppOrderModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { useHardwareScanner } from '../../hooks/useHardwareScanner';
+import { resolveKeyboardScan } from '../../utils/hardwareScanner';
+import { playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { ProductFormModal } from '../products/ProductFormModal';
 import { DiscountModal } from './DiscountModal';
 import { ServiceModal } from './ServiceModal';
@@ -340,6 +343,26 @@ export const NewSaleModal: React.FC = () => {
     if (step === 'PAYMENT' && !selectedCustomerId) setStep('REVIEW');
   }, [step, selectedCustomerId]);
 
+  // Douchette branchée à l'ordinateur ou à la tablette : l'article scanné
+  // part au panier, comme avec la caméra. Un code inconnu ouvre la création
+  // du produit, code déjà rempli (« Créer ce produit » de la caméra).
+  useHardwareScanner(
+    (scan) => {
+      const { code, product } = resolveKeyboardScan(products, scan);
+      if (product) {
+        playScanSuccessBeep();
+        addToCart(product);
+        showToast(`${product.name} ajouté au panier`, 'success');
+        return;
+      }
+      showToast(`Code non reconnu (${code}) : crée le produit`, 'warning');
+      setScannerPreBarcode(code);
+      setIsProductFormOpen(true);
+    },
+    // Formulaire produit ouvert : la douchette remplit son champ code-barres.
+    { enabled: isNewSaleOpen && !isProductFormOpen }
+  );
+
   if (!isNewSaleOpen) return null;
 
   // Selected customer object
@@ -459,6 +482,7 @@ export const NewSaleModal: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher ou scanner un produit…"
+            data-scanner-input
             className="w-full h-[42px] pl-10 pr-9 rounded-[999px] bg-slate-50 border border-slate-200 text-[16px] md:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white transition-all"
           />
           {searchQuery && (

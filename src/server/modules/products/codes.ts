@@ -55,6 +55,16 @@ export async function removeCode(businessId: string, productId: string, codeId: 
   await repo.productCodes.delete(codeId);
 }
 
+/** Désigne le code principal du produit (celui affiché et imprimé en premier). */
+export async function setPrimaryCode(businessId: string, productId: string, codeId: string) {
+  const repo = scoped(businessId);
+  const codes = await repo.productCodes.findByProduct(productId);
+  if (!codes.some((c) => c.id === codeId)) {
+    throw new AppError('RESOURCE_NOT_OWNED', 'Code introuvable pour ce produit.');
+  }
+  return repo.productCodes.setPrimary(productId, codeId);
+}
+
 export async function findProductByCode(businessId: string, code: string) {
   const repo = scoped(businessId);
   const match = await repo.productCodes.findByCode(code);

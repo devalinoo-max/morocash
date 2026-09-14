@@ -9,6 +9,7 @@ import {
   MultiFormatReader,
 } from '@zxing/library';
 import { BarcodeFormat, ProductCode, CodeOrigin } from '../types';
+import { upcaToUpce } from './productCodeLookup';
 
 /**
  * Generates an internal store code: MC-{shopCode}-{000001}
@@ -331,45 +332,139 @@ function toLuminance(rgba: Uint8ClampedArray): Uint8ClampedArray {
   return luminances;
 }
 
+export interface BarcodeReading {
+  code: string;
+  format: BarcodeFormat;
+}
+
+const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'];
+
+type NativeDetector = { detect(source: CanvasImageSource): Promise<{ rawValue: string; format: string }[]> };
+let nativeDetector: Promise<NativeDetector | null> | null = null;
+
 /**
- * Decode barcode from image element using native BarcodeDetector if available,
- * with MultiFormat ZXing reader fallback.
+ * Le lecteur du navigateur (Android, ChromeOS, macOS), réglé sur les seuls
+ * formats qu'il annonce : lui en demander un qu'il ne connaît pas le fait
+ * échouer entièrement sur certains appareils.
  */
-async function tryDecodeImage(canvas: HTMLCanvasElement): Promise<{ code: string; format: BarcodeFormat } | null> {
-  // 1. Try native BarcodeDetector if supported
-  if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+export function getNativeBarcodeDetector(): Promise<NativeDetector | null> {
+  if (nativeDetector) return nativeDetector;
+  nativeDetector = (async () => {
+    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) return null;
     try {
-      const BarcodeDetectorClass = (window as unknown as { BarcodeDetector: any }).BarcodeDetector;
-      const detector = new BarcodeDetectorClass({
-        formats: [
-          'ean_13',
-          'ean_8',
-          'upc_a',
-          'upc_e',
-          'code_128',
-          'code_39',
-          'itf',
-          'qr_code',
-          'data_matrix',
-        ],
-      });
-      const detected = await detector.detect(canvas);
-      if (detected && detected.length > 0 && detected[0].rawValue) {
-        return {
-          code: detected[0].rawValue.trim(),
-          format: mapFormatStringToBarcodeFormat(detected[0].format),
-        };
-      }
+      const Detector = (window as unknown as { BarcodeDetector: any }).BarcodeDetector;
+      const supported: string[] = (await Detector.getSupportedFormats?.()) ?? NATIVE_FORMATS;
+      const formats = NATIVE_FORMATS.filter((f) => supported.includes(f));
+      return formats.length > 0 ? (new Detector({ formats }) as NativeDetector) : null;
     } catch {
-      // Fall through to ZXing
+      return null;
+    }
+  })();
+  return nativeDetector;
+}
+
+/** Remet la lecture dans la forme sous laquelle le code est imprimé et enregistré. */
+export function normalizeReading(text: string, rawFormat: string): BarcodeReading {
+  const code = text.trim();
+  const format = mapFormatStringToBarcodeFormat(rawFormat);
+  // zxing-cpp rend un UPC-E sous sa forme longue (UPC-A, parfois précédée
+  // d'un 0) : on le ramène aux 8 chiffres imprimés sous le symbole.
+  if (format === 'UPCE' && /^\d{12,13}$/.test(code)) {
+    return { code: upcaToUpce(code.slice(-12)) ?? code, format };
+  }
+  // Un EAN-13 qui commence par 0 est un UPC-A : on rend ses 12 chiffres, comme
+  // le lecteur d'Android — sinon le même article s'enregistrait sous deux codes.
+  if ((format === 'EAN13' || format === 'UPCA') && /^0\d{12}$/.test(code)) {
+    return { code: code.slice(1), format: 'UPCA' };
+  }
+  return { code, format };
+}
+
+type WasmReader = typeof import('zxing-wasm/reader');
+let wasmReader: Promise<WasmReader | null> | null = null;
+
+/**
+ * zxing-cpp compilé en WebAssembly : le lecteur des iPhone, des ordinateurs et
+ * des navigateurs Android sans BarcodeDetector.
+ *
+ * ZXing en JavaScript, utilisé seul jusqu'ici, ne lit aucun UPC-E (son lecteur
+ * perd le résultat en route) et accroche mal les codes-barres à la caméra.
+ * Le fichier .wasm est livré avec l'application et mis en cache par le
+ * Service Worker : la lecture marche aussi sans réseau. Chargé à la première
+ * lecture seulement, il ne ralentit pas l'ouverture de l'app.
+ */
+function loadWasmReader(): Promise<WasmReader | null> {
+  if (!wasmReader) {
+    wasmReader = (async () => {
+      try {
+        const [reader, wasm] = await Promise.all([
+          import('zxing-wasm/reader'),
+          import('zxing-wasm/reader/zxing_reader.wasm?url'),
+        ]);
+        reader.prepareZXingModule({
+          overrides: {
+            locateFile: (path: string, prefix: string) => (path.endsWith('.wasm') ? wasm.default : prefix + path),
+          },
+        });
+        return reader;
+      } catch (error) {
+        console.warn('Lecteur WebAssembly indisponible, repli sur ZXing JavaScript :', error);
+        return null;
+      }
+    })();
+  }
+  return wasmReader;
+}
+
+/** Tests (Node) : le binaire est lu sur le disque au lieu d'être téléchargé. */
+export async function useWasmBinaryForTests(wasmBinary: ArrayBuffer): Promise<void> {
+  const reader = await import('zxing-wasm/reader');
+  await reader.prepareZXingModule({ overrides: { wasmBinary }, fireImmediately: true });
+  wasmReader = Promise.resolve(reader);
+}
+
+const WASM_FORMATS = ['EAN13', 'EAN8', 'UPCA', 'UPCE', 'Code128', 'Code39', 'ITF', 'QRCode', 'DataMatrix'] as const;
+
+/** Lecture de pixels RGBA par zxing-cpp, puis par ZXing JavaScript s'il n'a pas pu se charger. */
+export async function decodeImageData(image: {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+}): Promise<BarcodeReading | null> {
+  const reader = await loadWasmReader();
+  if (reader) {
+    try {
+      const results = await reader.readBarcodes(
+        { data: image.data, width: image.width, height: image.height, colorSpace: 'srgb' } as ImageData,
+        { formats: [...WASM_FORMATS], tryHarder: true, maxNumberOfSymbols: 1 }
+      );
+      const found = results.find((r) => r.isValid && r.text);
+      return found ? normalizeReading(found.text, found.format) : null;
+    } catch {
+      // Module en échec en cours de route : on tente quand même ZXing.
+    }
+  }
+  return decodeRgbaWithZXing(image.data, image.width, image.height);
+}
+
+/**
+ * Lecture d'une image : lecteur du navigateur s'il existe, puis zxing-cpp
+ * (WebAssembly), puis ZXing JavaScript en dernier recours.
+ */
+async function tryDecodeImage(canvas: HTMLCanvasElement): Promise<BarcodeReading | null> {
+  const native = await getNativeBarcodeDetector();
+  if (native) {
+    try {
+      const detected = await native.detect(canvas);
+      if (detected?.[0]?.rawValue) return normalizeReading(detected[0].rawValue, detected[0].format);
+    } catch {
+      // On passe au lecteur suivant.
     }
   }
 
-  // 2. ZXing fallback
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  return decodeRgbaWithZXing(imgData.data, canvas.width, canvas.height);
+  return decodeImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
 }
 
 /**
@@ -431,13 +526,32 @@ export function decodeRgbaWithZXing(
  * Le canvas est fourni par l'appelant et reutilise d'une image a l'autre : en
  * creer un par image sature la memoire d'un telephone d'entree de gamme.
  */
+let lastWasmFrameAt = 0;
+
 export async function decodeFromVideoFrame(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement
-): Promise<{ code: string; format: BarcodeFormat } | null> {
+): Promise<BarcodeReading | null> {
   const largeur = video.videoWidth;
   const hauteur = video.videoHeight;
   if (!largeur || !hauteur) return null;
+
+  // Le lecteur du navigateur lit directement la vidéo, sans copie : c'est le
+  // plus rapide. Il ne connaît pas tous les formats partout (UPC-E, DataMatrix
+  // manquent sur certains appareils) : zxing-cpp prend alors le relais, trois
+  // images par seconde au plus pour ne pas faire chauffer le téléphone.
+  const native = await getNativeBarcodeDetector();
+  if (native) {
+    try {
+      const detected = await native.detect(video);
+      if (detected?.[0]?.rawValue) return normalizeReading(detected[0].rawValue, detected[0].format);
+    } catch {
+      // Image pas prête : zxing-cpp essaiera.
+    }
+    const now = Date.now();
+    if (now - lastWasmFrameAt < 300) return null;
+    lastWasmFrameAt = now;
+  }
 
   // On travaille sur une image reduite : ZXing y est nettement plus rapide, et
   // un QR de 20 mm reste largement lisible a cette resolution.
@@ -449,7 +563,7 @@ export async function decodeFromVideoFrame(
   if (!ctx) return null;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  return tryDecodeImage(canvas);
+  return decodeImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
 }
 
 /**

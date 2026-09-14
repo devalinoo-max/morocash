@@ -39,8 +39,49 @@ export function productCodeCandidates(product: Product): string[] {
  */
 export function looseCode(rawCode: string): string {
   const compact = rawCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (/^\d{12,14}$/.test(compact)) return compact.replace(/^0+/, '');
+  // Un UPC-E (8 chiffres imprimés) et sa forme longue UPC-A désignent le même
+  // article : un lecteur rend l'une, un autre l'autre.
+  const expanded = /^[01]\d{7}$/.test(compact) ? upceToUpca(compact) : null;
+  const gtin = expanded ?? compact;
+  if (/^\d{12,14}$/.test(gtin)) return gtin.replace(/^0+/, '');
   return compact;
+}
+
+function upcCheckDigitValid(upca: string): boolean {
+  const d = upca.split('').map(Number);
+  const sum = d.slice(0, 11).reduce((acc, n, i) => acc + n * (i % 2 === 0 ? 3 : 1), 0);
+  return (10 - (sum % 10)) % 10 === d[11];
+}
+
+/** UPC-E (8 chiffres : système, 6 chiffres, clé) → UPC-A (12 chiffres), ou null. */
+export function upceToUpca(upce: string): string | null {
+  if (!/^[01]\d{7}$/.test(upce)) return null;
+  const [n, x1, x2, x3, x4, x5, x6, c] = upce.split('');
+  let body: string;
+  if (x6 <= '2') body = `${x1}${x2}${x6}0000${x3}${x4}${x5}`;
+  else if (x6 === '3') body = `${x1}${x2}${x3}00000${x4}${x5}`;
+  else if (x6 === '4') body = `${x1}${x2}${x3}${x4}00000${x5}`;
+  else body = `${x1}${x2}${x3}${x4}${x5}0000${x6}`;
+  const upca = `${n}${body}${c}`;
+  return upcCheckDigitValid(upca) ? upca : null;
+}
+
+/** UPC-A (12 chiffres) → UPC-E (8 chiffres) quand l'article en a un, sinon null. */
+export function upcaToUpce(upca: string): string | null {
+  if (!/^[01]\d{11}$/.test(upca) || !upcCheckDigitValid(upca)) return null;
+  const n = upca[0];
+  const m = upca.slice(1, 6);
+  const p = upca.slice(6, 11);
+  const c = upca[11];
+  let six: string | null = null;
+  if (m.slice(3) === '00' && m[2] <= '2' && p.startsWith('00')) six = `${m[0]}${m[1]}${p.slice(2)}${m[2]}`;
+  else if (m.slice(3) === '00' && p.startsWith('000')) six = `${m.slice(0, 3)}${p.slice(3)}3`;
+  else if (m[4] === '0' && p.startsWith('0000')) six = `${m.slice(0, 4)}${p[4]}4`;
+  else if (p.startsWith('0000') && p[4] >= '5') six = `${m}${p[4]}`;
+  if (!six) return null;
+  const upce = `${n}${six}${c}`;
+  // Vérification : la forme courte doit redonner exactement la longue.
+  return upceToUpca(upce) === upca ? upce : null;
 }
 
 export function productMatchesCode(product: Product, rawCode: string): boolean {

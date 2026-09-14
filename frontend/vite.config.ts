@@ -40,7 +40,10 @@ export default defineConfig(() => {
           // Coquille de l'app mise en cache à l'installation : HTML, JS, CSS,
           // icônes, polices locales. C'est ce qui permet d'OUVRIR l'app en
           // mode avion au lieu de tomber sur la page d'erreur du navigateur.
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+          // .wasm : le lecteur de codes-barres des iPhone et ordinateurs
+          // (zxing-cpp, ~1 Mo). En cache, le scan marche aussi sans réseau.
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2,wasm}'],
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
 
           // Toute navigation hors-ligne (/accueil, /produits, /caisse...)
           // retombe sur index.html : c'est une application à page unique, le

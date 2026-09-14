@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useHardwareScanner } from '../../hooks/useHardwareScanner';
+import { resolveKeyboardScan } from '../../utils/hardwareScanner';
 import { useApp } from '../../context/AppContext';
 import {
   X,
@@ -51,16 +53,46 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
   // fenêtre reste montée, et après une vente elle proposait l'ancien stock,
   // donc un faux écart que la validation enregistrait.
   const [counts, setCounts] = useState<{ [id: string]: number }>({});
-  // Produits déjà passés au scan pendant ce comptage.
-  const [scannedIds, setScannedIds] = useState<Set<string>>(() => new Set());
+  // Produits déjà passés au scan pendant ce comptage. Un ref et non un état :
+  // une douchette enchaîne deux lectures avant que l'écran ait suivi.
+  const scannedIds = useRef<Set<string>>(new Set());
+  const [scanError, setScanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setCounts({});
-      setScannedIds(new Set());
+      scannedIds.current = new Set();
       setScanInput('');
+      setScanError(null);
     }
   }, [isOpen]);
+
+  const countScannedCode = (rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) return;
+    const match = findProductByCode(code);
+    if (!match) {
+      // Plus d'alert() : elle bloquait la douchette jusqu'au clic sur « OK ».
+      setScanError(`Aucun produit trouvé pour le code « ${code} »`);
+      return;
+    }
+    // Chaque scan = un article physiquement compté. Le premier scan part de
+    // 0 : partir du stock théorique donnait 11 pour un seul article scanné
+    // sur un stock de 10.
+    const alreadyScanned = scannedIds.current.has(match.id);
+    scannedIds.current.add(match.id);
+    setCounts((prev) => ({
+      ...prev,
+      [match.id]: alreadyScanned ? (prev[match.id] ?? 0) + 1 : 1,
+    }));
+    setScanError(null);
+    setScanInput('');
+  };
+
+  // Douchette, où que soit le curseur dans la fenêtre.
+  useHardwareScanner((scan) => countScannedCode(resolveKeyboardScan(products, scan).code), {
+    enabled: isOpen,
+  });
 
   if (!isOpen) return null;
 
@@ -82,22 +114,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
 
   const handleScanSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!scanInput.trim()) return;
-    const match = findProductByCode(scanInput.trim());
-    if (match) {
-      // Chaque scan = un article physiquement compté. Le premier scan part de
-      // 0 : partir du stock théorique donnait 11 pour un seul article scanné
-      // sur un stock de 10.
-      const alreadyScanned = scannedIds.has(match.id);
-      setScannedIds((prev) => new Set(prev).add(match.id));
-      setCounts((prev) => ({
-        ...prev,
-        [match.id]: alreadyScanned ? (prev[match.id] ?? 0) + 1 : 1,
-      }));
-      setScanInput('');
-    } else {
-      alert(`Aucun produit trouvé pour le code : "${scanInput}"`);
-    }
+    countScannedCode(scanInput);
   };
 
   const handleQtyChange = (productId: string, val: number) => {
@@ -194,6 +211,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                 <ScanLine className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
+                  data-scanner-input
                   value={scanInput}
                   onChange={(e) => setScanInput(e.target.value)}
                   placeholder="Scannez un article pour ajouter +1 au comptage..."
@@ -206,6 +224,11 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                   Scanner
                 </button>
               </form>
+              {scanError && (
+                <p role="alert" className="mt-1 text-[11px] font-bold text-rose-600">
+                  {scanError}
+                </p>
+              )}
             </div>
           </div>
 

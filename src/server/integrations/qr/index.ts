@@ -26,15 +26,18 @@ export async function generateBarcodePngBuffer(format: CodeFormat, code: string)
     throw new Error(`Format de code non pris en charge pour la génération: ${format}`);
   }
 
+  // Un code 2D (DataMatrix) garde ses proportions : la hauteur fixe des
+  // codes-barres l'écrasait en rectangle, et un lecteur rigoureux ne le lisait
+  // plus. Il n'a pas non plus de texte en clair sous le symbole.
+  const lineaire = format !== 'DATAMATRIX';
+
   return new Promise<Buffer>((resolve, reject) => {
     bwipjs.toBuffer(
       {
         bcid,
         text: code,
         scale: 3,
-        height: 10,
-        includetext: true,
-        textxalign: 'center',
+        ...(lineaire ? { height: 10, includetext: true, textxalign: 'center' } : {}),
         // Fond blanc et marge : sans eux l'image est transparente, et un
         // code-barres affiché sur un fond sombre (WhatsApp en mode sombre,
         // aperçu d'image) devient noir sur noir, illisible pour un lecteur.

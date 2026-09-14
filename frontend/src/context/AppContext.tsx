@@ -1911,7 +1911,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateProduct = async (
     id: string,
     updates: Partial<Product>,
-    codeChanges?: { add?: productsApi.CodeToAdd[]; remove?: string[] }
+    codeChanges?: productsApi.CodeChanges
   ) => {
     const current = products.find((p) => p.id === id);
     const categoryName = updates.category?.trim() || undefined;
@@ -2081,7 +2081,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         barcode: isPrimary ? cleanCode : target.barcode || cleanCode,
         productCodes: [...currentCodes, newCodeObj],
       },
-      { add: [{ code: cleanCode, format, origine: origin }] }
+      { add: [{ code: cleanCode, format, origine: origin }], ...(isPrimary ? { primary: cleanCode } : {}) }
     );
 
     showToast(`Code ${cleanCode} associé avec succès`, 'success');
@@ -2160,23 +2160,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const setPrimaryProductCode = (productId: string, codeId: string) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        let primaryCodeStr: string | undefined = p.barcode;
-        const updatedCodes = (p.productCodes || []).map((c) => {
-          if (c.id === codeId) {
-            primaryCodeStr = c.code;
-            return { ...c, est_principal: true };
-          }
-          return { ...c, est_principal: false };
-        });
-        return {
-          ...p,
-          barcode: primaryCodeStr,
-          productCodes: updatedCodes,
-        };
-      })
+    const target = products.find((p) => p.id === productId);
+    const chosen = target?.productCodes?.find((c) => c.id === codeId);
+    if (!target || !chosen) return;
+
+    // Enregistré sur le serveur : ce choix restait sur l'appareil et se
+    // perdait au rechargement du catalogue.
+    void updateProduct(
+      productId,
+      {
+        barcode: chosen.origine !== 'GENERE' && chosen.format !== 'QR' ? chosen.code : target.barcode,
+        productCodes: target.productCodes!.map((c) => ({ ...c, est_principal: c.id === codeId })),
+      },
+      { primary: chosen.code }
     );
     showToast('Code principal défini', 'success');
   };

@@ -140,6 +140,13 @@ export function scoped(businessId: string) {
         withTenant(businessId, (tx) => tx.productCode.create({ data: { ...data, businessId } })),
       delete: (id: string) =>
         withTenant(businessId, (tx) => tx.productCode.deleteMany({ where: { id, ...where } })),
+      /** Un seul code principal par produit : les autres cessent de l'être, dans la même transaction. */
+      setPrimary: (productId: string, codeId: string) =>
+        withTenant(businessId, async (tx) => {
+          await tx.productCode.updateMany({ where: { productId, ...where }, data: { estPrincipal: false } });
+          await tx.productCode.updateMany({ where: { id: codeId, productId, ...where }, data: { estPrincipal: true } });
+          return tx.productCode.findMany({ where: { productId, ...where }, orderBy: { createdAt: 'asc' } });
+        }),
     },
 
     customers: {

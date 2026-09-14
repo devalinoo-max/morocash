@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { decodeFromVideoFrame, playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { createScanGate } from '../../utils/productCodeLookup';
+import { resolveKeyboardScan } from '../../utils/hardwareScanner';
+import { useHardwareScanner } from '../../hooks/useHardwareScanner';
 
 interface InventoryScanModalProps {
   isOpen: boolean;
@@ -147,43 +149,23 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
       return;
     }
 
-    // Meme repli que le scanner de caisse : sans BarcodeDetector (iPhone,
-    // navigateurs de bureau, WebView Android), rien n'etait jamais lu.
-    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
-      if (!decodingRef.current) {
-        decodingRef.current = true;
-        if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
-        decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
-          .then((lu) => {
-            if (lu && scanGateRef.current.accept(lu.code, Date.now())) {
-              handleRegisterScanRef.current(lu.code);
-            }
-          })
-          .catch(() => {
-            // Image illisible : on retentera a la suivante.
-          })
-          .finally(() => {
-            decodingRef.current = false;
-          });
-      }
-
-      animFrameRef.current = requestAnimationFrame(scanLoop);
-      return;
-    }
-
-    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-      try {
-        const detector = new (window as any).BarcodeDetector({
-          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'],
+    // Meme lecture que le scanner de caisse : lecteur du navigateur, sinon
+    // zxing-cpp (iPhone, ordinateur).
+    if (!decodingRef.current) {
+      decodingRef.current = true;
+      if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
+      decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
+        .then((lu) => {
+          if (lu && streamRef.current && scanGateRef.current.accept(lu.code, Date.now())) {
+            handleRegisterScanRef.current(lu.code);
+          }
+        })
+        .catch(() => {
+          // Image illisible : on retentera a la suivante.
+        })
+        .finally(() => {
+          decodingRef.current = false;
         });
-        const barcodes = await detector.detect(videoRef.current);
-        const raw = barcodes?.[0]?.rawValue;
-        if (raw && scanGateRef.current.accept(raw, Date.now())) {
-          handleRegisterScanRef.current(raw);
-        }
-      } catch {
-        // Continue loop
-      }
     }
 
     animFrameRef.current = requestAnimationFrame(scanLoop);
@@ -210,6 +192,11 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
   // de ce moment-la (voir BarcodeScannerModal).
   const handleRegisterScanRef = useRef(handleRegisterScan);
   handleRegisterScanRef.current = handleRegisterScan;
+
+  // Douchette : chaque lecture compte un article, comme la caméra.
+  useHardwareScanner((scan) => handleRegisterScan(resolveKeyboardScan(products, scan).code), {
+    enabled: isOpen,
+  });
 
   const updateItemCount = (productId: string, delta: number) => {
     setCounts((prev) => {
@@ -275,6 +262,15 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
               muted
               className="w-full h-full object-cover"
             />
+            {/* Sans caméra (ordinateur), l'écran restait noir sans explication. */}
+            {cameraError && (
+              <div className="absolute inset-0 z-10 bg-slate-900/90 flex flex-col items-center justify-center gap-1 p-4 text-center">
+                <p className="text-xs font-bold text-white">{cameraError}</p>
+                <p className="text-[11px] text-slate-300">
+                  Scanne avec une douchette USB ou Bluetooth, ou tape le code plus bas.
+                </p>
+              </div>
+            )}
             {/* Viewfinder */}
             <div className="absolute inset-x-8 inset-y-4 rounded-2xl border-2 border-indigo-400/80 pointer-events-none flex items-center justify-center">
               <div className="w-full h-0.5 bg-rose-500 shadow-[0_0_8px_#f43f5e] animate-pulse" />
@@ -302,19 +298,6 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
               </button>
             </div>
 
-            {/* Simulation chips for desktop */}
-            <div className="absolute bottom-2 inset-x-2 flex gap-1 overflow-x-auto no-scrollbar">
-              {products.slice(0, 4).map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => handleRegisterScan(p.internalCode || p.barcode || p.id)}
-                  className="px-2 py-1 bg-black/70 border border-white/20 rounded-lg text-[10px] font-bold text-white whitespace-nowrap hover:bg-indigo-600"
-                >
-                  +1 {p.name}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -417,6 +400,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
             <div className="flex gap-2">
               <input
                 type="text"
+                data-scanner-input
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 onKeyDown={(e) => {

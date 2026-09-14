@@ -203,7 +203,9 @@ export function codeFieldsFromApi(
   // Code interne = celui que la boutique a genere (QR MoroCash). Le code du
   // fabricant, lui, est scanne sur l'emballage : formats EAN/UPC/CODE*.
   const internal = apiCodes.find((c) => c.origine === 'GENERE') ?? apiCodes.find((c) => c.estPrincipal);
-  const manufacturer = apiCodes.find((c) => c.origine !== 'GENERE' && c.format !== 'QR');
+  const manufacturerCodes = apiCodes.filter((c) => c.origine !== 'GENERE' && c.format !== 'QR');
+  // Le code principal choisi par le commerçant passe avant les autres.
+  const manufacturer = manufacturerCodes.find((c) => c.estPrincipal) ?? manufacturerCodes[0];
   return {
     productCodes: productCodes.length > 0 ? productCodes : undefined,
     internalCode: internal?.code,
@@ -241,10 +243,23 @@ export function removeProductCode(productId: string, codeId: string) {
  * libéré avant d'être repris (un code est unique dans la boutique). Le code
  * maison généré par le serveur n'est jamais retiré.
  */
+export function setPrimaryProductCode(productId: string, codeId: string) {
+  return api
+    .patch<{ codes: ApiProductCode[] }>(`/products/${productId}/codes`, { codeId })
+    .then((d) => d.codes);
+}
+
+export interface CodeChanges {
+  add?: CodeToAdd[];
+  remove?: string[];
+  /** Code (valeur) à désigner comme principal, une fois les ajouts faits. */
+  primary?: string;
+}
+
 export async function syncProductCodes(
   productId: string,
   serverCodes: ApiProductCode[],
-  changes: { add?: CodeToAdd[]; remove?: string[] }
+  changes: CodeChanges
 ): Promise<ApiProductCode[]> {
   let codes = [...serverCodes];
   const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -266,6 +281,13 @@ export async function syncProductCodes(
       const fresh = await api.get<{ codes: ApiProductCode[] }>(`/products/${productId}/codes`);
       if (!fresh.codes.some((c) => same(c.code, input.code))) throw error;
       codes = fresh.codes;
+    }
+  }
+
+  if (changes.primary) {
+    const target = codes.find((c) => same(c.code, changes.primary!));
+    if (target && !target.estPrincipal) {
+      codes = await setPrimaryProductCode(productId, target.id);
     }
   }
 

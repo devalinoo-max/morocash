@@ -20,6 +20,8 @@ import {
   validateBarcodeChecksum,
   playScanSuccessBeep,
 } from '../../utils/barcodeEngine';
+import { useHardwareScanner } from '../../hooks/useHardwareScanner';
+import { resolveKeyboardScan } from '../../utils/hardwareScanner';
 
 interface AddCodeModalProps {
   isOpen: boolean;
@@ -36,7 +38,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
   onClose,
   onCodeAdded,
 }) => {
-  const { addProductCode, transferProductCode, showToast } = useApp();
+  const { products, addProductCode, transferProductCode, showToast } = useApp();
 
   const [activeTab, setActiveTab] = useState<AddCodeTab>('CAMERA');
 
@@ -238,6 +240,12 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
   // La boucle camera est lancee une fois : elle doit appeler la version a jour.
   const handleRecognizedCodeRef = useRef(handleRecognizedCode);
   handleRecognizedCodeRef.current = handleRecognizedCode;
+
+  // Douchette : le code lu est associé directement, quel que soit l'onglet.
+  useHardwareScanner(
+    (scan) => handleRecognizedCode(resolveKeyboardScan(products, scan).code, 'SCANNE'),
+    { enabled: isOpen && !conflict }
+  );
 
   // Handle Photo selection
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -491,6 +499,8 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
 
               <p className="text-center text-xs text-slate-500 font-medium">
                 Pointe l’appareil vers le code-barres imprimé sur l'emballage.
+                <br />
+                Avec une douchette USB ou Bluetooth, scanne simplement l’article.
               </p>
             </div>
           )}
@@ -618,6 +628,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
                 <div className="relative">
                   <input
                     id="input-manual-barcode"
+                    data-scanner-input
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9A-Za-z\-]*"

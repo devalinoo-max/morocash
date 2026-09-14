@@ -20,3 +20,9 @@ declare module 'bwip-js' {
   };
   export default bwipjs;
 }
+
+// Fichier livré avec l'application par Vite (lecteur code-barres WebAssembly).
+declare module '*.wasm?url' {
+  const url: string;
+  export default url;
+}
