@@ -11,7 +11,7 @@ interface DateRangeInputsProps {
 }
 
 /** Libellé commun du raccourci, le même sur tous les écrans filtrés par période. */
-export const DATE_RANGE_LABEL = 'Plage de dates';
+export const DATE_RANGE_LABEL = 'Choisir les dates';
 
 /**
  * Sélecteur « Du … au … » partagé par tous les filtres de période (Tableau de

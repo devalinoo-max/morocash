@@ -144,7 +144,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ sale, onClose, i
   const when = formatDate(sale.createdAt).replace(/^Aujourd'hui/, 'aujourd’hui');
 
   const secondaryBtn =
-    'h-11 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50';
+    'h-11 px-1 min-[360px]:px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[11px] min-[360px]:text-[12px] font-semibold flex items-center justify-center gap-1 min-[360px]:gap-1.5 transition-colors cursor-pointer disabled:opacity-50';
 
   return (
     <div className="relative w-full flex-1 min-h-0 flex flex-col bg-white">
@@ -176,8 +176,12 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ sale, onClose, i
         </button>
       </div>
 
-      {/* 2. Aperçu — flex 1, défile à l'intérieur */}
-      <div className="relative flex-1 min-h-0">
+      {/* 2. Aperçu — flex 1, défile à l'intérieur. La zone qui défile est
+          elle-même un élément flexible (et non « h-full ») : dans une fenêtre
+          dont seule la hauteur MAXIMALE est fixée, une hauteur de 100 % ne se
+          calcule pas, le reçu gardait sa pleine hauteur et recouvrait les
+          boutons WhatsApp, Imprimer, PDF et Copier. */}
+      <div className="relative flex-1 min-h-0 flex flex-col">
         <div
           aria-hidden
           className={`pointer-events-none absolute top-0 inset-x-0 h-6 z-20 bg-linear-to-b from-white to-white/0 transition-opacity ${
@@ -187,7 +191,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ sale, onClose, i
         <div
           ref={scrollRef}
           onScroll={updateFades}
-          className="h-full overflow-y-auto overscroll-contain px-3 sm:px-5 pt-4 pb-0 bg-slate-100/70"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-5 pt-4 pb-0 bg-slate-100/70"
         >
           <div className="flex flex-col items-center">
             <ReceiptView
@@ -216,14 +220,15 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ sale, onClose, i
 
       {/* 3. Actions — ne défilent jamais */}
       <div className="shrink-0 px-4 pt-2.5 pb-4 border-t border-slate-200 bg-white space-y-2">
-        <div className="flex items-center justify-between text-[11.5px]">
-          <span className="text-slate-500 font-medium">Aperçu :</span>
+        <div className="flex items-center justify-center min-[360px]:justify-between text-[11.5px]">
+          {/* Sous 360 px, le libellé cède sa place : les deux copies tiennent sur une ligne. */}
+          <span className="text-slate-500 font-medium hidden min-[360px]:inline">Aperçu :</span>
           <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-0.5">
             <button
               type="button"
               onClick={() => setIsMerchantCopy(false)}
               aria-pressed={!isMerchantCopy}
-              className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2 min-[360px]:px-2.5 py-1 rounded-md text-[11.5px] font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                 !isMerchantCopy ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -234,7 +239,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ sale, onClose, i
               type="button"
               onClick={() => setIsMerchantCopy(true)}
               aria-pressed={isMerchantCopy}
-              className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2 min-[360px]:px-2.5 py-1 rounded-md text-[11.5px] font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                 isMerchantCopy ? 'bg-amber-700 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -254,7 +259,8 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ sale, onClose, i
           <span>Envoyer sur WhatsApp</span>
         </button>
 
-        <div className="grid grid-cols-3 gap-2">
+        {/* Sur 320 px, espacements et texte resserrés : « Imprimer » ne se coupe plus. */}
+        <div className="grid grid-cols-3 gap-1.5 min-[360px]:gap-2">
           <button
             id="btn-receipt-print"
             type="button"

@@ -164,12 +164,19 @@ interface SingleReceiptProps {
   qrDataUrl: string;
   isMerchantCopy: boolean;
   page: PrintPageSpec;
+  /**
+   * Réduction de la mise en page (1 = taille normale) : sur une feuille de
+   * hauteur fixe (A5, A4…), un reçu long est resserré pour tenir sur UNE page.
+   */
+  scale?: number;
 }
 
-const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDataUrl, isMerchantCopy, page }) => {
+const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDataUrl, isMerchantCopy, page, scale = 1 }) => {
   const layout = layoutForWidth(page.largeurMm);
   const L = LAYOUTS[layout];
-  const s = L.size;
+  const k = scale;
+  const sp = (v: number) => v * k;
+  const s = L.size * k;
   const narrow = layout === 'ETROIT';
   const wide = layout === 'LARGE';
 
@@ -198,7 +205,7 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
   const st = StyleSheet.create({
     page: {
       paddingHorizontal: mm(L.marginXmm),
-      paddingVertical: mm(L.marginYmm),
+      paddingVertical: mm(L.marginYmm * k),
       backgroundColor: '#FFFFFF',
       fontFamily: L.font,
       fontSize: s,
@@ -206,24 +213,24 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
     },
     center: { textAlign: 'center' },
     shop: { fontFamily: L.fontBold, fontSize: wide ? s + 6 : s + 2, textAlign: 'center', textTransform: 'uppercase' },
-    sub: { fontSize: s - 1, color: MUTED, textAlign: 'center', marginTop: 1 },
-    row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: wide ? 3 : 1.5 },
+    sub: { fontSize: s - 1, color: MUTED, textAlign: 'center', marginTop: sp(1) },
+    row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: sp(wide ? 3 : 1.5) },
     label: { color: MUTED },
     bold: { fontFamily: L.fontBold },
     // Séparateur : tirets sur ticket (une ligne de texte, rien à encrer de
     // plus), filet fin sur document.
     rule: wide
-      ? { borderBottomWidth: 0.75, borderBottomColor: INK, marginVertical: 6 }
-      : { marginVertical: 2 },
-    section: { marginBottom: wide ? 8 : 2 },
+      ? { borderBottomWidth: 0.75, borderBottomColor: INK, marginVertical: sp(6) }
+      : { marginVertical: sp(2) },
+    section: { marginBottom: sp(wide ? 8 : 2) },
     itemName: { fontFamily: L.fontBold },
     itemSub: { fontSize: s - 1, color: MUTED },
     total: { fontFamily: L.fontBold, fontSize: wide ? s + 4 : s + 2 },
-    stamp: { fontFamily: L.fontBold, textAlign: 'center', marginTop: 3 },
-    message: { fontFamily: L.fontItalic, fontSize: s - 1, textAlign: 'center', marginTop: 4 },
-    watermark: { fontSize: s - 2, color: MUTED, textAlign: 'center', marginTop: 3 },
-    th: { fontFamily: L.fontBold, fontSize: s - 1, paddingVertical: 4 },
-    td: { paddingVertical: 4 },
+    stamp: { fontFamily: L.fontBold, textAlign: 'center', marginTop: sp(3) },
+    message: { fontFamily: L.fontItalic, fontSize: s - 1, textAlign: 'center', marginTop: sp(4) },
+    watermark: { fontSize: s - 2, color: MUTED, textAlign: 'center', marginTop: sp(3) },
+    th: { fontFamily: L.fontBold, fontSize: s - 1, paddingVertical: sp(4) },
+    td: { paddingVertical: sp(4) },
     tableRow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: INK },
   });
 
@@ -260,13 +267,16 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
   );
 
   return (
-    <Page size={pageSize as any} style={st.page}>
+    // Ticket (hauteur automatique) : jamais coupé. Sans `wrap={false}`, le
+    // moteur PDF découpait quand même le bas du reçu (message, QR, mention) en
+    // deux petites pages de plus — trois morceaux de papier pour un seul reçu.
+    <Page size={pageSize as any} style={st.page} wrap={Boolean(page.hauteurMm)}>
       {/* 1. Boutique */}
       <View style={[st.section, { alignItems: 'center' }]}>
         {showLogo && (
           <Image
             src={settings.logoMonochrome!}
-            style={{ width: mm(L.logoMm), height: mm(L.logoMm), objectFit: 'contain', marginBottom: 3 }}
+            style={{ width: mm(L.logoMm * k), height: mm(L.logoMm * k), objectFit: 'contain', marginBottom: sp(3) }}
           />
         )}
         {showShopName && <Text style={st.shop}>{shopName}</Text>}
@@ -367,14 +377,25 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
       {(showMessage || showQr || showWatermark) && <Separator />}
       {showMessage && <Text style={st.message}>{settings.receiptMessage}</Text>}
       {showQr && (
-        <View style={{ alignItems: 'center', marginTop: 4 }} wrap={false}>
-          <Image src={qrDataUrl} style={{ width: mm(narrow ? 18 : 22), height: mm(narrow ? 18 : 22) }} />
+        <View style={{ alignItems: 'center', marginTop: sp(4) }} wrap={false}>
+          <Image src={qrDataUrl} style={{ width: mm((narrow ? 18 : 22) * Math.max(k, 0.8)), height: mm((narrow ? 18 : 22) * Math.max(k, 0.8)) }} />
         </View>
       )}
       {showWatermark && <Text style={st.watermark}>Reçu généré avec MoroCash</Text>}
     </Page>
   );
 };
+
+/** Nombre de pages d'un PDF, lu dans son arbre de pages. */
+export function countPdfPages(pdf: Buffer): number {
+  const counts = [...pdf.toString('latin1').matchAll(/\/Type\s*\/Pages[\s\S]{0,200}?\/Count\s+(\d+)/g)].map((m) =>
+    Number(m[1])
+  );
+  return counts.length > 0 ? Math.max(...counts) : 0;
+}
+
+// Réductions essayées, de la taille normale au plus petit encore lisible.
+const FIT_SCALES = [1, 0.9, 0.8, 0.72, 0.64, 0.55];
 
 export async function generateReceiptsPdfBuffer(params: {
   sales: ReceiptSaleData[];
@@ -399,6 +420,32 @@ export async function generateReceiptsPdfBuffer(params: {
     }
   }
 
+  // Feuille de hauteur fixe : un reçu = une page. On resserre la mise en page
+  // jusqu'à ce qu'il tienne ; au-delà du plus petit encore lisible (reçu de
+  // plusieurs dizaines d'articles), la suite passe sur la page suivante plutôt
+  // que d'être rognée.
+  const scaleMap: Record<string, number> = {};
+  for (const sale of sales) {
+    scaleMap[sale.id] = 1;
+    if (!page.hauteurMm) continue;
+    for (const scale of FIT_SCALES) {
+      scaleMap[sale.id] = scale;
+      const probe = await renderToBuffer(
+        <Document>
+          <SingleReceiptPage
+            sale={sale}
+            settings={settings}
+            qrDataUrl={qrMap[sale.id]}
+            isMerchantCopy={isMerchantCopy}
+            page={page}
+            scale={scale}
+          />
+        </Document>
+      );
+      if (countPdfPages(probe as Buffer) <= 1) break;
+    }
+  }
+
   const Doc = (
     <Document title="Reçus de commande MoroCash" author="MoroCash">
       {sales.map((sale) => (
@@ -409,6 +456,7 @@ export async function generateReceiptsPdfBuffer(params: {
           qrDataUrl={qrMap[sale.id]}
           isMerchantCopy={isMerchantCopy}
           page={page}
+          scale={scaleMap[sale.id]}
         />
       ))}
     </Document>
