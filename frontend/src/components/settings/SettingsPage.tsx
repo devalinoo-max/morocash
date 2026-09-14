@@ -138,7 +138,7 @@ export const SettingsPage: React.FC = () => {
       showAddress: false,
       showSellerName: true,
       showCustomerName: true,
-      showQrCode: false,
+      showQrCode: true,
       showMessage: true,
       showWatermark: true,
       defaultFormat: 'TEXT',
