@@ -144,7 +144,7 @@ describe('Recu — texte WhatsApp', () => {
   const settings = {
     shopName: 'Original Galerie',
     city: 'Abidjan',
-    ownerPhone: '0546926879',
+    telephone: '0546926879',
     showPhone: true,
     receiptMessage: 'Merci de ta confiance !',
   } as ShopSettings;
@@ -204,7 +204,7 @@ describe('Recu — PDF a imprimer', () => {
   const settings = {
     shopName: 'Original Galerie',
     city: 'Abidjan',
-    ownerPhone: '0546926879',
+    telephone: '0546926879',
     showPhone: true,
   };
 

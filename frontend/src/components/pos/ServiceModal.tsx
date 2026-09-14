@@ -25,10 +25,9 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   onClose,
   onAddService,
 }) => {
-  const { showToast, addProduct } = useApp();
+  const { showToast, addProduct, products } = useApp();
   const [serviceName, setServiceName] = useState('');
   const [amount, setAmount] = useState<number>(0);
-  const [saveToCatalog, setSaveToCatalog] = useState(false);
   const [recentServices, setRecentServices] = useState<string[]>(DEFAULT_RECENT_SERVICES);
 
   useEffect(() => {
@@ -72,13 +71,21 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       // Ignore storage errors
     }
 
-    // If saveToCatalog is checked, persist into products catalog. Un service
-    // NON sauvegardé au catalogue n'a pas d'id réel côté backend — toute
-    // commande le contenant échouera (PRODUCT_NOT_FOUND) à la validation, le
-    // backend exigeant un vrai Product pour chaque ligne de commande (limite
-    // connue de ce prototype, pas encore de "ligne libre" côté serveur).
+    // Une ligne de commande exige un vrai produit côté serveur : un service
+    // « de passage » portait un id local (service-…) que le serveur refusait
+    // en « Données invalides », et la commande restait bloquée dans la file,
+    // bloquant tout ce qui suivait. Le service est donc toujours enregistré —
+    // et réutilisé s'il existe déjà au même nom et au même prix.
+    const existing = products.find(
+      (p) =>
+        p.isService &&
+        p.salePrice === amount &&
+        p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
     let createdProduct: Product;
-    if (saveToCatalog) {
+    if (existing) {
+      createdProduct = existing;
+    } else {
       const created = await addProduct({
         name: trimmedName,
         salePrice: amount,
@@ -91,29 +98,12 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       });
       if (!created) return;
       createdProduct = created;
-      showToast(`Service "${trimmedName}" ajouté au catalogue`, 'success');
-    } else {
-      createdProduct = {
-        id: `service-${Date.now()}`,
-        name: trimmedName,
-        category: 'SERVICES',
-        salePrice: amount,
-        purchasePrice: 0,
-        stock: 999,
-        alertThreshold: 0,
-        unit: 'prestation',
-        isService: true,
-        salesCount: 0,
-        createdAt: new Date().toISOString(),
-        syncStatus: 'SYNCED',
-      };
     }
 
     onAddService(createdProduct);
     onClose();
     setServiceName('');
     setAmount(0);
-    setSaveToCatalog(false);
   };
 
   return (
@@ -209,26 +199,9 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             </div>
           )}
 
-          {/* Case à cocher: Enregistrer ce service dans mon catalogue */}
-          <div className="pt-2">
-            <label className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
-              <input
-                id="checkbox-save-service-catalog"
-                type="checkbox"
-                checked={saveToCatalog}
-                onChange={(e) => setSaveToCatalog(e.target.checked)}
-                className="w-4 h-4 mt-0.5 text-[#4F46E5] rounded-sm focus:ring-[#4F46E5]"
-              />
-              <div className="text-xs">
-                <span className="font-bold text-slate-900 block">
-                  Enregistrer ce service dans mon catalogue
-                </span>
-                <span className="text-slate-500 text-[11px]">
-                  Il sera disponible directement dans tes produits pour les prochaines commandes
-                </span>
-              </div>
-            </label>
-          </div>
+          <p className="pt-2 text-[11px] text-slate-500">
+            Le service est gardé dans ton catalogue : tu le retrouveras pour les prochaines commandes.
+          </p>
         </div>
 
         {/* Footer */}

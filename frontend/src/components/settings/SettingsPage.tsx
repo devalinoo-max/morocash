@@ -37,6 +37,12 @@ import {
   UserRole,
 } from '../../types';
 import { formatMoney, formatDate } from '../../utils/formatters';
+import {
+  editableReceiptMessage,
+  receiptPhone,
+  resolveReceiptMessage,
+  toStoredReceiptMessage,
+} from '../../utils/receiptHelpers';
 
 // Timezone options
 const TIMEZONES = [
@@ -493,7 +499,7 @@ export const SettingsPage: React.FC = () => {
                   </div>
                   <input
                     type="tel"
-                    defaultValue={settings.telephone || settings.ownerPhone}
+                    defaultValue={settings.telephone}
                     onBlur={(e) => {
                       const val = e.target.value.trim();
                       handleFieldSave('telephone', val, 'telephone');
@@ -605,9 +611,16 @@ export const SettingsPage: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  defaultValue={settings.receiptMessage}
-                  onBlur={(e) => handleFieldSave('receiptMessage', e.target.value.trim(), 'receiptMessage')}
-                  placeholder="Ex: Merci pour votre confiance ! À bientôt."
+                  key={`receipt-message-${settings.shopName}`}
+                  defaultValue={editableReceiptMessage(settings)}
+                  onBlur={(e) =>
+                    handleFieldSave(
+                      'receiptMessage',
+                      toStoredReceiptMessage(e.target.value, settings.shopName),
+                      'receiptMessage'
+                    )
+                  }
+                  placeholder={`Ex: Merci pour votre confiance ! À bientôt chez ${settings.shopName || 'ma boutique'}.`}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
                 />
               </div>
@@ -679,7 +692,7 @@ export const SettingsPage: React.FC = () => {
                         )}
                         {settings.receiptSettings?.showPhone !== false && (
                           <div className="text-[10px] text-slate-500 font-sans">
-                            Tel : {settings.telephone || settings.ownerPhone}
+                            Tel : {receiptPhone(settings) || '—'}
                           </div>
                         )}
                       </div>
@@ -717,9 +730,9 @@ export const SettingsPage: React.FC = () => {
                       </div>
 
                       {/* Custom msg */}
-                      {settings.receiptSettings?.showMessage !== false && settings.receiptMessage && (
+                      {settings.receiptSettings?.showMessage !== false && resolveReceiptMessage(settings) && (
                         <div className="text-center italic text-[10px] text-slate-400 font-sans">
-                          "{settings.receiptMessage}"
+                          "{resolveReceiptMessage(settings)}"
                         </div>
                       )}
 

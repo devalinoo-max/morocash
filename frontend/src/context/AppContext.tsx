@@ -85,6 +85,29 @@ import { CACHE_STORE, QUEUE_STORE, idbClear } from '../offline/idb';
 import { NO_CATEGORY_LABEL } from '../api/categories';
 import { hasSessionHint, markSessionEnded, markSessionStarted } from '../utils/session';
 
+/** Réglages propres à UNE boutique : remis à zéro quand l'appareil change de boutique. */
+const SHOP_PROFILE_KEYS = [
+  'telephone',
+  'whatsapp',
+  'adresse',
+  'receiptMessage',
+  'logoUrl',
+  'logoTransparentUrl',
+  'receiptSettings',
+  'labelSettings',
+  'productCategories',
+  'expenseCategories',
+  'lastInternalCodeNumber',
+  'remiseMaxVendeur',
+  'maxDiscountPercent',
+  'autoriserStockNegatif',
+  'seuilEcartComptage',
+  'depenseAutoReception',
+  'fondCaisseHabituel',
+  'rappelFermetureCaisse',
+  'currentSellerName',
+] as const satisfies readonly (keyof ShopSettings)[];
+
 function apiErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return 'Impossible de joindre le serveur. Réessaie.';
@@ -909,6 +932,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const remapId = (id: string): string => idMap.current[id] ?? id;
 
+  const isNetworkUp = () => typeof navigator === 'undefined' || navigator.onLine;
+
+  // Écritures produit envoyées en direct (en ligne), une à la fois.
+  const productWriteChain = useRef<Promise<void>>(Promise.resolve());
+
+  /**
+   * Un identifiant que le serveur ne connaîtra jamais : ni un vrai id serveur
+   * (cuid), ni un id local dont la création attend encore dans la file. C'est
+   * ce qui partait dans une commande quand la création d'un produit ou d'un
+   * client avait été refusée (quota, droits) : le serveur répondait
+   * « Données invalides » et la commande bloquait toute la file derrière elle.
+   */
+  const isUnknownToServer = (id: string): boolean => {
+    const resolved = remapId(id);
+    if (/^c[^\s-]{8,}$/i.test(resolved)) return false;
+    return !pendingMutations.some((m) => m.localId === id);
+  };
+
   const rememberId = async (localId: string, serverId: string) => {
     if (localId === serverId) return;
     idMap.current = { ...idMap.current, [localId]: serverId };
@@ -1285,6 +1326,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentUser(session.user);
     setCurrentBusiness(session.business);
     const { planStatus, trialDaysLeft, quotaMaxProducts } = computePlanStatus(session.business);
+
+    // Les réglages de boutique (téléphone, message du reçu, logo…) sont gardés
+    // sur l'appareil, pas en base. Sans ce rattachement, se connecter à une
+    // autre boutique sur le même téléphone reprenait ceux de la précédente :
+    // un reçu « Allo » finissait par « À bientôt chez Étoile d'Afrique ».
+    setSettings((prev) => {
+      const sameShop = prev.businessId
+        ? prev.businessId === session.business.id
+        : (prev.shopName || '').trim() === session.business.nom.trim();
+      const next: ShopSettings = { ...prev };
+      if (!sameShop) {
+        for (const key of SHOP_PROFILE_KEYS) {
+          (next as unknown as Record<string, unknown>)[key] = initialSettings[key];
+        }
+      }
+      next.businessId = session.business.id;
+      // Nouvelle boutique : le téléphone du reçu part du numéro du gérant, mais
+      // comme vrai réglage visible et modifiable dans les Paramètres — jamais
+      // comme repli silencieux (un vendeur y aurait mis son propre numéro).
+      if (!next.telephone && session.user.role === 'OWNER') next.telephone = session.user.telephone;
+      return next;
+    });
+
     updateSettings({
       role: session.user.role,
       ownerName: session.user.nom,
@@ -1513,6 +1577,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       showToast('Sélectionne un client pour cette vente !', 'error');
       return null;
     }
+    const unknownItem = cart.find((item) => isUnknownToServer(item.product.id));
+    if (unknownItem) {
+      showToast(
+        `« ${unknownItem.product.name} » n'est pas enregistré sur le serveur : retire-le du panier, puis recrée-le dans Produits.`,
+        'error'
+      );
+      return null;
+    }
+    if (isUnknownToServer(params.customerId)) {
+      showToast(
+        "Ce client n'est pas enregistré sur le serveur : choisis-en un autre ou recrée-le.",
+        'error'
+      );
+      return null;
+    }
+    const badQuantity = cart.find((item) => !Number.isInteger(item.quantity) || item.quantity < 1);
+    if (badQuantity) {
+      showToast(`Quantité invalide pour « ${badQuantity.product.name} ».`, 'error');
+      return null;
+    }
 
     // ── Reponse optimiste (point 1) ───────────────────────────────────────
     // Le clic vaut validation : la commande entre dans l'historique, le stock
@@ -1628,10 +1712,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       photo: photos[0],
     });
 
-    setProducts((prev) => [product, ...prev]);
-    showToast(`${product.name} ajouté au catalogue`, 'success');
-
-    queueMutation({
+    const mutation: Omit<PendingMutation, 'createdAt' | 'attempts'> = {
       id: localId,
       kind: 'PRODUCT_CREATE',
       localId,
@@ -1641,8 +1722,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         categoryName,
         photos,
       },
-    });
+    };
 
+    setProducts((prev) => [product, ...prev]);
+
+    // En ligne, le produit part tout de suite, sans passer par la file : un
+    // refus du serveur (quota atteint, droits) doit se lire à l'écran au
+    // moment où on crée le produit, pas plus tard dans la barre de synchro —
+    // ni rester bloqué derrière une autre écriture refusée de la file.
+    if (isNetworkUp()) {
+      try {
+        await sendMutation({ ...mutation, createdAt: new Date().toISOString(), attempts: 0 });
+        showToast(`${product.name} ajouté au catalogue`, 'success');
+        return { ...product, id: remapId(localId), syncStatus: 'SYNCED' };
+      } catch (error) {
+        if (!isNetworkFailure(error)) {
+          setProducts((prev) => prev.filter((p) => p.id !== localId));
+          showToast(`${product.name} n'a pas été créé : ${apiErrorMessage(error)}`, 'error');
+          return null;
+        }
+        // Réseau tombé en vol : repli sur la file, comme hors ligne.
+      }
+    }
+
+    showToast(`${product.name} ajouté au catalogue`, 'success');
+    queueMutation(mutation);
     return product;
   };
 
@@ -1655,7 +1759,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       prev.map((p) => (p.id === id ? { ...p, ...updates, syncStatus: 'PENDING_SYNC' } : p))
     );
 
-    queueMutation({
+    const mutation: Omit<PendingMutation, 'createdAt' | 'attempts'> = {
       id: generateClientUuid(),
       kind: 'PRODUCT_UPDATE',
       localId: id,
@@ -1677,7 +1781,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             : {}),
         },
       },
+    };
+
+    // Un produit dont une écriture attend encore dans la file (création hors
+    // ligne pas encore passée) doit rester dans l'ordre de la file.
+    const waitsInQueue = pendingMutations.some(
+      (m) => m.localId === id || (m.kind === 'PRODUCT_UPDATE' && m.payload?.id === id)
+    );
+    if (!isNetworkUp() || waitsInQueue) {
+      queueMutation(mutation);
+      return;
+    }
+
+    // En ligne : PATCH immédiat, hors file. Les modifications d'un même écran
+    // (sauvegarde champ par champ) partent l'une après l'autre, pour qu'une
+    // réponse ancienne n'écrase jamais une valeur plus récente.
+    const run = productWriteChain.current.then(async () => {
+      try {
+        await sendMutation({ ...mutation, createdAt: new Date().toISOString(), attempts: 0 });
+      } catch (error) {
+        if (isNetworkFailure(error)) {
+          queueMutation(mutation);
+          return;
+        }
+        // Refus du serveur : on remet à l'écran les valeurs d'avant, et on dit pourquoi.
+        if (current) {
+          const previous = Object.fromEntries(
+            Object.keys(updates).map((key) => [key, current[key as keyof Product]])
+          ) as Partial<Product>;
+          setProducts((prev) =>
+            prev.map((p) =>
+              p.id === id ? { ...p, ...previous, syncStatus: current.syncStatus ?? 'SYNCED' } : p
+            )
+          );
+        }
+        showToast(`${mutation.label} non modifié : ${apiErrorMessage(error)}`, 'error');
+      }
     });
+    productWriteChain.current = run;
+    await run;
   };
 
   const deleteProduct = async (id: string) => {

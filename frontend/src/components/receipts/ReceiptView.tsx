@@ -3,6 +3,7 @@ import { Store, Phone } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Sale, ShopSettings } from '../../types';
 import { formatMoneyCompact, formatDate, formatPaymentMethod } from '../../utils/formatters';
+import { receiptPhone, receiptVerifyUrl, resolveReceiptMessage } from '../../utils/receiptHelpers';
 
 export interface ReceiptViewProps {
   sale: Sale;
@@ -37,12 +38,17 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [expanded, setExpanded] = useState(false);
 
+  // Le QR encode le lien de vérification du reçu ; faute de boutique connue
+  // (session pas encore chargée), il retombe sur le numéro du reçu.
+  const qrPayload = receiptVerifyUrl(sale, settings) || sale.reference;
+
   useEffect(() => {
     let isMounted = true;
-    if (showQrCode && sale.reference) {
-      QRCode.toDataURL(sale.reference, {
+    if (showQrCode && qrPayload) {
+      QRCode.toDataURL(qrPayload, {
         margin: 1,
-        width: 100,
+        width: 160,
+        errorCorrectionLevel: 'M',
         color: {
           dark: '#1e293b',
           light: '#ffffff',
@@ -58,7 +64,7 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [sale.reference, showQrCode]);
+  }, [qrPayload, showQrCode]);
 
   // Nouvelle commande affichée dans la même fenêtre : la liste repart repliée.
   useEffect(() => setExpanded(false), [sale.id]);
@@ -88,7 +94,8 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   const showMessage = receiptConfig ? receiptConfig.showMessage : Boolean(settings.receiptMessage);
   const showWatermark = receiptConfig ? receiptConfig.showWatermark : true;
 
-  const phoneToDisplay = settings.telephone || settings.ownerPhone;
+  const phoneToDisplay = receiptPhone(settings);
+  const message = resolveReceiptMessage(settings);
   const addressToDisplay = settings.adresse || settings.city;
   // Nom de boutique et vendeur : ceux de la base, ou rien. Un nom de secours
   // (« MoroCash Store », « Vendeur ») ressemble à une vraie valeur et passe
@@ -265,21 +272,21 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
         )}
 
       {/* 5. Custom Footer Message */}
-      {showMessage && settings.receiptMessage && (
+      {showMessage && message && (
         <div className="text-center pt-2 text-[10px] text-slate-500 italic border-t border-dashed border-slate-300">
-          "{settings.receiptMessage}"
+          "{message}"
         </div>
       )}
 
-      {/* 6. Discreet QR Code */}
+      {/* 6. QR code : scanné, il rouvre ce reçu en ligne */}
       {effectiveShowQr && qrCodeDataUrl && (
         <div className="pt-2 text-center flex flex-col items-center justify-center border-t border-dashed border-slate-200">
           <img
             src={qrCodeDataUrl}
             alt={`QR ${sale.reference}`}
-            className="w-16 h-16 rounded p-0.5 bg-white border border-slate-200 shadow-2xs"
+            className="w-20 h-20 rounded p-0.5 bg-white border border-slate-200 shadow-2xs"
           />
-          <span className="text-[9px] text-slate-400 mt-0.5">{sale.reference}</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">Scanne pour vérifier ce reçu · {sale.reference}</span>
         </div>
       )}
 

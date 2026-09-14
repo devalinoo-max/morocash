@@ -3,6 +3,69 @@ import { formatDate, formatPaymentMethod } from './formatters';
 import { formatMoneyFull, pageForPrefs, readPrintPrefs, type PrintPageSpec } from './receiptPrint';
 
 /**
+ * Jeton remplacé par le nom réel de la boutique dans le message de fin de reçu.
+ * Un message saisi « À bientôt chez Étoile d'Afrique » restait figé sur ce nom
+ * — y compris pour une autre boutique ouverte ensuite sur le même appareil.
+ */
+export const SHOP_NAME_TOKEN = '{boutique}';
+
+/** Message de fin de reçu, nom de la boutique injecté au moment de l'affichage. */
+export function resolveReceiptMessage(settings: Pick<ShopSettings, 'receiptMessage' | 'shopName'>): string {
+  const message = settings.receiptMessage?.trim() || '';
+  if (!message) return '';
+  const shopName = settings.shopName?.trim() || '';
+  // Nom vide : on resserre seulement les espaces doublés et l'espace laissée
+  // devant un point ou une virgule. L'espace française avant « ! ? : » reste.
+  return message
+    .split(SHOP_NAME_TOKEN)
+    .join(shopName)
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([.,])/g, '$1')
+    .trim();
+}
+
+/**
+ * Forme enregistrée du message : le nom actuel de la boutique, s'il y est
+ * écrit en toutes lettres, redevient le jeton — il suivra un changement de nom.
+ */
+export function toStoredReceiptMessage(message: string, shopName: string): string {
+  const name = shopName.trim();
+  const text = message.trim();
+  if (!name || !text) return text;
+  return text.split(name).join(SHOP_NAME_TOKEN);
+}
+
+/** Message tel qu'on l'édite dans les Paramètres : avec le vrai nom. */
+export function editableReceiptMessage(settings: Pick<ShopSettings, 'receiptMessage' | 'shopName'>): string {
+  const name = settings.shopName?.trim();
+  const message = settings.receiptMessage || '';
+  return name ? message.split(SHOP_NAME_TOKEN).join(name) : message;
+}
+
+/**
+ * Téléphone du reçu : celui des Paramètres de la boutique, et lui seul. Le
+ * repli sur le téléphone de la personne connectée affichait le numéro d'un
+ * vendeur comme contact de la boutique.
+ */
+export function receiptPhone(settings: Pick<ShopSettings, 'telephone'>): string {
+  return settings.telephone?.trim() || '';
+}
+
+/**
+ * Lien de vérification du reçu, encodé dans son QR code : le client le scanne
+ * et relit son reçu en ligne. Il porte la boutique (sans elle, la base refuse
+ * toute lecture) et le clientUuid de la commande — aléatoire, donc impossible
+ * à deviner à partir d'un numéro de reçu voisin.
+ */
+export function receiptVerifyUrl(
+  sale: Pick<Sale, 'clientUuid'>,
+  settings: Pick<ShopSettings, 'businessId'>
+): string {
+  if (!sale.clientUuid || !settings.businessId || typeof window === 'undefined') return '';
+  return `${window.location.origin}/api/v1/receipts/verify/${encodeURIComponent(settings.businessId)}/${encodeURIComponent(sale.clientUuid)}`;
+}
+
+/**
  * Texte du reçu. `plain` retire le gras et les émojis de WhatsApp : c'est la
  * version « Copier », qui doit se coller proprement n'importe où (SMS, note,
  * e-mail). Les montants restent complets : un reçu ne s'abrège pas.
@@ -19,7 +82,7 @@ export function generateReceiptWhatsAppText(
 
   const shopName = (settings.shopName || '').toUpperCase();
   const place = settings.adresse || settings.city;
-  const phone = settings.telephone || settings.ownerPhone;
+  const phone = receiptPhone(settings);
   const clientName = sale.customerName?.trim() || 'Client de passage';
   const line = plain ? '--------------------' : '────────────────────';
 
@@ -55,10 +118,13 @@ export function generateReceiptWhatsAppText(
     text += `${e('✅')}${b('PAYÉ EN ENTIER')}\n`;
   }
 
-  if (settings.receiptMessage) {
+  const message = resolveReceiptMessage(settings);
+  if (message) {
     text += `${line}\n`;
-    text += `${i(settings.receiptMessage)}\n`;
+    text += `${i(message)}\n`;
   }
+  const verifyUrl = receiptVerifyUrl(sale, settings);
+  if (verifyUrl) text += `${e('🔎')}Vérifier ce reçu : ${verifyUrl}\n`;
   text += `${e('✨')}${i('Reçu généré avec MoroCash')}`;
   return text;
 }
@@ -194,6 +260,7 @@ export async function fetchReceiptsPdfBlob(
     sales: sales.map((s) => ({
       id: s.id,
       reference: s.reference,
+      verifyUrl: receiptVerifyUrl(s, settings),
       items: s.items.map((it) => ({
         name: it.name,
         unitPrice: it.unitPrice,
@@ -220,11 +287,10 @@ export async function fetchReceiptsPdfBlob(
       shopName: settings.shopName,
       city: settings.city,
       adresse: settings.adresse,
-      ownerPhone: settings.ownerPhone,
-      telephone: settings.telephone,
+      telephone: receiptPhone(settings),
       showPhone: settings.showPhone,
       showLogo: settings.showLogo,
-      receiptMessage: settings.receiptMessage,
+      receiptMessage: resolveReceiptMessage(settings),
       receiptSettings: settings.receiptSettings,
       logoMonochrome,
     },

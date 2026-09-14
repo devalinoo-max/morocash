@@ -22,14 +22,10 @@ import {
 } from 'lucide-react';
 import { Sale, ReceiptDelivery, ReceiptDeliveryChannel } from '../../types';
 import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
-import { ReceiptView } from './ReceiptView';
-import {
-  shareReceiptOnWhatsApp,
-  copyReceiptToClipboard,
-  printReceiptsPdf,
-  downloadReceiptsPdf,
-  receiptErrorMessage,
-} from '../../utils/receiptHelpers';
+import { ReceiptPreview } from './ReceiptPreview';
+import { PrintReceiptModal } from './PrintReceiptModal';
+import { WhatsAppRecipientModal, type ReceiptRecipient } from './WhatsAppRecipientModal';
+import { downloadReceiptsPdf, receiptErrorMessage } from '../../utils/receiptHelpers';
 
 type PeriodFilter = 'today' | 'week' | 'month' | 'all';
 type StateFilter = 'ALL' | 'SENT' | 'UNSENT' | 'PAID' | 'REMAINING';
@@ -56,9 +52,11 @@ export const ReceiptsTab: React.FC = () => {
 
   // Drawer / Inspection state
   const [inspectingSale, setInspectingSale] = useState<Sale | null>(null);
-  const [drawerMerchantCopy, setDrawerMerchantCopy] = useState(false);
-  const [drawerCopied, setDrawerCopied] = useState(false);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  // Actions rapides d'une ligne ou d'une sélection : mêmes fenêtres que le
+  // reçu après une vente (WhatsApp demande à qui, impression en 5 formats).
+  const [whatsAppSale, setWhatsAppSale] = useState<Sale | null>(null);
+  const [printingSales, setPrintingSales] = useState<Sale[] | null>(null);
 
   // 1. Filter sales based on Role & Permissions
   const roleFilteredSales = useMemo(() => {
@@ -241,37 +239,23 @@ export const ReceiptsTab: React.FC = () => {
   }, [filteredSales, selectedIds]);
 
   // Single Action Handlers
-  const handleWhatsAppSingle = (sale: Sale) => {
-    shareReceiptOnWhatsApp(sale, settings, (canal) => {
-      recordReceiptDelivery(sale.id, canal, sale.reference);
-      showToast('Ouverture de WhatsApp...', 'success');
-    });
-  };
+  const debtsFor = (list: Sale[]): Record<string, number> =>
+    Object.fromEntries(
+      list.map((sale) => {
+        const customer =
+          customers.find((c) => c.id === sale.customerId) ?? customers.find((c) => c.name === sale.customerName);
+        return [sale.id, customer ? customer.totalDebt : Math.max(0, sale.remainingAmount)];
+      })
+    );
 
-  const handlePrintSingle = async (sale: Sale) => {
-    setIsProcessingPdf(true);
-    try {
-      const result = await printReceiptsPdf([sale], settings, false, (canal) => {
-        recordReceiptDelivery(sale.id, canal, sale.reference);
-      });
-      showToast(
-        result === 'opened'
-          ? 'Reçu PDF envoyé à l’impression'
-          : 'Le navigateur a bloqué l’ouverture : le reçu a été téléchargé',
-        'info'
-      );
-    } catch (err) {
-      console.error(err);
-      showToast(receiptErrorMessage('Impression impossible', err), 'error');
-    } finally {
-      setIsProcessingPdf(false);
-    }
-  };
+  const handleWhatsAppSingle = (sale: Sale) => setWhatsAppSale(sale);
+
+  const handlePrintSingle = (sale: Sale) => setPrintingSales([sale]);
 
   const handleDownloadSingle = async (sale: Sale) => {
     setIsProcessingPdf(true);
     try {
-      await downloadReceiptsPdf([sale], settings, false, (canal) => {
+      await downloadReceiptsPdf([sale], settings, { isMerchantCopy: false, customerDebts: debtsFor([sale]) }, (canal) => {
         recordReceiptDelivery(sale.id, canal, sale.reference);
       });
       showToast('Téléchargement du reçu PDF en cours', 'success');
@@ -284,32 +268,16 @@ export const ReceiptsTab: React.FC = () => {
   };
 
   // Bulk Actions
-  const handleBulkPrint = async () => {
+  const handleBulkPrint = () => {
     if (selectedSalesList.length === 0) return;
-    setIsProcessingPdf(true);
-    try {
-      const result = await printReceiptsPdf(selectedSalesList, settings, false, (canal) => {
-        selectedSalesList.forEach((s) => recordReceiptDelivery(s.id, canal, s.reference));
-      });
-      showToast(
-        result === 'opened'
-          ? `${selectedSalesList.length} reçus envoyés à l’impression`
-          : 'Le navigateur a bloqué l’ouverture : les reçus ont été téléchargés',
-        'success'
-      );
-    } catch (err) {
-      console.error(err);
-      showToast(receiptErrorMessage('Impression groupée impossible', err), 'error');
-    } finally {
-      setIsProcessingPdf(false);
-    }
+    setPrintingSales(selectedSalesList);
   };
 
   const handleBulkDownload = async () => {
     if (selectedSalesList.length === 0) return;
     setIsProcessingPdf(true);
     try {
-      await downloadReceiptsPdf(selectedSalesList, settings, false, (canal) => {
+      await downloadReceiptsPdf(selectedSalesList, settings, { isMerchantCopy: false, customerDebts: debtsFor(selectedSalesList) }, (canal) => {
         selectedSalesList.forEach((s) => recordReceiptDelivery(s.id, canal, s.reference));
       });
       showToast(`Téléchargement de ${selectedSalesList.length} reçus`, 'success');
@@ -683,7 +651,6 @@ export const ReceiptsTab: React.FC = () => {
                             <button
                               onClick={() => {
                                 setInspectingSale(sale);
-                                setDrawerMerchantCopy(false);
                               }}
                               className="font-mono font-bold text-indigo-900 hover:text-[#4F46E5] hover:underline flex items-center gap-1 cursor-pointer"
                             >
@@ -790,7 +757,6 @@ export const ReceiptsTab: React.FC = () => {
                               <button
                                 onClick={() => {
                                   setInspectingSale(sale);
-                                  setDrawerMerchantCopy(false);
                                 }}
                                 title="Voir l'aperçu complet"
                                 className="w-7 h-7 rounded-lg text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors cursor-pointer"
@@ -859,75 +825,7 @@ export const ReceiptsTab: React.FC = () => {
             className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header Drawer */}
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4F46E5] flex items-center justify-center">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900">
-                    Détail du reçu {inspectingSale.reference}
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Émis le {formatDate(inspectingSale.createdAt)}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setInspectingSale(null)}
-                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Toggle Copie client / Copie commerçant */}
-            <div className="px-5 py-2.5 bg-slate-100/60 border-b border-slate-200 flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-medium">Type de copie :</span>
-              <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setDrawerMerchantCopy(false)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                    !drawerMerchantCopy
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>Copie client</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDrawerMerchantCopy(true)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                    drawerMerchantCopy
-                      ? 'bg-amber-700 text-white shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Copie commerçant</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Corps défilant */}
-            <div className="flex-1 overflow-y-auto p-5 bg-slate-100/50 space-y-5">
-              {/* Rendu du ticket via ReceiptView */}
-              <div className="flex justify-center">
-                <ReceiptView
-                  sale={inspectingSale}
-                  settings={settings}
-                  isMerchantCopy={drawerMerchantCopy}
-                  customerTotalDebt={
-                    customers.find((c) => c.name === inspectingSale.customerName)?.totalDebt ||
-                    (inspectingSale.remainingAmount > 0 ? inspectingSale.remainingAmount : 0)
-                  }
-                />
-              </div>
-
+            <ReceiptPreview sale={inspectingSale} onClose={() => setInspectingSale(null)}>
               {/* Historique des envois pour ce reçu */}
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -992,68 +890,40 @@ export const ReceiptsTab: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Actions Footer Drawer */}
-            <div className="p-4 bg-white border-t border-slate-200 space-y-2">
-              <button
-                onClick={() => handleWhatsAppSingle(inspectingSale)}
-                className="w-full py-2.5 px-4 bg-[#25D366] hover:bg-[#20bd5a] text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-              >
-                <Share2 className="w-4 h-4" />
-                <span>Renvoyer sur WhatsApp</span>
-              </button>
-
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => handlePrintSingle(inspectingSale)}
-                  disabled={isProcessingPdf}
-                  className="py-2 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <Printer className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Réimprimer</span>
-                </button>
-
-                <button
-                  onClick={() => handleDownloadSingle(inspectingSale)}
-                  disabled={isProcessingPdf}
-                  className="py-2 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-600" />
-                  <span>PDF</span>
-                </button>
-
-                <button
-                  onClick={async () => {
-                    try {
-                      await copyReceiptToClipboard(inspectingSale, settings, (canal) => {
-                        recordReceiptDelivery(inspectingSale.id, canal, inspectingSale.reference);
-                      });
-                      setDrawerCopied(true);
-                      showToast('Texte copié !', 'success');
-                      setTimeout(() => setDrawerCopied(false), 2000);
-                    } catch {
-                      showToast('Erreur copie', 'error');
-                    }
-                  }}
-                  className="py-2 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  {drawerCopied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-700">Copié</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-slate-600" />
-                      <span>Copier texte</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            </ReceiptPreview>
           </div>
         </div>
+      )}
+
+      {whatsAppSale && (
+        <WhatsAppRecipientModal
+          sale={whatsAppSale}
+          customer={
+            customers.find((c) => c.id === whatsAppSale.customerId) ??
+            customers.find((c) => c.name === whatsAppSale.customerName)
+          }
+          onClose={() => setWhatsAppSale(null)}
+          onSent={(recipient: ReceiptRecipient) => {
+            recordReceiptDelivery(whatsAppSale.id, 'WHATSAPP', whatsAppSale.reference, {
+              nom: recipient.nom,
+              telephone: recipient.telephone,
+            });
+            showToast(recipient.confirmation, 'success');
+            setWhatsAppSale(null);
+          }}
+        />
+      )}
+
+      {printingSales && (
+        <PrintReceiptModal
+          sales={printingSales}
+          isMerchantCopy={false}
+          customerDebts={debtsFor(printingSales)}
+          onClose={() => setPrintingSales(null)}
+          onPrinted={() =>
+            printingSales.forEach((s) => recordReceiptDelivery(s.id, 'IMPRESSION', s.reference))
+          }
+        />
       )}
     </div>
   );

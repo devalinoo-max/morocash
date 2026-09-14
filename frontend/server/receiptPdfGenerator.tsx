@@ -108,6 +108,8 @@ export interface ReceiptSaleItem {
 export interface ReceiptSaleData {
   id: string;
   reference: string;
+  /** Lien encodé dans le QR code : le client relit son reçu en ligne. */
+  verifyUrl?: string;
   items: ReceiptSaleItem[];
   subtotal?: number;
   discount?: number;
@@ -176,7 +178,8 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
 
   const shopName = settings.shopName?.trim() || '';
   const address = settings.adresse?.trim() || settings.city?.trim() || '';
-  const phone = settings.telephone || settings.ownerPhone;
+  // Le téléphone des Paramètres de la boutique, jamais celui de l'utilisateur.
+  const phone = settings.telephone?.trim() || '';
   const clientName = sale.customerName?.trim() || 'Client de passage';
   const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0);
   const hasDiscount = (sale.discount || 0) > 0;
@@ -385,7 +388,7 @@ export async function generateReceiptsPdfBuffer(params: {
   const qrMap: Record<string, string> = {};
   for (const sale of sales) {
     try {
-      qrMap[sale.id] = await QRCode.toDataURL(sale.reference || sale.id, {
+      qrMap[sale.id] = await QRCode.toDataURL(sale.verifyUrl || sale.reference || sale.id, {
         margin: 1,
         width: 120,
         errorCorrectionLevel: 'M',

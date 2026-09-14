@@ -33,6 +33,11 @@ interface LabelPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   preSelectedProduct?: Product | null;
+  /**
+   * Produits cochés dans l'écran de sélection : la fenêtre ne travaille que
+   * sur eux. Jamais tout le catalogue d'office.
+   */
+  productIds?: string[];
 }
 
 const DEFAULT_LABEL_SETTINGS: LabelSettings = {
@@ -47,8 +52,14 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
   isOpen,
   onClose,
   preSelectedProduct,
+  productIds,
 }) => {
-  const { products, settings, updateSettings } = useApp();
+  const { products: allProducts, settings, updateSettings } = useApp();
+  const products = useMemo(() => {
+    if (!productIds) return [];
+    const wanted = new Set(productIds);
+    return allProducts.filter((p) => wanted.has(p.id));
+  }, [allProducts, productIds]);
 
   // Load remembered settings or defaults
   const savedSettings = settings.labelSettings || DEFAULT_LABEL_SETTINGS;
@@ -92,8 +103,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
         initialQtys[preSelectedProduct.id] = 1; // Default 1 copy from product sheet
         setSelectedPreviewProductId(preSelectedProduct.id);
       } else {
-        // Pre-select first 4 products with quantity 1
-        products.slice(0, 4).forEach((p) => {
+        // Un exemplaire de chaque produit coché, et seulement d'eux.
+        products.forEach((p) => {
           initialQtys[p.id] = 1;
         });
         if (products.length > 0) {
@@ -102,7 +113,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
       }
       setQuantities(initialQtys);
     }
-  }, [isOpen, preSelectedProduct, settings.labelSettings]);
+  }, [isOpen, preSelectedProduct, productIds, settings.labelSettings]);
 
   // Persist settings changes
   const saveCurrentSettings = (partial: Partial<LabelSettings>) => {

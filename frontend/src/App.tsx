@@ -381,15 +381,19 @@ const MainLayout: React.FC = () => {
         </div>
       ) : (
         /* VIEWPORT MODE 2: mise en page complete (mobile -> ordinateur) */
-        <div className="flex-1 flex min-h-screen">
-          <div className="hidden md:block shrink-0">
+        /* Ordinateur (>= 768 px) : la page entière ne défile jamais, seule la
+           zone de contenu a son propre défilement. Quand c'était la page qui
+           défilait, le contenu passait sous la barre latérale et laissait un
+           grand vide blanc à sa place en bas d'écran. */
+        <div className="flex-1 flex min-h-screen md:h-screen md:min-h-0 md:overflow-hidden">
+          <div className="hidden md:block shrink-0 md:h-screen">
             <DesktopSidebar
               onOpenSearch={() => setQuickSearchOpen(true)}
               onOpenLanding={openLanding}
             />
           </div>
 
-          <div className="flex-1 flex flex-col min-w-0 bg-[#F4F4F8]">
+          <div className="flex-1 flex flex-col min-w-0 md:h-screen md:min-h-0 bg-[#F4F4F8]">
             <TopBar
               isMobileFrame={isMobileFrame}
               setIsMobileFrame={setIsMobileFrame}
@@ -402,7 +406,7 @@ const MainLayout: React.FC = () => {
             {/* Sur téléphone, 24 px de vide sous la barre haute repoussaient le
                 premier produit hors de l'écran : 12 px suffisent, l'ordinateur
                 garde sa respiration. */}
-            <main className="flex-1 px-4 sm:px-6 pt-3 md:pt-6 pb-28 md:pb-10 overflow-y-auto">
+            <main className="flex-1 md:min-h-0 px-4 sm:px-6 pt-3 md:pt-6 pb-28 md:pb-10 overflow-y-auto">
               <div className="max-w-[1460px] mx-auto">
                 {renderActiveView()}
               </div>

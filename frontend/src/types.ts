@@ -212,6 +212,8 @@ export interface ReceiptSettings extends Partial<ReceiptPrintPrefs> {
 }
 
 export interface ShopSettings {
+  /** Boutique à laquelle appartiennent les réglages enregistrés sur cet appareil. */
+  businessId?: string;
   shopName: string;
   activityType: ActivityType;
   city: string;

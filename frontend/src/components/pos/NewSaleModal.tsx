@@ -25,10 +25,9 @@ import {
   MessageSquare,
   Receipt,
   Tag,
-  Pencil,
   Wrench,
 } from 'lucide-react';
-import { formatMoney, formatMoneyCompact } from '../../utils/currency';
+import { formatMoney } from '../../utils/currency';
 import { MoneyInput } from '../common/UIStates';
 import { WhatsAppOrderModal } from './WhatsAppOrderModal';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
@@ -179,7 +178,7 @@ export const NewSaleModal: React.FC = () => {
   // Le bouton "Payer" bloqué faute de client ne se contente pas d'être gris :
   // au toucher, il fait pulser la carte client et y ramène l'écran.
   const [customerCardAlert, setCustomerCardAlert] = useState(false);
-  const mobileCustomerCardRef = useRef<HTMLDivElement>(null);
+  const reviewCustomerCardRef = useRef<HTMLDivElement>(null);
 
   // Indice d'ouverture du tiroir, joué une seule fois dans la vie de l'appareil.
   const [drawerHint, setDrawerHint] = useState(false);
@@ -254,8 +253,10 @@ export const NewSaleModal: React.FC = () => {
     return list;
   }, [products, searchQuery, selectedCategory]);
 
-  // Un seul verrou pour les trois états du bouton de validation.
-  const isCheckoutReady = cart.length > 0 && Boolean(selectedCustomerId);
+  // Étape Produits : « Voir la commande » n'exige qu'un panier non vide. Le
+  // client se choisit à l'étape Vérifier, et c'est lui qui ouvre le Paiement.
+  const isCheckoutReady = cart.length > 0;
+  const canGoToPayment = cart.length > 0 && Boolean(selectedCustomerId);
 
   // Premier ajout d'un produit : le tiroir se soulève de 8px puis redescend,
   // une seule fois. C'est le seul signal de "ça se déplie" qui ne coûte ni
@@ -276,12 +277,13 @@ export const NewSaleModal: React.FC = () => {
     return () => clearTimeout(timer);
   }, [cart.length]);
 
-  // Toucher le bouton bloqué doit toujours dire POURQUOI il est bloqué.
-  const handleBlockedCheckout = () => {
-    if (cart.length === 0) return;
+  // Toucher « Payer » sans client doit toujours dire POURQUOI c'est bloqué :
+  // la carte client pulse, remonte à l'écran, et le choix du client s'ouvre.
+  const handleBlockedPayment = () => {
     setCustomerCardAlert(true);
-    mobileCustomerCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    reviewCustomerCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => setCustomerCardAlert(false), 650);
+    setIsCustomerPickerOpen(true);
   };
 
   // Calculations — les quantités restent modifiables après la remise (écran
@@ -332,6 +334,11 @@ export const NewSaleModal: React.FC = () => {
   useEffect(() => {
     if (step !== 'PRODUCTS' && cart.length === 0) setStep('PRODUCTS');
   }, [step, cart.length]);
+
+  // Le Paiement ne s'atteint jamais sans client, quel que soit le chemin.
+  useEffect(() => {
+    if (step === 'PAYMENT' && !selectedCustomerId) setStep('REVIEW');
+  }, [step, selectedCustomerId]);
 
   if (!isNewSaleOpen) return null;
 
@@ -593,13 +600,13 @@ export const NewSaleModal: React.FC = () => {
   };
 
   /**
-   * Étape 2 — « Vérifie ta commande ». Plein écran sur téléphone, colonne de
-   * droite sur ordinateur. Existe pour une raison : que le commerçant voie son
-   * panier, la remise et le total AVANT d'encaisser.
+   * Étape 2 — « Vérifie ta commande ». Un écran à part entière, le même sur
+   * téléphone et sur ordinateur : on y choisit le client (obligatoire), on
+   * applique la remise et on relit les lignes AVANT d'encaisser.
    */
   const renderReviewPanel = () => (
     <div className="flex-1 min-h-0 flex flex-col bg-white">
-      <div className="shrink-0 h-14 px-2 flex items-center gap-1 border-b border-slate-100">
+      <div className="shrink-0 h-14 px-2 md:px-4 flex items-center gap-1 border-b border-slate-100 w-full max-w-2xl mx-auto">
         <button
           id="btn-review-back"
           type="button"
@@ -625,8 +632,10 @@ export const NewSaleModal: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-4">
-        {/* a) Le client et sa dette actuelle */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="px-3 md:px-4 py-3 space-y-4 w-full max-w-2xl mx-auto">
+        {/* a) Le client (obligatoire) et sa dette actuelle */}
+        <div ref={reviewCustomerCardRef} className={customerCardAlert ? 'pos-customer-attention rounded-[14px]' : ''}>
         {selectedCustomerObj ? (
           <div className="rounded-[14px] bg-[#F0FDF4] border-l-4 border-l-[#16A34A] border-y border-r border-emerald-200/70 p-3 flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -661,15 +670,52 @@ export const NewSaleModal: React.FC = () => {
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setIsCustomerPickerOpen(true)}
-            className="w-full h-14 rounded-[14px] bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-amber-200/70 px-3 flex items-center justify-between text-left cursor-pointer"
-          >
-            <span className="text-[13px] font-[650] text-slate-900">À qui est cette commande ?</span>
-            <span className="text-xs font-bold text-amber-700">Choisir</span>
-          </button>
+          <div>
+            <div className="rounded-[14px] bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] pulse-border-amber border-y border-r border-amber-200/70 p-3 flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-[34px] h-[34px] min-w-[34px] rounded-full bg-[#F59E0B] flex items-center justify-center text-white">
+                  <User className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-[650] text-slate-900 leading-tight">À qui est cette commande ?</p>
+                  <p className="text-xs text-amber-900/80 font-medium mt-0.5">Obligatoire pour payer</p>
+                </div>
+              </div>
+              <button
+                id="btn-choose-customer-review"
+                type="button"
+                onClick={() => setIsCustomerPickerOpen(true)}
+                className="shrink-0 h-9 px-3.5 rounded-xl bg-[#F59E0B] hover:bg-amber-600 text-white font-bold text-xs cursor-pointer transition-colors"
+              >
+                Choisir ou ajouter
+              </button>
+            </div>
+
+            {recentCustomers.length > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                <span className="text-[11px] font-bold text-slate-400 shrink-0">Derniers clients :</span>
+                {recentCustomers.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSelectedCustomerId(c.id)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-indigo-50 hover:text-[#4F46E5] text-slate-700 text-xs font-semibold shrink-0 transition-colors cursor-pointer border border-slate-200/60"
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white ${getAvatarColor(
+                        c.name
+                      )}`}
+                    >
+                      {getInitials(c.name)}
+                    </span>
+                    <span>{getFirstName(c.name)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
+        </div>
 
         {/* b) Ce que tu vends — quantités modifiables ici */}
         <section>
@@ -793,28 +839,39 @@ export const NewSaleModal: React.FC = () => {
           </div>
         </div>
       </div>
+      </div>
 
       {/* Barre d'actions : le montant est DANS le bouton */}
       <div
-        className="shrink-0 px-3 pt-3 bg-white border-t border-slate-200 space-y-1"
+        className="shrink-0 px-3 pt-3 bg-white border-t border-slate-200"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
       >
-        <button
-          id="btn-review-pay"
-          type="button"
-          onClick={() => setStep('PAYMENT')}
-          className="w-full h-[52px] rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white text-[15px] font-[750] flex items-center justify-center gap-1.5 shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer transition-all"
-        >
-          <span className="tabular-nums">Payer {formatMoney(finalTotal)}</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setStep('PRODUCTS')}
-          className="w-full py-2 text-[12px] font-semibold text-slate-500 text-center cursor-pointer"
-        >
-          ← Ajouter d'autres produits
-        </button>
+        <div className="w-full max-w-2xl mx-auto space-y-1">
+          <button
+            id="btn-review-pay"
+            type="button"
+            aria-disabled={!canGoToPayment}
+            onClick={() => (canGoToPayment ? setStep('PAYMENT') : handleBlockedPayment())}
+            className={`w-full h-[52px] rounded-2xl text-[15px] font-[750] flex items-center justify-center gap-1.5 transition-all ${
+              canGoToPayment
+                ? 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer'
+                : 'bg-[#E2E8F0] text-[#64748B] cursor-pointer'
+            }`}
+          >
+            <span className="tabular-nums">Payer {formatMoney(finalTotal)}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          {!canGoToPayment && (
+            <p className="text-center text-[11px] font-semibold text-amber-700">Choisis d'abord un client</p>
+          )}
+          <button
+            type="button"
+            onClick={() => setStep('PRODUCTS')}
+            className="w-full py-2 text-[12px] font-semibold text-slate-500 text-center cursor-pointer"
+          >
+            ← Ajouter d'autres produits
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -923,7 +980,7 @@ export const NewSaleModal: React.FC = () => {
         {/* ========================================================================= */}
         {/* STEP 1 : PRODUITS (GRILLE UNIQUE + PANIER FIXE 400PX) */}
         {/* ========================================================================= */}
-        {step !== 'PAYMENT' && (
+        {step === 'PRODUCTS' && (
           <>
           <div className="hidden md:flex flex-1 min-h-0 bg-slate-50/50">
             {/* GAUCHE : CATALOGUE PRODUITS (flex-1) */}
@@ -1030,114 +1087,9 @@ export const NewSaleModal: React.FC = () => {
               </div>
             </div>
 
-            {/* DROITE : COLONNE DE COMMANDE (LARGEUR FIXE 400PX) — devient le
-                panneau « Vérifie ta commande » à l'étape 2 */}
-            {step === 'REVIEW' ? (
-              <div className="w-[400px] shrink-0 flex flex-col min-h-0 border-l border-slate-200">
-                {renderReviewPanel()}
-              </div>
-            ) : (
-            <div className="w-full md:w-[400px] shrink-0 flex flex-col bg-white border-t md:border-t-0 md:border-l border-slate-200">
-              {/* POINT 1 : BLOC CLIENT MIS EN ÉVIDENCE EN HAUT DE LA COLONNE */}
-              <div className="p-3 border-b border-slate-100 shrink-0">
-                {!selectedCustomerObj ? (
-                  /* ÉTAT AUCUN CLIENT : carte 84px, fond #FFFBEB, bordure gauche 4px #F59E0B avec pulsation lente, rayon 14px */
-                  <div>
-                    <div className="h-[84px] min-h-[84px] rounded-[14px] bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] pulse-border-amber border-y border-r border-amber-200/70 p-3 flex items-center justify-between gap-2.5 shadow-2xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-[34px] h-[34px] min-w-[34px] rounded-full bg-[#F59E0B] flex items-center justify-center text-white shadow-2xs">
-                          <User className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-sm font-[650] text-slate-900 leading-tight">
-                            À qui est cette commande ?
-                          </h4>
-                          <p className="text-xs text-amber-900/80 font-medium mt-0.5">
-                            Obligatoire pour valider
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        id="btn-choose-customer-pos"
-                        type="button"
-                        onClick={() => setIsCustomerPickerOpen(true)}
-                        className="shrink-0 px-3.5 py-2 rounded-xl bg-[#F59E0B] hover:bg-amber-600 text-white font-bold text-xs shadow-xs cursor-pointer transition-colors"
-                      >
-                        Choisir un client
-                      </button>
-                    </div>
-
-                    {/* ACCÈS RAPIDE : 4 derniers clients saisis */}
-                    {recentCustomers.length > 0 && (
-                      <div className="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
-                        <span className="text-[11px] font-bold text-slate-400 shrink-0">
-                          Derniers clients :
-                        </span>
-                        {recentCustomers.map((c) => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => setSelectedCustomerId(c.id)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-indigo-50 hover:text-[#4F46E5] text-slate-700 text-xs font-semibold shrink-0 transition-colors cursor-pointer border border-slate-200/60"
-                          >
-                            <span
-                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white ${getAvatarColor(
-                                c.name
-                              )}`}
-                            >
-                              {getInitials(c.name)}
-                            </span>
-                            <span>{getFirstName(c.name)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* ÉTAT CLIENT CHOISI : carte 84px, fond #F0FDF4, bordure gauche 4px #16A34A (sans pulsation), rayon 14px */
-                  <div className="h-[84px] min-h-[84px] rounded-[14px] bg-[#F0FDF4] border-l-4 border-l-[#16A34A] border-y border-r border-emerald-200/70 p-3 flex items-center justify-between gap-2.5 shadow-2xs">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-10 h-10 min-w-10 rounded-full flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-2xs ${getAvatarColor(
-                          selectedCustomerObj.name
-                        )}`}
-                      >
-                        {getInitials(selectedCustomerObj.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-[650] text-slate-900 truncate leading-snug">
-                          {selectedCustomerObj.name}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {selectedCustomerObj.phone && selectedCustomerObj.phone !== 'Non renseigné' && (
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              {selectedCustomerObj.phone}
-                            </span>
-                          )}
-                          {selectedCustomerObj.totalDebt > 0 ? (
-                            <span className="text-[10px] font-bold text-rose-700 bg-rose-100/90 px-2 py-0.5 rounded-md">
-                              te doit déjà {formatMoney(selectedCustomerObj.totalDebt)}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md">
-                              à jour
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      id="btn-change-customer-pos"
-                      type="button"
-                      onClick={() => setIsCustomerPickerOpen(true)}
-                      className="shrink-0 text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer px-1 py-1"
-                    >
-                      Changer
-                    </button>
-                  </div>
-                )}
-              </div>
-
+            {/* DROITE : LE PANIER, ET RIEN D'AUTRE (LARGEUR FIXE 400PX). Le
+                client, la remise et les totaux vivent à l'étape Vérifier. */}
+            <div className="w-full md:w-[400px] shrink-0 flex flex-col min-h-0 bg-white border-t md:border-t-0 md:border-l border-slate-200">
               {/* POINT 6.2 : HEADER COMMANDE EN COURS */}
               <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
                 <div className="flex items-center gap-2">
@@ -1220,11 +1172,6 @@ export const NewSaleModal: React.FC = () => {
                           </button>
                         </div>
 
-                        {/* Total de la ligne en gras */}
-                        <span className="text-sm font-bold text-slate-900 min-w-[65px] text-right">
-                          {formatMoney(item.unitPrice * item.quantity)}
-                        </span>
-
                         {/* Bouton supprimer */}
                         <button
                           type="button"
@@ -1240,192 +1187,34 @@ export const NewSaleModal: React.FC = () => {
                 )}
               </div>
 
-              {/* FOOTER : SOUS-TOTAL, REMISE TOUJOURS VISIBLE, TOTAL 31PX, BOUTON ENCAISSER */}
-              <div className="p-4 bg-white border-t border-slate-200 space-y-3 shadow-lg shrink-0">
-                {/* POINT 6.4 : SOUS-TOTAL */}
-                <div className="flex justify-between items-center text-xs font-semibold text-slate-600">
-                  <span>Sous-total</span>
-                  <div className="flex items-center gap-1.5">
-                    {appliedDiscount > 0 && (
-                      <span className="line-through text-slate-400 font-semibold text-xs">
-                        {formatMoney(cartTotal)}
-                      </span>
-                    )}
-                    <span className="font-bold text-slate-900">{formatMoney(cartTotal)}</span>
-                  </div>
-                </div>
-
-                {/* POINT 2 & 6.5 : LIGNE REMISE (TOUJOURS VISIBLE, MÊME PANIER VIDE) */}
-                {appliedDiscount > 0 ? (
-                  /* AVEC REMISE : fond #FEF2F2, hauteur 48px, rayon 11px */
-                  <div className="h-[48px] px-3 rounded-[11px] bg-[#FEF2F2] border border-rose-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-[#DC2626]" />
-                      <span className="text-[13.5px] font-[600] text-rose-950">
-                        {discountMode === 'PERCENTAGE' && discountValue > 0
-                          ? `Remise (${discountValue} %)`
-                          : `Remise (${discountPercent} %)`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[14px] font-[750] text-[#DC2626] mr-1">
-                        − {formatMoney(appliedDiscount)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsDiscountModalOpen(true)}
-                        className="w-7 h-7 rounded-lg text-slate-500 hover:text-[#4F46E5] hover:bg-white flex items-center justify-center cursor-pointer transition-colors"
-                        title="Modifier la remise"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDiscountAmount(0);
-                          setDiscountMode('AMOUNT');
-                          setDiscountValue(0);
-                          setDiscountReason('');
-                        }}
-                        className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white flex items-center justify-center cursor-pointer transition-colors"
-                        title="Retirer la remise"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* SANS REMISE : fond #F8FAFC, hauteur 48px, rayon 11px */
-                  <div className="h-[48px] px-3 rounded-[11px] bg-[#F8FAFC] border border-slate-200/80 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-[#4F46E5]" />
-                      <span className="text-[13.5px] font-[600] text-slate-800">Remise</span>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={cartTotal === 0}
-                      onClick={() => cartTotal > 0 && setIsDiscountModalOpen(true)}
-                      className="h-[34px] px-3 rounded-[9px] bg-[#EEF2FF] hover:bg-indigo-100 disabled:opacity-40 disabled:pointer-events-none text-[#4F46E5] font-[650] text-xs flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Ajouter une remise</span>
-                    </button>
-                  </div>
+              {/* Étape suivante : un seul bouton, qui ne valide rien — il ouvre
+                  l'écran Vérifier (client, remise, sous-total). */}
+              <div className="p-4 bg-white border-t border-slate-200 shadow-lg shrink-0">
+                <button
+                  id="btn-pos-checkout"
+                  type="button"
+                  disabled={!isCheckoutReady}
+                  onClick={() => setStep('REVIEW')}
+                  className={`w-full h-[52px] rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
+                    !isCheckoutReady
+                      ? 'bg-[#94A3B8] text-white cursor-not-allowed opacity-100'
+                      : 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md cursor-pointer'
+                  }`}
+                >
+                  <span>Voir la commande</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                {!isCheckoutReady && (
+                  <p className="text-center text-xs font-semibold text-amber-700 mt-1.5">Ajoute un produit</p>
                 )}
-
-                {/* POINT 6.6 : TOTAL EN 31PX (HAUTEUR IMPORTANTE, POIDS MAXIMUM) */}
-                <div className="pt-2 border-t border-slate-200 flex items-baseline justify-between">
-                  <div>
-                    <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider block">
-                      Total
-                    </span>
-                    {appliedDiscount > 0 && (
-                      <span className="text-xs text-slate-400 line-through font-semibold">
-                        {formatMoney(cartTotal)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[31px] font-black text-slate-900 tracking-tight leading-none">
-                    {formatMoney(finalTotal)}
-                  </span>
-                </div>
-
-                {/* Étape suivante : on VOIT la commande avant de payer */}
-                <div>
-                  <button
-                    id="btn-pos-checkout"
-                    type="button"
-                    disabled={!isCheckoutReady}
-                    onClick={() => setStep('REVIEW')}
-                    className={`w-full h-[52px] rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
-                      !isCheckoutReady
-                        ? 'bg-[#94A3B8] text-white cursor-not-allowed opacity-100'
-                        : 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md cursor-pointer'
-                    }`}
-                  >
-                    <span>Voir la commande</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  {!isCheckoutReady && (
-                    <p className="text-center text-xs font-semibold text-amber-700 mt-1.5">
-                      {cart.length === 0 ? 'Ajoute un produit' : "Choisis d'abord un client"}
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
-            )}
           </div>
 
           {/* ===================================================================== */}
           {/* VUE MOBILE (< md) — CATALOGUE PLEIN ÉCRAN + TIROIR PANIER EN BAS      */}
-          {/* Étape Vérifier : l'écran entier lui revient.                          */}
           {/* ===================================================================== */}
-          {step === 'REVIEW' ? (
-            <div className="flex md:hidden flex-1 flex-col min-h-0">{renderReviewPanel()}</div>
-          ) : (
           <div className="flex md:hidden flex-1 flex-col min-h-0 bg-white relative overflow-x-hidden">
-            {/* Carte client — juste sous l'indicateur d'étapes, avant la recherche (point 3) */}
-            <div className="shrink-0 px-3 pt-2" ref={mobileCustomerCardRef}>
-              {!selectedCustomerObj ? (
-                <div
-                  className={`h-16 rounded-2xl bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-amber-200/70 px-3 flex items-center justify-between gap-2 shadow-2xs ${
-                    customerCardAlert ? 'pos-customer-attention' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-[30px] h-[30px] min-w-[30px] rounded-full bg-[#F59E0B] flex items-center justify-center text-white shrink-0">
-                      <User className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-[13.5px] font-[650] text-slate-900 leading-tight truncate">
-                        À qui est cette commande ?
-                      </h4>
-                      <p className="text-[11px] text-amber-900/80 font-medium leading-tight truncate">
-                        Obligatoire pour valider
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    id="btn-choose-customer-pos-mobile"
-                    type="button"
-                    onClick={() => setIsCustomerPickerOpen(true)}
-                    className="shrink-0 h-[34px] px-3.5 rounded-xl bg-[#F59E0B] hover:bg-amber-600 text-white font-bold text-xs shadow-xs cursor-pointer transition-colors"
-                  >
-                    Choisir
-                  </button>
-                </div>
-              ) : (
-                <div className="h-11 rounded-2xl bg-[#F0FDF4] border-l-4 border-l-[#16A34A] border-y border-r border-emerald-200/70 px-3 flex items-center justify-between gap-2 shadow-2xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className={`w-7 h-7 min-w-7 rounded-full flex items-center justify-center font-bold text-white text-[10px] shrink-0 ${getAvatarColor(
-                        selectedCustomerObj.name
-                      )}`}
-                    >
-                      {getInitials(selectedCustomerObj.name)}
-                    </div>
-                    <span className="text-xs font-[650] text-slate-900 truncate">
-                      {selectedCustomerObj.name}
-                    </span>
-                    {selectedCustomerObj.totalDebt > 0 ? (
-                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100/90 px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap">
-                        doit {formatMoney(selectedCustomerObj.totalDebt)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <button
-                    id="btn-change-customer-pos-mobile"
-                    type="button"
-                    onClick={() => setIsCustomerPickerOpen(true)}
-                    className="shrink-0 text-xs font-bold text-[#4F46E5] cursor-pointer px-1 py-1"
-                  >
-                    Changer
-                  </button>
-                </div>
-              )}
-            </div>
-
             {renderCatalogToolbar('mobile')}
 
             {/* Catalogue produits — occupe tout l'espace restant (point 4) */}
@@ -1573,8 +1362,9 @@ export const NewSaleModal: React.FC = () => {
               }}
             >
               {!isMobileCartOpen ? (
-                /* REPLIÉ : 78px. La zone gauche (pastille + libellé + total +
-                   chevron) déplie le panier ; seul "Payer" y échappe. */
+                /* REPLIÉ : 78px. La zone gauche (pastille + libellé + chevron)
+                   déplie le panier ; aucun total ici, il se lit à l'étape
+                   Vérifier. */
                 <div className="h-[78px] flex items-stretch gap-2.5 pt-[9px] px-3 pb-[14px] relative">
                   <span className="absolute top-[5px] left-1/2 -translate-x-1/2 w-[34px] h-1 rounded-full bg-slate-300" />
 
@@ -1598,8 +1388,8 @@ export const NewSaleModal: React.FC = () => {
                         {cart.length === 0 ? 'Ton panier est vide' : 'Commande en cours'}
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="text-[17px] font-[800] text-slate-900 tabular-nums leading-tight">
-                          {formatMoneyCompact(finalTotal)}
+                        <span className="text-[15px] font-[800] text-slate-900 tabular-nums leading-tight">
+                          {cartItemCount} article{cartItemCount > 1 ? 's' : ''}
                         </span>
                         {cart.length > 0 && <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" />}
                       </span>
@@ -1614,13 +1404,7 @@ export const NewSaleModal: React.FC = () => {
                     id="btn-pos-checkout-mobile-bar"
                     type="button"
                     aria-disabled={!isCheckoutReady}
-                    onClick={() => {
-                      if (!isCheckoutReady) {
-                        handleBlockedCheckout();
-                        return;
-                      }
-                      setStep('REVIEW');
-                    }}
+                    onClick={() => isCheckoutReady && setStep('REVIEW')}
                     className={`${isCheckoutReady ? 'h-12' : 'h-10'} px-[16px] rounded-xl text-[14px] font-[750] flex items-center gap-1 shrink-0 whitespace-nowrap transition-colors ${
                       isCheckoutReady
                         ? 'bg-[#4F46E5] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] active:scale-[0.98] cursor-pointer'
@@ -1632,7 +1416,7 @@ export const NewSaleModal: React.FC = () => {
                   </button>
                   {!isCheckoutReady && (
                     <span className="mt-0.5 text-[10px] font-bold text-[#B45309] leading-tight whitespace-nowrap">
-                      {cart.length === 0 ? 'Ajoute un produit' : "Choisis d'abord un client"}
+                      Ajoute un produit
                     </span>
                   )}
                   </div>
@@ -1699,9 +1483,6 @@ export const NewSaleModal: React.FC = () => {
                               <Plus className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          <span className="text-sm font-bold text-slate-900 min-w-[60px] text-right">
-                            {formatMoney(item.unitPrice * item.quantity)}
-                          </span>
                           <button
                             type="button"
                             onClick={() => removeFromCart(item.product.id)}
@@ -1714,74 +1495,14 @@ export const NewSaleModal: React.FC = () => {
                     ))}
                   </div>
 
-                  <div className="shrink-0 p-3.5 border-t border-slate-200 space-y-2.5">
-                    <div className="flex justify-between items-center text-xs font-semibold text-slate-600">
-                      <span>Sous-total</span>
-                      <span className="font-bold text-slate-900">{formatMoney(cartTotal)}</span>
-                    </div>
-
-                    {appliedDiscount > 0 ? (
-                      <div className="h-11 px-3 rounded-[11px] bg-[#FEF2F2] border border-rose-200 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-3.5 h-3.5 text-[#DC2626]" />
-                          <span className="text-xs font-[600] text-rose-950">
-                            {discountMode === 'PERCENTAGE' && discountValue > 0
-                              ? `Remise (${discountValue} %)`
-                              : `Remise (${discountPercent} %)`}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[13px] font-[750] text-[#DC2626]">
-                            − {formatMoney(appliedDiscount)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setIsDiscountModalOpen(true)}
-                            className="w-6 h-6 rounded-lg text-slate-500 flex items-center justify-center cursor-pointer"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-11 px-3 rounded-[11px] bg-[#F8FAFC] border border-slate-200/80 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-3.5 h-3.5 text-[#4F46E5]" />
-                          <span className="text-xs font-[600] text-slate-800">Remise</span>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={cartTotal === 0}
-                          onClick={() => cartTotal > 0 && setIsDiscountModalOpen(true)}
-                          className="h-8 px-2.5 rounded-lg bg-[#EEF2FF] disabled:opacity-40 text-[#4F46E5] font-[650] text-[11px] flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Ajouter</span>
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="pt-1.5 border-t border-slate-200 flex items-baseline justify-between">
-                      <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                        Total
-                      </span>
-                      <span className="text-[28px] font-black text-slate-900 tracking-tight leading-none tabular-nums">
-                        {formatMoney(finalTotal)}
-                      </span>
-                    </div>
-
+                  <div className="shrink-0 p-3.5 border-t border-slate-200">
                     <button
                       id="btn-pos-checkout-mobile"
                       type="button"
                       aria-disabled={!isCheckoutReady}
                       onClick={() => {
-                        if (!isCheckoutReady) {
-                          setIsMobileCartOpen(false);
-                          handleBlockedCheckout();
-                          return;
-                        }
-                        setStep('REVIEW');
                         setIsMobileCartOpen(false);
+                        if (isCheckoutReady) setStep('REVIEW');
                       }}
                       className={`w-full h-12 rounded-xl text-[14px] font-[750] flex items-center justify-center gap-1 transition-colors ${
                         isCheckoutReady
@@ -1792,19 +1513,18 @@ export const NewSaleModal: React.FC = () => {
                       <span>Voir la commande</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
-                    {!isCheckoutReady && (
-                      <p className="text-center text-[11px] font-semibold text-amber-700">
-                        {cart.length === 0 ? 'Ajoute un produit' : "Choisis d'abord un client"}
-                      </p>
-                    )}
                   </div>
                 </div>
               )}
             </div>
           </div>
-          )}
           </>
         )}
+
+        {/* ========================================================================= */}
+        {/* STEP 2 : VÉRIFIER — écran à part entière, identique téléphone/ordinateur */}
+        {/* ========================================================================= */}
+        {step === 'REVIEW' && renderReviewPanel()}
 
         {/* ========================================================================= */}
         {/* STEP 2 : PAIEMENT */}

@@ -33,7 +33,7 @@ export const initialSettings: ShopSettings = {
   fuseauHoraire: 'Africa/Abidjan',
   pinCode: '',
   currency: 'FCFA',
-  receiptMessage: 'Merci pour votre confiance !',
+  receiptMessage: 'Merci pour votre confiance ! À bientôt chez {boutique}.',
   showLogo: true,
   compactReceipt: false,
   showPhone: true,

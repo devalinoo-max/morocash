@@ -24,7 +24,19 @@ import {
   Send,
 } from 'lucide-react';
 import { formatMoney, formatMoneyCompact, formatDate, getTerminology } from '../../utils/formatters';
-import { getPeriodRange, getPreviousPeriodRange, isWithinRange, percentChange, SimplePeriod } from '../../utils/period';
+import {
+  getCustomRange,
+  getPeriodRange,
+  getPreviousCustomRange,
+  getPreviousPeriodRange,
+  isWithinRange,
+  percentChange,
+  SimplePeriod,
+  toDateInputValue,
+} from '../../utils/period';
+
+/** Les quatre raccourcis, plus une plage choisie à la main (date de début → date de fin). */
+type DashboardPeriod = SimplePeriod | 'RANGE';
 import { PaywallOverlay } from '../common/PaywallOverlay';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
@@ -59,7 +71,13 @@ export const DashboardTab: React.FC = () => {
   const isOwner = settings.role === 'OWNER';
 
   // Period filter state (§ BLOC 4: 1. Filtres, synchronized with Settings)
-  const [period, setPeriod] = useState<SimplePeriod>(settings.periodeParDefaut || 'TODAY');
+  const [period, setPeriod] = useState<DashboardPeriod>(settings.periodeParDefaut || 'TODAY');
+  // Plage libre : par défaut, du 1er du mois à aujourd'hui.
+  const [rangeStart, setRangeStart] = useState(() => {
+    const now = new Date();
+    return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+  });
+  const [rangeEnd, setRangeEnd] = useState(() => toDateInputValue(new Date()));
   const [compareYesterday, setCompareYesterday] = useState<boolean>(
     settings.comparerParDefaut !== undefined ? settings.comparerParDefaut : true
   );
@@ -87,8 +105,18 @@ export const DashboardTab: React.FC = () => {
   // choisie, sauf les soldes qui n'ont de sens qu'à l'instant présent
   // (dettes clients, stock, caisse en cours).
   // ========================================================================
-  const periodRange = useMemo(() => getPeriodRange(period), [period]);
-  const previousRange = useMemo(() => getPreviousPeriodRange(period), [period]);
+  const customRange = useMemo(() => getCustomRange(rangeStart, rangeEnd), [rangeStart, rangeEnd]);
+  const periodRange = useMemo(
+    () => (period === 'RANGE' && customRange ? customRange : getPeriodRange(period === 'RANGE' ? 'TODAY' : period)),
+    [period, customRange]
+  );
+  const previousRange = useMemo(
+    () =>
+      period === 'RANGE' && customRange
+        ? getPreviousCustomRange(customRange)
+        : getPreviousPeriodRange(period === 'RANGE' ? 'TODAY' : period),
+    [period, customRange]
+  );
 
   const periodSales = useMemo(() => sales.filter((s) => isWithinRange(s.createdAt, periodRange)), [sales, periodRange]);
   const previousSales = useMemo(() => sales.filter((s) => isWithinRange(s.createdAt, previousRange)), [sales, previousRange]);
@@ -210,7 +238,15 @@ export const DashboardTab: React.FC = () => {
   const soldeCaisseTheorique = fondDepart + encaisseEspeces + encaisseMobileMoney - sortiesEspeces;
 
   const periodWord =
-    period === 'TODAY' ? "aujourd'hui" : period === 'YESTERDAY' ? 'hier' : period === 'WEEK' ? 'cette semaine' : 'ce mois';
+    period === 'TODAY'
+      ? "aujourd'hui"
+      : period === 'YESTERDAY'
+      ? 'hier'
+      : period === 'WEEK'
+      ? 'cette semaine'
+      : period === 'MONTH'
+      ? 'ce mois'
+      : 'sur cette période';
 
   // Badge de comparaison du bénéfice — remplace le "21 300 F de moins qu'hier" fixe,
   // partagé entre la carte héros du mode simple et celle du mode détaillé.
@@ -243,6 +279,7 @@ export const DashboardTab: React.FC = () => {
               { id: 'YESTERDAY' as const, label: 'Hier' },
               { id: 'WEEK' as const, label: 'Cette semaine' },
               { id: 'MONTH' as const, label: 'Ce mois' },
+              { id: 'RANGE' as const, label: 'Plage de dates' },
             ]
           ).map((p) => (
             <button
@@ -260,15 +297,43 @@ export const DashboardTab: React.FC = () => {
         </div>
 
         {/* Date Selector & Compare Switch */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
-            <Calendar className="w-3.5 h-3.5 text-[#4F46E5]" />
-            <span>
-              {period === 'WEEK' || period === 'MONTH'
-                ? `Du ${formatDayLabel(periodRange.start)} au ${formatDayLabel(periodRange.end)}`
-                : formatDayLabel(periodRange.start)}
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {period === 'RANGE' ? (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+              <Calendar className="w-3.5 h-3.5 text-[#4F46E5]" />
+              <label className="flex items-center gap-1">
+                <span className="text-slate-500 font-medium">Du</span>
+                <input
+                  id="dashboard-range-start"
+                  type="date"
+                  value={rangeStart}
+                  max={rangeEnd || undefined}
+                  onChange={(e) => setRangeStart(e.target.value)}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                />
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-slate-500 font-medium">au</span>
+                <input
+                  id="dashboard-range-end"
+                  type="date"
+                  value={rangeEnd}
+                  min={rangeStart || undefined}
+                  onChange={(e) => setRangeEnd(e.target.value)}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                />
+              </label>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+              <Calendar className="w-3.5 h-3.5 text-[#4F46E5]" />
+              <span>
+                {period === 'WEEK' || period === 'MONTH'
+                  ? `Du ${formatDayLabel(periodRange.start)} au ${formatDayLabel(periodRange.end)}`
+                  : formatDayLabel(periodRange.start)}
+              </span>
+            </div>
+          )}
 
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
             <input
@@ -302,7 +367,9 @@ export const DashboardTab: React.FC = () => {
                       ? 'Ce que tu as gagné hier'
                       : period === 'WEEK'
                       ? 'Ce que tu as gagné cette semaine'
-                      : 'Ce que tu as gagné ce mois'}
+                      : period === 'MONTH'
+                      ? 'Ce que tu as gagné ce mois'
+                      : `Ce que tu as gagné — ${periodRange.label.toLowerCase()}`}
                   </span>
                   {renderBeneficeDeltaBadge()}
                 </div>

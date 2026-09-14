@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Package, Search, Plus, Printer, ClipboardCheck, Camera } from 'lucide-react';
+import { Package, Search, Plus, Printer, ClipboardCheck, Camera, Tag, Download } from 'lucide-react';
 import { formatMoneyCompact, getTerminology } from '../../utils/formatters';
 import { countLabel } from '../../utils/plural';
 import { Product } from '../../types';
 import { ProductFormModal } from './ProductFormModal';
 import { ProductCard } from './ProductCard';
 import { LabelPrintModal } from './LabelPrintModal';
+import { LabelSelectionModal } from './LabelSelectionModal';
+import { CatalogExportModal } from './CatalogExportModal';
 import { BulkEditBar } from './BulkEditBar';
 import { InventoryScanModal } from './InventoryScanModal';
 import { BarcodeScannerModal } from '../pos/BarcodeScannerModal';
@@ -40,6 +42,11 @@ export const ProductsTab: React.FC = () => {
   // Label print modal
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [selectedProductForPrint, setSelectedProductForPrint] = useState<Product | null>(null);
+  // « Étiquettes » ouvre TOUJOURS la sélection d'abord ; l'impression ne
+  // travaille ensuite que sur les produits cochés.
+  const [isLabelSelectionOpen, setIsLabelSelectionOpen] = useState(false);
+  const [labelProductIds, setLabelProductIds] = useState<string[]>([]);
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   // Inventory modal
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -78,10 +85,7 @@ export const ProductsTab: React.FC = () => {
       id: 'labels',
       label: 'Imprimer les étiquettes',
       icon: Printer,
-      onSelect: () => {
-        setSelectedProductForPrint(null);
-        setIsPrintModalOpen(true);
-      },
+      onSelect: () => setIsLabelSelectionOpen(true),
     },
     {
       id: 'inventory',
@@ -102,6 +106,7 @@ export const ProductsTab: React.FC = () => {
   }, [isNewProductOpen, isFormOpen]);
 
   const handleOpenSinglePrint = (p: Product) => {
+    setLabelProductIds([]);
     setSelectedProductForPrint(p);
     setIsPrintModalOpen(true);
   };
@@ -226,6 +231,41 @@ export const ProductsTab: React.FC = () => {
           </button>
         </div>
 
+        {/* Actions du catalogue — les mêmes libellés sur téléphone et sur
+            ordinateur. « Ajouter un produit » en entier : une icône ou « Ajouter »
+            seul ne disait pas quoi. */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            id="btn-add-new-product"
+            type="button"
+            onClick={() => gateWrite(() => handleOpenCreate())}
+            className={`flex-1 min-w-[170px] h-10 px-3.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white text-[13px] font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer ${
+              isWriteLocked ? LOCKED_BTN_CLASS : ''
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter un produit
+          </button>
+          <button
+            id="btn-open-labels"
+            type="button"
+            onClick={() => setIsLabelSelectionOpen(true)}
+            className="flex-1 sm:flex-none h-10 px-3.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Tag className="w-4 h-4 text-slate-500" />
+            Étiquettes
+          </button>
+          <button
+            id="btn-open-catalog-export"
+            type="button"
+            onClick={() => setIsExportOpen(true)}
+            className="flex-1 sm:flex-none h-10 px-3.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-slate-500" />
+            Exporter
+          </button>
+        </div>
+
         {/* Pastilles de filtre, sans emoji : un point coloré dit l'alerte mieux
             qu'un pictogramme de messagerie. « + Ajouter » tient la droite de la
             rangée plutôt qu'une pleine largeur à lui seul. */}
@@ -261,17 +301,6 @@ export const ProductsTab: React.FC = () => {
             })}
           </div>
 
-          <button
-            id="btn-add-new-product"
-            type="button"
-            onClick={() => gateWrite(() => handleOpenCreate())}
-            className={`shrink-0 h-8 pl-2.5 pr-3.5 rounded-full bg-[#4F46E5] hover:bg-indigo-700 active:scale-95 text-white text-[11.5px] font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer ${
-              isWriteLocked ? LOCKED_BTN_CLASS : ''
-            }`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Ajouter
-          </button>
         </div>
       </div>
 
@@ -348,9 +377,23 @@ export const ProductsTab: React.FC = () => {
       />
 
       {/* LABEL PRINT MODAL (24-label A4 sheet or single product) */}
+      <LabelSelectionModal
+        isOpen={isLabelSelectionOpen}
+        onClose={() => setIsLabelSelectionOpen(false)}
+        onConfirm={(ids) => {
+          setIsLabelSelectionOpen(false);
+          setSelectedProductForPrint(null);
+          setLabelProductIds(ids);
+          setIsPrintModalOpen(true);
+        }}
+      />
+
+      <CatalogExportModal isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
+
       <LabelPrintModal
         isOpen={isPrintModalOpen}
         preSelectedProduct={selectedProductForPrint}
+        productIds={labelProductIds}
         onClose={() => {
           setIsPrintModalOpen(false);
           setSelectedProductForPrint(null);

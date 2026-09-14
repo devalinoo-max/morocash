@@ -75,6 +75,46 @@ export function getPreviousPeriodRange(period: SimplePeriod, reference: Date = n
   return { start: startOfDay(d), end: endOfDay(d), label: 'hier' };
 }
 
+/** « 2026-09-01 » (valeur d'un <input type="date">) → date locale, ou null. */
+export function parseDateInput(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Date locale → valeur d'un <input type="date"> (sans passer par UTC). */
+export function toDateInputValue(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Plage choisie à la main, jours inclus : « du 1 au 14 septembre » couvre le
+ * 1er à 00:00 jusqu'au 14 à 23:59:59. Des bornes inversées sont remises dans
+ * l'ordre plutôt que de donner une plage vide.
+ */
+export function getCustomRange(startValue: string, endValue: string): DateRange | null {
+  const a = parseDateInput(startValue);
+  const b = parseDateInput(endValue);
+  if (!a || !b) return null;
+  const [from, to] = a <= b ? [a, b] : [b, a];
+  const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return { start: startOfDay(from), end: endOfDay(to), label: `Du ${fmt(from)} au ${fmt(to)}` };
+}
+
+/**
+ * Période précédente d'une plage libre : même nombre de jours, juste avant.
+ * Du 1 au 14 septembre (14 jours) se compare au 18 au 31 août.
+ */
+export function getPreviousCustomRange(range: DateRange): DateRange {
+  const days = Math.round((startOfDay(range.end).getTime() - range.start.getTime()) / 86_400_000) + 1;
+  const prevEnd = new Date(range.start);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevStart = new Date(range.start);
+  prevStart.setDate(prevStart.getDate() - days);
+  return { start: startOfDay(prevStart), end: endOfDay(prevEnd), label: 'la période précédente' };
+}
+
 export function isWithinRange(dateInput: string | Date, range: DateRange): boolean {
   const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   return d >= range.start && d <= range.end;
