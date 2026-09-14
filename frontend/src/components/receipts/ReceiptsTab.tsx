@@ -26,8 +26,10 @@ import { ReceiptPreview } from './ReceiptPreview';
 import { PrintReceiptModal } from './PrintReceiptModal';
 import { WhatsAppRecipientModal, type ReceiptRecipient } from './WhatsAppRecipientModal';
 import { downloadReceiptsPdf, receiptErrorMessage } from '../../utils/receiptHelpers';
+import { getCustomRange, isWithinRange, toDateInputValue } from '../../utils/period';
+import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 
-type PeriodFilter = 'today' | 'week' | 'month' | 'all';
+type PeriodFilter = 'today' | 'week' | 'month' | 'range' | 'all';
 type StateFilter = 'ALL' | 'SENT' | 'UNSENT' | 'PAID' | 'REMAINING';
 
 export const ReceiptsTab: React.FC = () => {
@@ -42,6 +44,11 @@ export const ReceiptsTab: React.FC = () => {
 
   // Filters state
   const [period, setPeriod] = useState<PeriodFilter>('month');
+  const [rangeStart, setRangeStart] = useState(() => {
+    const now = new Date();
+    return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+  });
+  const [rangeEnd, setRangeEnd] = useState(() => toDateInputValue(new Date()));
   const [stateFilter, setStateFilter] = useState<StateFilter>('ALL');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('ALL');
   const [selectedSeller, setSelectedSeller] = useState<string>('ALL');
@@ -102,6 +109,10 @@ export const ReceiptsTab: React.FC = () => {
       if (period === 'today' && saleTime < startOfToday) return false;
       if (period === 'week' && saleTime < startOfWeek) return false;
       if (period === 'month' && saleTime < startOfMonth) return false;
+      if (period === 'range') {
+        const range = getCustomRange(rangeStart, rangeEnd);
+        if (range && !isWithinRange(sale.createdAt, range)) return false;
+      }
 
       // Seller filter (Owner only)
       if (settings.role !== 'SELLER' && selectedSeller !== 'ALL') {
@@ -138,6 +149,8 @@ export const ReceiptsTab: React.FC = () => {
   }, [
     roleFilteredSales,
     period,
+    rangeStart,
+    rangeEnd,
     selectedSeller,
     selectedCustomerId,
     stateFilter,
@@ -532,6 +545,7 @@ export const ReceiptsTab: React.FC = () => {
                 { id: 'today', label: "Aujourd'hui" },
                 { id: 'week', label: 'Cette semaine' },
                 { id: 'month', label: 'Ce mois' },
+                { id: 'range', label: DATE_RANGE_LABEL },
                 { id: 'all', label: 'Tout' },
               ] as const
             ).map((p) => (
@@ -547,6 +561,15 @@ export const ReceiptsTab: React.FC = () => {
                 {p.label}
               </button>
             ))}
+            {period === 'range' && (
+              <DateRangeInputs
+                id="receipts-range"
+                start={rangeStart}
+                end={rangeEnd}
+                onStartChange={setRangeStart}
+                onEndChange={setRangeEnd}
+              />
+            )}
           </div>
 
           <div className="text-xs text-slate-500">

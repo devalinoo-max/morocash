@@ -25,7 +25,8 @@ import {
 import { formatMoney, formatMoneyCompact, formatDate, formatShortDate } from '../../utils/formatters';
 import { countLabel } from '../../utils/plural';
 import { PaymentMethod, CashMovement } from '../../types';
-import { getPeriodRange, isWithinRange, SimplePeriod } from '../../utils/period';
+import { getCustomRange, getPeriodRange, isWithinRange, SimplePeriod, toDateInputValue } from '../../utils/period';
+import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 export const CashRegisterTab: React.FC = () => {
@@ -183,11 +184,24 @@ export const CashRegisterTab: React.FC = () => {
   // bord (frontend/src/utils/period.ts), pour ne pas réapprendre deux fois
   // les mêmes mots selon l'écran.
   // ========================================================================
-  const [caissePeriod, setCaissePeriod] = useState<SimplePeriod>('TODAY');
+  const [caissePeriod, setCaissePeriod] = useState<SimplePeriod | 'RANGE'>('TODAY');
+  const [rangeStart, setRangeStart] = useState(() => {
+    const now = new Date();
+    return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+  });
+  const [rangeEnd, setRangeEnd] = useState(() => toDateInputValue(new Date()));
 
-  const periodRange = useMemo(() => getPeriodRange(caissePeriod), [caissePeriod]);
+  const periodRange = useMemo(
+    () =>
+      (caissePeriod === 'RANGE' && getCustomRange(rangeStart, rangeEnd)) ||
+      getPeriodRange(caissePeriod === 'RANGE' ? 'TODAY' : caissePeriod),
+    [caissePeriod, rangeStart, rangeEnd]
+  );
 
-  const isSingleDayPeriod = caissePeriod === 'TODAY' || caissePeriod === 'YESTERDAY';
+  const isSingleDayPeriod =
+    caissePeriod === 'TODAY' ||
+    caissePeriod === 'YESTERDAY' ||
+    (caissePeriod === 'RANGE' && periodRange.start.toDateString() === periodRange.end.toDateString());
 
   const periodMovements = useMemo(() => {
     return cashMovements
@@ -689,6 +703,7 @@ export const CashRegisterTab: React.FC = () => {
                 { id: 'YESTERDAY' as const, label: 'Hier' },
                 { id: 'WEEK' as const, label: 'Cette semaine' },
                 { id: 'MONTH' as const, label: 'Ce mois' },
+                { id: 'RANGE' as const, label: DATE_RANGE_LABEL },
               ]
             ).map((tab) => {
               const active = caissePeriod === tab.id;
@@ -707,6 +722,16 @@ export const CashRegisterTab: React.FC = () => {
               );
             })}
           </div>
+          {caissePeriod === 'RANGE' && (
+            <DateRangeInputs
+              id="cash-range"
+              className="w-fit"
+              start={rangeStart}
+              end={rangeEnd}
+              onStartChange={setRangeStart}
+              onEndChange={setRangeEnd}
+            />
+          )}
         </div>
 
         {/* Real Table with 46px line-height */}

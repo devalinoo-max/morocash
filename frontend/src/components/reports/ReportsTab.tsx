@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 import { useApp } from '../../context/AppContext';
 import {
   TrendingUp,
@@ -729,7 +730,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                 { id: '30days', label: '30 jours' },
                 { id: 'thisMonth', label: 'Ce mois' },
                 { id: 'thisYear', label: 'Cette année' },
-                { id: 'custom', label: 'Période libre' },
+                { id: 'custom', label: DATE_RANGE_LABEL },
               ] as const
             ).map((tab) => {
               const active = periodPreset === tab.id;

@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { DATE_RANGE_LABEL } from '../common/DateRangeInputs';
+import { getCustomRange, toDateInputValue } from '../../utils/period';
 import { useApp } from '../../context/AppContext';
 import {
   ArrowLeftRight,
@@ -48,8 +50,11 @@ export const MovementsTab: React.FC = () => {
 
   // Filters state
   const [period, setPeriod] = useState<PeriodFilter>('30D');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+  });
+  const [endDate, setEndDate] = useState(() => toDateInputValue(new Date()));
   const [typeFilter, setTypeFilter] = useState<'ALL' | StockMovementType>('ALL');
   const [productFilter, setProductFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,17 +78,10 @@ export const MovementsTab: React.FC = () => {
       start = new Date(now.getFullYear(), now.getMonth(), 1);
       start.setHours(0, 0, 0, 0);
     } else if (period === 'CUSTOM') {
-      if (startDate) {
-        start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-      } else {
-        start = new Date(0);
-      }
-      if (endDate) {
-        const customEnd = new Date(endDate);
-        customEnd.setHours(23, 59, 59, 999);
-        return { start, end: customEnd };
-      }
+      // Dates lues en heure locale (new Date('2026-09-01') est lu en UTC), et
+      // bornes inversées remises dans l'ordre : même calcul que partout.
+      const range = getCustomRange(startDate, endDate);
+      if (range) return { start: range.start, end: range.end };
     }
     return { start, end };
   }, [period, startDate, endDate]);
@@ -516,7 +514,7 @@ export const MovementsTab: React.FC = () => {
                 <option value="7D">7 derniers jours</option>
                 <option value="30D">30 derniers jours</option>
                 <option value="THIS_MONTH">Ce mois-ci</option>
-                <option value="CUSTOM">Personnalisée...</option>
+                <option value="CUSTOM">{DATE_RANGE_LABEL}</option>
               </select>
             </div>
 

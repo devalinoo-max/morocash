@@ -34,6 +34,7 @@ import {
   SimplePeriod,
   toDateInputValue,
 } from '../../utils/period';
+import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 
 /** Les quatre raccourcis, plus une plage choisie à la main (date de début → date de fin). */
 type DashboardPeriod = SimplePeriod | 'RANGE';
@@ -279,7 +280,7 @@ export const DashboardTab: React.FC = () => {
               { id: 'YESTERDAY' as const, label: 'Hier' },
               { id: 'WEEK' as const, label: 'Cette semaine' },
               { id: 'MONTH' as const, label: 'Ce mois' },
-              { id: 'RANGE' as const, label: 'Plage de dates' },
+              { id: 'RANGE' as const, label: DATE_RANGE_LABEL },
             ]
           ).map((p) => (
             <button
@@ -299,31 +300,13 @@ export const DashboardTab: React.FC = () => {
         {/* Date Selector & Compare Switch */}
         <div className="flex flex-wrap items-center gap-3">
           {period === 'RANGE' ? (
-            <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
-              <Calendar className="w-3.5 h-3.5 text-[#4F46E5]" />
-              <label className="flex items-center gap-1">
-                <span className="text-slate-500 font-medium">Du</span>
-                <input
-                  id="dashboard-range-start"
-                  type="date"
-                  value={rangeStart}
-                  max={rangeEnd || undefined}
-                  onChange={(e) => setRangeStart(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-                />
-              </label>
-              <label className="flex items-center gap-1">
-                <span className="text-slate-500 font-medium">au</span>
-                <input
-                  id="dashboard-range-end"
-                  type="date"
-                  value={rangeEnd}
-                  min={rangeStart || undefined}
-                  onChange={(e) => setRangeEnd(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-                />
-              </label>
-            </div>
+            <DateRangeInputs
+              id="dashboard-range"
+              start={rangeStart}
+              end={rangeEnd}
+              onStartChange={setRangeStart}
+              onEndChange={setRangeEnd}
+            />
           ) : (
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
               <Calendar className="w-3.5 h-3.5 text-[#4F46E5]" />

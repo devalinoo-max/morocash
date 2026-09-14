@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 import { useApp } from '../../context/AppContext';
 import {
   Receipt,
@@ -294,7 +295,8 @@ export const SalesTab: React.FC = () => {
           />
         </div>
 
-        {/* Période : quatre raccourcis de largeur égale, jamais coupés */}
+        {/* Période : quatre raccourcis de largeur égale, jamais coupés, puis la
+            plage de dates — visible ici, plus seulement dans les filtres avancés. */}
         <div className="grid grid-cols-4 gap-1.5">
           {(
             [
@@ -317,6 +319,29 @@ export const SalesTab: React.FC = () => {
               {p.label}
             </button>
           ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            id="btn-sales-period-range"
+            type="button"
+            onClick={() => setPeriodFilter('custom')}
+            className={`h-[38px] px-3.5 rounded-xl text-[11.5px] font-bold transition-all cursor-pointer ${
+              periodFilter === 'custom'
+                ? 'bg-[#4F46E5] text-white shadow-xs'
+                : 'bg-white md:bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            {DATE_RANGE_LABEL}
+          </button>
+          {periodFilter === 'custom' && (
+            <DateRangeInputs
+              id="sales-range"
+              start={customStart}
+              end={customEnd}
+              onStartChange={setCustomStart}
+              onEndChange={setCustomEnd}
+            />
+          )}
         </div>
 
         {/* Statuts : la seule rangée qui défile, et elle l'annonce par son
