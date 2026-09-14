@@ -151,8 +151,8 @@ export function validateBarcodeChecksum(code: string): {
 } {
   const clean = code.trim();
 
-  // Internal code
-  if (clean.startsWith('MC-')) {
+  // Code maison : INT-XXXXXXXXX genere par le serveur, MC-… des premieres versions.
+  if (/^(INT|MC)-/i.test(clean)) {
     return {
       format: 'INTERNE',
       isValidLength: true,
@@ -366,6 +366,21 @@ async function tryDecodeImage(canvas: HTMLCanvasElement): Promise<{ code: string
   }
 
   // 2. ZXing fallback
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return decodeRgbaWithZXing(imgData.data, canvas.width, canvas.height);
+}
+
+/**
+ * Lecture ZXing de pixels RGBA (ce que rend getImageData), sans navigateur :
+ * c'est ce chemin que les tests font tourner sur les vrais symboles imprimés.
+ */
+export function decodeRgbaWithZXing(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number
+): { code: string; format: BarcodeFormat } | null {
   try {
     const hints = new Map();
     hints.set(DecodeHintType.POSSIBLE_FORMATS, [
@@ -381,14 +396,7 @@ async function tryDecodeImage(canvas: HTMLCanvasElement): Promise<{ code: string
     ]);
     hints.set(DecodeHintType.TRY_HARDER, true);
 
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return null;
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const luminanceSource = new RGBLuminanceSource(
-      toLuminance(imgData.data),
-      canvas.width,
-      canvas.height
-    );
+    const luminanceSource = new RGBLuminanceSource(toLuminance(rgba), width, height);
     const binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource));
     const reader = new MultiFormatReader();
     reader.setHints(hints);
@@ -397,7 +405,10 @@ async function tryDecodeImage(canvas: HTMLCanvasElement): Promise<{ code: string
     if (result && result.getText()) {
       return {
         code: result.getText().trim(),
-        format: mapFormatStringToBarcodeFormat(result.getBarcodeFormat().toString()),
+        // Le format ZXing est un enum NUMERIQUE : son toString() donnait « 7 »
+        // pour un EAN-13, que la table ne connaissait pas — tout code lu par ce
+        // chemin (photo, iPhone, ordinateur) etait enregistre comme CODE128.
+        format: mapFormatStringToBarcodeFormat(ZXingBarcodeFormat[result.getBarcodeFormat()] ?? ''),
       };
     }
   } catch {

@@ -163,26 +163,8 @@ export function toFrontendProduct(p: ApiProduct, categoryName?: string): Product
   // imprimes sur l'etiquette et cherches au scan en caisse : le frontend ne
   // doit jamais en inventer un de son cote, sinon l'etiquette et le catalogue
   // ne parlent pas du meme code et le scan repond "produit introuvable".
-  const apiCodes = p.codes ?? [];
-  const productCodes: ProductCode[] = apiCodes.map((c) => ({
-    id: c.id,
-    business_id: '',
-    product_id: p.id,
-    code: c.code,
-    format: c.format as BarcodeFormat,
-    origine: c.origine as CodeOrigin,
-    est_principal: c.estPrincipal,
-    created_at: c.createdAt,
-  }));
-  // Code interne = celui que la boutique a genere (QR MoroCash). Le code du
-  // fabricant, lui, est scanne sur l'emballage : formats EAN/UPC/CODE*.
-  const internal = apiCodes.find((c) => c.origine === 'GENERE') ?? apiCodes.find((c) => c.estPrincipal);
-  const manufacturer = apiCodes.find((c) => c.origine !== 'GENERE' && c.format !== 'QR');
-
   return {
-    ...(productCodes.length > 0 ? { productCodes } : {}),
-    ...(internal ? { internalCode: internal.code } : {}),
-    ...(manufacturer ? { barcode: manufacturer.code } : {}),
+    ...codeFieldsFromApi(p.id, p.codes ?? []),
     photo: photos[0],
     photos,
     photoRefs: images.map((i) => ({ id: i.id, url: i.url })),
@@ -201,6 +183,93 @@ export function toFrontendProduct(p: ApiProduct, categoryName?: string): Product
     createdAt: p.createdAt,
     syncStatus: 'SYNCED',
   };
+}
+
+/** Champs de code du produit affiché, à partir des codes renvoyés par le serveur. */
+export function codeFieldsFromApi(
+  productId: string,
+  apiCodes: ApiProductCode[]
+): Pick<Product, 'productCodes' | 'internalCode' | 'barcode'> {
+  const productCodes: ProductCode[] = apiCodes.map((c) => ({
+    id: c.id,
+    business_id: '',
+    product_id: productId,
+    code: c.code,
+    format: c.format as BarcodeFormat,
+    origine: c.origine as CodeOrigin,
+    est_principal: c.estPrincipal,
+    created_at: c.createdAt,
+  }));
+  // Code interne = celui que la boutique a genere (QR MoroCash). Le code du
+  // fabricant, lui, est scanne sur l'emballage : formats EAN/UPC/CODE*.
+  const internal = apiCodes.find((c) => c.origine === 'GENERE') ?? apiCodes.find((c) => c.estPrincipal);
+  const manufacturer = apiCodes.find((c) => c.origine !== 'GENERE' && c.format !== 'QR');
+  return {
+    productCodes: productCodes.length > 0 ? productCodes : undefined,
+    internalCode: internal?.code,
+    barcode: manufacturer?.code,
+  };
+}
+
+export interface CodeToAdd {
+  code: string;
+  format: BarcodeFormat;
+  origine: CodeOrigin;
+}
+
+export function addProductCode(productId: string, input: CodeToAdd) {
+  return api
+    .post<{ code: ApiProductCode }>(`/products/${productId}/codes`, { ...input, estPrincipal: false })
+    .then((d) => d.code);
+}
+
+export function removeProductCode(productId: string, codeId: string) {
+  return api.delete<{ deleted: true }>(
+    `/products/${productId}/codes?codeId=${encodeURIComponent(codeId)}`
+  );
+}
+
+/**
+ * Aligne les codes d'un produit côté serveur : retire `remove`, ajoute `add`.
+ *
+ * Les codes-barres ajoutés depuis l'appli (scan, photo, saisie, champ du
+ * formulaire) ne restaient jusqu'ici que dans le téléphone : au rechargement
+ * du catalogue ils disparaissaient, et le scan de l'emballage répondait
+ * « code non reconnu » — sur cet appareil comme sur celui du vendeur.
+ *
+ * Le retrait passe d'abord : un code déplacé d'un produit à l'autre doit être
+ * libéré avant d'être repris (un code est unique dans la boutique). Le code
+ * maison généré par le serveur n'est jamais retiré.
+ */
+export async function syncProductCodes(
+  productId: string,
+  serverCodes: ApiProductCode[],
+  changes: { add?: CodeToAdd[]; remove?: string[] }
+): Promise<ApiProductCode[]> {
+  let codes = [...serverCodes];
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+  for (const value of changes.remove ?? []) {
+    const existing = codes.find((c) => same(c.code, value) && c.origine !== 'GENERE');
+    if (!existing) continue;
+    await removeProductCode(productId, existing.id);
+    codes = codes.filter((c) => c.id !== existing.id);
+  }
+
+  for (const input of changes.add ?? []) {
+    if (!input.code.trim() || codes.some((c) => same(c.code, input.code))) continue;
+    try {
+      codes.push(await addProductCode(productId, { ...input, code: input.code.trim() }));
+    } catch (error) {
+      // Déjà enregistré par un envoi précédent dont la réponse s'est perdue.
+      if (!(error instanceof ApiError && error.code === 'CODE_ALREADY_USED')) throw error;
+      const fresh = await api.get<{ codes: ApiProductCode[] }>(`/products/${productId}/codes`);
+      if (!fresh.codes.some((c) => same(c.code, input.code))) throw error;
+      codes = fresh.codes;
+    }
+  }
+
+  return codes;
 }
 
 export function toCreateProductInput(product: {

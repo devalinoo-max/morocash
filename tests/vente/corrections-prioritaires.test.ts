@@ -59,6 +59,23 @@ describe('Ticket 3 — le reçu reflète toujours la bonne boutique', () => {
     expect(initialSettings.receiptMessage).not.toMatch(/toile d/i);
   });
 
+  it('l ancien message par défaut, déjà enregistré sur l appareil, prend le nom de la boutique', () => {
+    for (const ancien of [
+      'Merci pour votre confiance ! À bientôt chez Étoile d’Afrique.',
+      "Merci pour votre confiance ! À bientôt chez Étoile d'Afrique.",
+      'Merci ! À bientôt chez Boutique Étoile d’Afrique.',
+    ]) {
+      const s = { receiptMessage: ancien, shopName: 'ALINOO' };
+      expect(resolveReceiptMessage(s)).toMatch(/À bientôt chez ALINOO\.$/);
+      expect(editableReceiptMessage(s)).not.toMatch(/toile/i);
+      expect(generateReceiptWhatsAppText(vente(), boutique(s))).not.toMatch(/toile/i);
+    }
+    // Une boutique qui s'appelle vraiment ainsi garde son message.
+    expect(
+      resolveReceiptMessage({ receiptMessage: "À bientôt chez Étoile d'Afrique.", shopName: "Étoile d'Afrique" })
+    ).toBe("À bientôt chez Étoile d'Afrique.");
+  });
+
   it('un nom tapé en toutes lettres suit ensuite un changement de nom', () => {
     const stored = toStoredReceiptMessage('À bientôt chez Allo !', 'Allo');
     expect(stored).toBe('À bientôt chez {boutique} !');

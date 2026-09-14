@@ -18,6 +18,7 @@ import {
   Keyboard,
 } from 'lucide-react';
 import { decodeFromVideoFrame, playScanSuccessBeep } from '../../utils/barcodeEngine';
+import { createScanGate } from '../../utils/productCodeLookup';
 
 interface InventoryScanModalProps {
   isOpen: boolean;
@@ -39,8 +40,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const lastScanTimeRef = useRef<number>(0);
-  const lastScannedCodeRef = useRef<string>('');
+  const scanGateRef = useRef(createScanGate());
   const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const decodingRef = useRef(false);
 
@@ -147,8 +147,6 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
       return;
     }
 
-    const now = Date.now();
-
     // Meme repli que le scanner de caisse : sans BarcodeDetector (iPhone,
     // navigateurs de bureau, WebView Android), rien n'etait jamais lu.
     if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
@@ -157,12 +155,8 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
         if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
         decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
           .then((lu) => {
-            if (!lu) return;
-            const raw = lu.code.trim();
-            if (raw !== lastScannedCodeRef.current || Date.now() - lastScanTimeRef.current > 1200) {
-              lastScannedCodeRef.current = raw;
-              lastScanTimeRef.current = Date.now();
-              handleRegisterScan(raw);
+            if (lu && scanGateRef.current.accept(lu.code, Date.now())) {
+              handleRegisterScanRef.current(lu.code);
             }
           })
           .catch(() => {
@@ -180,16 +174,12 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
     if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
       try {
         const detector = new (window as any).BarcodeDetector({
-          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'],
+          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix'],
         });
         const barcodes = await detector.detect(videoRef.current);
-        if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-          const raw = barcodes[0].rawValue.trim();
-          if (raw !== lastScannedCodeRef.current || now - lastScanTimeRef.current > 1200) {
-            lastScannedCodeRef.current = raw;
-            lastScanTimeRef.current = now;
-            handleRegisterScan(raw);
-          }
+        const raw = barcodes?.[0]?.rawValue;
+        if (raw && scanGateRef.current.accept(raw, Date.now())) {
+          handleRegisterScanRef.current(raw);
         }
       } catch {
         // Continue loop
@@ -216,6 +206,11 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
     }
   };
 
+  // La boucle camera, lancee a l'ouverture, cherchait sinon dans le catalogue
+  // de ce moment-la (voir BarcodeScannerModal).
+  const handleRegisterScanRef = useRef(handleRegisterScan);
+  handleRegisterScanRef.current = handleRegisterScan;
+
   const updateItemCount = (productId: string, delta: number) => {
     setCounts((prev) => {
       const current = prev[productId] || 0;
@@ -225,13 +220,11 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
   };
 
   // List of counted items with comparison
-  const countedItems: CountedItem[] = Object.keys(counts).map((productId) => {
-    const p = products.find((prod) => prod.id === productId)!;
-    return {
-      product: p,
-      countedQty: counts[productId],
-      theoreticalQty: p.stock,
-    };
+  // Un produit scanne puis retire du catalogue (supprime, id remplace a la
+  // synchronisation) faisait planter tout l'ecran : on l'ignore.
+  const countedItems: CountedItem[] = Object.keys(counts).flatMap((productId) => {
+    const p = products.find((prod) => prod.id === productId);
+    return p ? [{ product: p, countedQty: counts[productId], theoreticalQty: p.stock }] : [];
   });
 
   // Apply all adjustments in 1 click

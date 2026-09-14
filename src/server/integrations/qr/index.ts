@@ -28,7 +28,20 @@ export async function generateBarcodePngBuffer(format: CodeFormat, code: string)
 
   return new Promise<Buffer>((resolve, reject) => {
     bwipjs.toBuffer(
-      { bcid, text: code, scale: 3, height: 10, includetext: true, textxalign: 'center' },
+      {
+        bcid,
+        text: code,
+        scale: 3,
+        height: 10,
+        includetext: true,
+        textxalign: 'center',
+        // Fond blanc et marge : sans eux l'image est transparente, et un
+        // code-barres affiché sur un fond sombre (WhatsApp en mode sombre,
+        // aperçu d'image) devient noir sur noir, illisible pour un lecteur.
+        backgroundcolor: 'FFFFFF',
+        paddingwidth: 10,
+        paddingheight: 6,
+      },
       (err: string | Error, png: Buffer) => (err ? reject(err instanceof Error ? err : new Error(err)) : resolve(png))
     );
   });

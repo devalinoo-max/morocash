@@ -9,9 +9,22 @@ import { formatMoneyFull, pageForPrefs, readPrintPrefs, type PrintPageSpec } fro
  */
 export const SHOP_NAME_TOKEN = '{boutique}';
 
+/**
+ * Nom d'exemple de l'ancien message par défaut, écrit en toutes lettres. Les
+ * appareils qui l'ont déjà enregistré l'affichaient sur tous les reçus, sous
+ * le vrai nom de la boutique : on le traite comme le jeton.
+ */
+const LEGACY_SAMPLE_NAME = /(?:Boutique\s+)?Étoile\s+d['’]Afrique/i;
+
+function withShopNameToken(message: string, shopName: string): string {
+  // Une boutique qui s'appelle vraiment ainsi garde son message tel quel.
+  if (LEGACY_SAMPLE_NAME.test(shopName)) return message;
+  return message.replace(new RegExp(LEGACY_SAMPLE_NAME.source, 'gi'), SHOP_NAME_TOKEN);
+}
+
 /** Message de fin de reçu, nom de la boutique injecté au moment de l'affichage. */
 export function resolveReceiptMessage(settings: Pick<ShopSettings, 'receiptMessage' | 'shopName'>): string {
-  const message = settings.receiptMessage?.trim() || '';
+  const message = withShopNameToken(settings.receiptMessage?.trim() || '', settings.shopName || '');
   if (!message) return '';
   const shopName = settings.shopName?.trim() || '';
   // Nom vide : on resserre seulement les espaces doublés et l'espace laissée
@@ -38,7 +51,7 @@ export function toStoredReceiptMessage(message: string, shopName: string): strin
 /** Message tel qu'on l'édite dans les Paramètres : avec le vrai nom. */
 export function editableReceiptMessage(settings: Pick<ShopSettings, 'receiptMessage' | 'shopName'>): string {
   const name = settings.shopName?.trim();
-  const message = settings.receiptMessage || '';
+  const message = withShopNameToken(settings.receiptMessage || '', name || '');
   return name ? message.split(SHOP_NAME_TOKEN).join(name) : message;
 }
 

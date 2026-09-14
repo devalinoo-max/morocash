@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { formatMoney } from '../../utils/currency';
 import { decodeFromVideoFrame, playScanSuccessBeep } from '../../utils/barcodeEngine';
+import { createScanGate } from '../../utils/productCodeLookup';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -38,8 +39,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const lastScanTimeRef = useRef<number>(0);
-  const lastScannedCodeRef = useRef<string>('');
+  const scanGateRef = useRef(createScanGate());
   // Canvas de travail du repli ZXing, reutilise d'une image a l'autre.
   const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   // Une seule lecture ZXing a la fois : elle dure plusieurs dizaines de ms et
@@ -160,8 +160,6 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       return;
     }
 
-    const now = Date.now();
-
     // Repli ZXing quand le navigateur n'expose pas BarcodeDetector : iPhone,
     // navigateurs de bureau, beaucoup de WebView Android. Sans lui, la camera
     // s'ouvrait et rien n'etait jamais lu, sans aucun message.
@@ -171,12 +169,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
         decodeFromVideoFrame(videoRef.current, frameCanvasRef.current)
           .then((lu) => {
-            if (!lu) return;
-            const raw = lu.code.trim();
-            if (raw !== lastScannedCodeRef.current || Date.now() - lastScanTimeRef.current > 1200) {
-              lastScannedCodeRef.current = raw;
-              lastScanTimeRef.current = Date.now();
-              handleRecognizedCode(raw);
+            if (lu && scanGateRef.current.accept(lu.code, Date.now())) {
+              handleRecognizedCodeRef.current(lu.code);
             }
           })
           .catch(() => {
@@ -203,18 +197,15 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             'upc_e',
             'code_128',
             'code_39',
+            'itf',
             'qr_code',
+            'data_matrix',
           ],
         });
         const barcodes = await detector.detect(videoRef.current);
-        if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-          const raw = barcodes[0].rawValue.trim();
-          // Debounce same code scans (1200ms throttle for identical code)
-          if (raw !== lastScannedCodeRef.current || now - lastScanTimeRef.current > 1200) {
-            lastScannedCodeRef.current = raw;
-            lastScanTimeRef.current = now;
-            handleRecognizedCode(raw);
-          }
+        const raw = barcodes?.[0]?.rawValue;
+        if (raw && scanGateRef.current.accept(raw, Date.now())) {
+          handleRecognizedCodeRef.current(raw);
         }
       } catch {
         // Continue
@@ -263,6 +254,14 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       showToast(`Code non reconnu (${trimmed})`, 'warning');
     }
   };
+
+  // La boucle camera est lancee une fois, a l'ouverture : elle appelait la
+  // version de handleRecognizedCode de ce rendu-la, donc le catalogue et le
+  // panier de l'ouverture. Le bandeau affichait « 1 dans le panier » a chaque
+  // scan du meme article, et un catalogue arrive apres l'ouverture n'etait
+  // jamais consulte. Elle passe maintenant par ce ref, tenu a jour.
+  const handleRecognizedCodeRef = useRef(handleRecognizedCode);
+  handleRecognizedCodeRef.current = handleRecognizedCode;
 
   if (!isOpen) return null;
 
@@ -486,7 +485,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                     setManualCode('');
                   }
                 }}
-                placeholder="Ex: MC-A7K2X-000001 ou EAN-13"
+                placeholder="Ex: INT-612332909 ou EAN-13"
                 className="flex-1 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   X,
@@ -46,14 +46,21 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
   const [scanInput, setScanInput] = useState('');
   const [commentaire, setCommentaire] = useState('');
 
-  // Counted quantities map: { [productId]: number }
-  const [counts, setCounts] = useState<{ [id: string]: number }>(() => {
-    const initial: { [id: string]: number } = {};
-    physicalProducts.forEach((p) => {
-      initial[p.id] = p.stock;
-    });
-    return initial;
-  });
+  // Quantités saisies : un produit absent vaut son stock théorique. On ne les
+  // pré-remplit plus avec le stock du moment où l'onglet s'est affiché — la
+  // fenêtre reste montée, et après une vente elle proposait l'ancien stock,
+  // donc un faux écart que la validation enregistrait.
+  const [counts, setCounts] = useState<{ [id: string]: number }>({});
+  // Produits déjà passés au scan pendant ce comptage.
+  const [scannedIds, setScannedIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    if (isOpen) {
+      setCounts({});
+      setScannedIds(new Set());
+      setScanInput('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -78,10 +85,14 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
     if (!scanInput.trim()) return;
     const match = findProductByCode(scanInput.trim());
     if (match) {
-      // Increment counted quantity by 1
+      // Chaque scan = un article physiquement compté. Le premier scan part de
+      // 0 : partir du stock théorique donnait 11 pour un seul article scanné
+      // sur un stock de 10.
+      const alreadyScanned = scannedIds.has(match.id);
+      setScannedIds((prev) => new Set(prev).add(match.id));
       setCounts((prev) => ({
         ...prev,
-        [match.id]: (prev[match.id] ?? match.stock) + 1,
+        [match.id]: alreadyScanned ? (prev[match.id] ?? 0) + 1 : 1,
       }));
       setScanInput('');
     } else {

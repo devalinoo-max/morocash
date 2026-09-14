@@ -252,10 +252,12 @@ async function generateQrDataUri(text: string): Promise<string> {
 // Generate 1D Barcode as SVG Data URI with bwip-js
 function generateBarcodeDataUri(text: string): string {
   try {
-    const cleanText = text.replace(/[^A-Za-z0-9]/g, '') || text;
+    // Le code est encode tel quel. On en retirait la ponctuation : l'etiquette
+    // de « INT-612332909 » se relisait « INT612332909 », un code que le
+    // catalogue ne connait pas. Le Code 128 encode sans peine tiret et point.
     const svg = bwipjs.toSVG({
       bcid: 'code128',
-      text: cleanText,
+      text: text.trim(),
       scale: 2,
       height: 10,
       includetext: false,

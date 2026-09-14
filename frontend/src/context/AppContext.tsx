@@ -357,6 +357,12 @@ const STORAGE_KEYS = {
  */
 const defaultReceiptDeliveries: ReceiptDelivery[] = [];
 
+/** Code-barres saisi dans un formulaire, prêt à partir au serveur. */
+function codesToAdd(barcode: string | undefined, origine: CodeOrigin = 'MANUEL'): productsApi.CodeToAdd[] {
+  const code = barcode?.trim();
+  return code ? [{ code, format: validateBarcodeChecksum(code).format, origine }] : [];
+}
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // 1. Settings State
   const [settings, setSettings] = useState<ShopSettings>(() => {
@@ -1136,11 +1142,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
         }
 
+        // Le code-barres saisi ou scanné à la création part après le produit,
+        // qui doit exister pour le recevoir. Comme pour la photo, un code
+        // refusé (déjà pris par un autre article) ne fait pas perdre le produit.
+        let codes = created.codes ?? [];
+        try {
+          codes = await productsApi.syncProductCodes(created.id, codes, m.payload.codes ?? {});
+        } catch (error) {
+          showToast(`Produit enregistré, mais son code-barres n'a pas été gardé : ${apiErrorMessage(error)}`, 'warning');
+        }
+
         setProducts((prev) =>
           prev.map((p) =>
             p.id === m.localId
               ? {
                   ...p,
+                  ...productsApi.codeFieldsFromApi(created.id, codes),
                   id: created.id,
                   syncStatus: 'SYNCED',
                   ...(refs.length > 0
@@ -1197,6 +1214,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           await rememberId(localProductId, updated.id);
         }
 
+        // Codes ajoutés ou retirés (champ code-barres, « Ajouter un code »,
+        // transfert d'un article à l'autre). Un refus remonte comme celui du
+        // PATCH : l'écran reprend alors les codes d'avant.
+        const codes = m.payload.codes
+          ? await productsApi.syncProductCodes(productId, updated.codes ?? [], m.payload.codes)
+          : null;
+
         let refs: productsApi.ProductPhotoRef[] | null = null;
         if (m.payload.photos !== undefined) {
           try {
@@ -1223,6 +1247,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   alertThreshold: updated.seuilAlerte,
                   unit: updated.unite,
                   isService: updated.type === 'SERVICE',
+                  ...(codes ? productsApi.codeFieldsFromApi(updated.id, codes) : {}),
                   syncStatus: 'SYNCED',
                   ...(refs
                     ? { photoRefs: refs, photos: refs.map((r) => r.url), photo: refs[0]?.url }
@@ -1848,6 +1873,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         input: productsApi.toCreateProductInput({ ...productData }),
         categoryName,
         photos,
+        codes: { add: codesToAdd(productData.barcode) },
       },
     };
 
@@ -1882,9 +1908,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return product;
   };
 
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
+  const updateProduct = async (
+    id: string,
+    updates: Partial<Product>,
+    codeChanges?: { add?: productsApi.CodeToAdd[]; remove?: string[] }
+  ) => {
     const current = products.find((p) => p.id === id);
     const categoryName = updates.category?.trim() || undefined;
+
+    // Champ « code-barres » du formulaire : l'ancien code est retiré, le
+    // nouveau ajouté. Sans cela la modification ne quittait jamais l'appareil.
+    let codes = codeChanges;
+    if (!codes && 'barcode' in updates) {
+      const before = current?.barcode?.trim() || '';
+      const after = updates.barcode?.trim() || '';
+      if (before !== after) {
+        codes = { add: codesToAdd(after), remove: before ? [before] : [] };
+      }
+    }
 
     // L'ecran affiche la modification tout de suite ; le PATCH suit.
     setProducts((prev) =>
@@ -1901,6 +1942,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         categoryName,
         photos: updates.photos,
         currentPhotoRefs: current?.photoRefs ?? [],
+        ...(codes ? { codes } : {}),
         input: {
           ...(updates.name !== undefined ? { nom: updates.name } : {}),
           ...(updates.salePrice !== undefined ? { prixVente: updates.salePrice } : {}),
@@ -1987,17 +2029,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     code: string,
     format: BarcodeFormat,
     origin: CodeOrigin,
-    isPrimary = false
+    isPrimary = false,
+    /** Produit qui cède ce code (transfert) : ne compte pas comme un conflit. */
+    releasedBy?: string
   ): { success: boolean; conflictProduct?: Product; message?: string } => {
     const cleanCode = code.trim();
     if (!cleanCode) {
       return { success: false, message: 'Le code ne peut pas être vide.' };
+    }
+    const target = products.find((p) => p.id === productId);
+    if (!target) {
+      return { success: false, message: 'Produit introuvable.' };
     }
 
     // Uniqueness rule: A code can only be associated with ONE product in this boutique
     const conflictProduct = products.find(
       (p) =>
         p.id !== productId &&
+        p.id !== releasedBy &&
         (p.internalCode?.toLowerCase() === cleanCode.toLowerCase() ||
           p.barcode?.toLowerCase() === cleanCode.toLowerCase() ||
           p.productCodes?.some((c) => c.code.toLowerCase() === cleanCode.toLowerCase()))
@@ -2019,21 +2068,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       created_by: settings.ownerName || 'Commerçant',
     };
 
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        const currentCodes = p.productCodes ? [...p.productCodes] : [];
-        if (isPrimary) {
-          currentCodes.forEach((c) => {
-            c.est_principal = false;
-          });
-        }
-        return {
-          ...p,
-          barcode: isPrimary ? cleanCode : (p.barcode || cleanCode),
-          productCodes: [...currentCodes, newCodeObj],
-        };
-      })
+    const currentCodes = (target.productCodes ?? []).map((c) =>
+      isPrimary ? { ...c, est_principal: false } : c
+    );
+
+    // Affiché tout de suite, enregistré sur le serveur derrière (hors ligne :
+    // à la reprise du réseau). Jusqu'ici ce code ne quittait jamais l'appareil
+    // et disparaissait au rechargement du catalogue.
+    void updateProduct(
+      productId,
+      {
+        barcode: isPrimary ? cleanCode : target.barcode || cleanCode,
+        productCodes: [...currentCodes, newCodeObj],
+      },
+      { add: [{ code: cleanCode, format, origine: origin }] }
     );
 
     showToast(`Code ${cleanCode} associé avec succès`, 'success');
@@ -2041,36 +2089,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const transferProductCode = (fromProductId: string, toProductId: string, codeToTransfer: string) => {
-    const clean = codeToTransfer.trim();
-    let transferredFormat: BarcodeFormat = 'EAN13';
-    let transferredOrigin: CodeOrigin = 'MANUEL';
+    const clean = codeToTransfer.trim().toLowerCase();
+    const from = products.find((p) => p.id === fromProductId);
+    const match = from?.productCodes?.find((c) => c.code.toLowerCase() === clean);
+    const code = match?.code ?? codeToTransfer.trim();
 
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === fromProductId) {
-          const match = p.productCodes?.find((c) => c.code.toLowerCase() === clean.toLowerCase());
-          if (match) {
-            transferredFormat = match.format;
-            transferredOrigin = match.origine;
-          }
-          const remaining = (p.productCodes || []).filter(
-            (c) => c.code.toLowerCase() !== clean.toLowerCase()
-          );
-          if (!remaining.some((c) => c.est_principal) && remaining.length > 0) {
-            remaining[0].est_principal = true;
-          }
-          return {
-            ...p,
-            barcode: p.barcode?.toLowerCase() === clean.toLowerCase() ? undefined : p.barcode,
-            productCodes: remaining,
-          };
-        }
-        return p;
-      })
+    if (from) {
+      const remaining = (from.productCodes || []).filter((c) => c.code.toLowerCase() !== clean);
+      if (!remaining.some((c) => c.est_principal) && remaining.length > 0) {
+        remaining[0] = { ...remaining[0], est_principal: true };
+      }
+      // Retiré d'abord : les écritures d'un produit partent dans l'ordre, et le
+      // serveur refuse un code encore porté par un autre article.
+      void updateProduct(
+        fromProductId,
+        {
+          barcode: from.barcode?.toLowerCase() === clean ? undefined : from.barcode,
+          productCodes: remaining,
+        },
+        { remove: [code] }
+      );
+    }
+
+    // Le catalogue de ce rendu porte encore le code sur l'ancien produit :
+    // sans `releasedBy`, l'ajout y voyait un conflit et le code était perdu.
+    addProductCode(
+      toProductId,
+      code,
+      match?.format ?? validateBarcodeChecksum(code).format,
+      match?.origine ?? 'MANUEL',
+      false,
+      fromProductId
     );
-
-    // Add code to toProductId
-    addProductCode(toProductId, clean, transferredFormat, transferredOrigin, false);
   };
 
   const removeProductCode = (productId: string, codeId: string): { success: boolean; message?: string } => {
@@ -2089,19 +2139,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
     }
 
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        const remaining = (p.productCodes || []).filter((c) => c.id !== codeId);
-        if (targetCode.est_principal && remaining.length > 0) {
-          remaining[0].est_principal = true;
-        }
-        return {
-          ...p,
-          barcode: p.barcode === targetCode.code ? remaining.find((c) => c.est_principal)?.code : p.barcode,
-          productCodes: remaining,
-        };
-      })
+    const remaining = (targetProduct.productCodes || []).filter((c) => c.id !== codeId);
+    if (targetCode.est_principal && remaining.length > 0) {
+      remaining[0] = { ...remaining[0], est_principal: true };
+    }
+    void updateProduct(
+      productId,
+      {
+        barcode:
+          targetProduct.barcode === targetCode.code
+            ? remaining.find((c) => c.origine !== 'GENERE' && c.format !== 'QR')?.code
+            : targetProduct.barcode,
+        productCodes: remaining,
+      },
+      { remove: [targetCode.code] }
     );
 
     showToast('Code retiré du produit', 'info');

@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import {
+  decodeFromVideoFrame,
   decodeBarcodeFromPhotoBlob,
   validateBarcodeChecksum,
   playScanSuccessBeep,
@@ -43,6 +44,8 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
+  const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const decodingRef = useRef(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [hasTorch, setHasTorch] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -179,52 +182,47 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
       return;
     }
 
-    // Try native BarcodeDetector if present
-    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+    // BarcodeDetector quand le navigateur l'a, ZXing sinon. Cet onglet
+    // n'essayait que BarcodeDetector : sur iPhone, sur ordinateur et dans
+    // beaucoup de WebView Android, la camera s'ouvrait et ne lisait jamais rien.
+    if (!decodingRef.current) {
+      decodingRef.current = true;
+      if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement('canvas');
       try {
-        const BarcodeDetectorClass = (window as any).BarcodeDetector;
-        const detector = new BarcodeDetectorClass({
-          formats: [
-            'ean_13',
-            'ean_8',
-            'upc_a',
-            'upc_e',
-            'code_128',
-            'code_39',
-            'itf',
-            'qr_code',
-            'data_matrix',
-          ],
-        });
-        const barcodes = await detector.detect(videoRef.current);
-        if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-          const raw = barcodes[0].rawValue.trim();
-          handleRecognizedCode(raw, 'SCANNE');
+        const lu = await decodeFromVideoFrame(videoRef.current, frameCanvasRef.current);
+        if (lu && streamRef.current) {
+          handleRecognizedCodeRef.current(lu.code, 'SCANNE', lu.format);
           return;
         }
       } catch {
-        // Continue loop
+        // Image illisible : on retente a la suivante.
+      } finally {
+        decodingRef.current = false;
       }
     }
 
+    // Camera coupee entre-temps (onglet change, fenetre fermee) : on s'arrete.
+    if (!streamRef.current) return;
     animFrameRef.current = requestAnimationFrame(scanFrameLoop);
   };
 
-  const handleRecognizedCode = (code: string, origin: CodeOrigin) => {
+  const handleRecognizedCode = (code: string, origin: CodeOrigin, detectedFormat?: BarcodeFormat) => {
     const clean = code.trim();
     if (!clean) return;
 
     playScanSuccessBeep();
     stopCamera();
 
-    const validation = validateBarcodeChecksum(clean);
-    const res = addProductCode(product.id, clean, validation.format, origin, false);
+    // Le format lu par le lecteur fait foi : deviner d'apres les caracteres
+    // enregistrait un QR « INT-… » comme un Code 39.
+    const format = detectedFormat ?? validateBarcodeChecksum(clean).format;
+    const res = addProductCode(product.id, clean, format, origin, false);
 
     if (!res.success) {
       if (res.conflictProduct) {
         setConflict({
           code: clean,
-          format: validation.format,
+          format,
           origin,
           conflictingProduct: res.conflictProduct,
         });
@@ -236,6 +234,10 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
       onClose();
     }
   };
+
+  // La boucle camera est lancee une fois : elle doit appeler la version a jour.
+  const handleRecognizedCodeRef = useRef(handleRecognizedCode);
+  handleRecognizedCodeRef.current = handleRecognizedCode;
 
   // Handle Photo selection
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

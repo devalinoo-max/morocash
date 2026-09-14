@@ -63,7 +63,9 @@ export async function createProduct(businessId: string, input: CreateProductInpu
     estPrincipal: true,
   });
 
-  return product;
+  // Renvoyé avec son code : sinon l'appli ne connaissait le QR du produit
+  // qu'au rechargement suivant du catalogue.
+  return (await repo.products.findById(product.id, { include: withImages })) ?? product;
 }
 
 /**
