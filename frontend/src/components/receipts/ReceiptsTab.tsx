@@ -609,8 +609,75 @@ export const ReceiptsTab: React.FC = () => {
                 </span>
               </div>
 
-              {/* Table */}
-              <div className="overflow-x-auto">
+              {/* Téléphone : une carte par reçu. Le tableau à dix colonnes
+                  obligeait à faire défiler chaque ligne de droite à gauche. */}
+              <ul className="md:hidden divide-y divide-slate-100">
+                {group.items.map((sale) => {
+                  const isSelected = selectedIds.has(sale.id);
+                  const lastDelivery = (deliveriesBySaleId.get(sale.id) || [])[0];
+                  return (
+                    <li
+                      key={sale.id}
+                      className={`px-4 py-3 flex gap-3 ${isSelected ? 'bg-indigo-50/40' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelect(sale.id)}
+                        aria-label={`Sélectionner le reçu ${sale.reference}`}
+                        className="mt-1 w-4 h-4 shrink-0 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5] cursor-pointer"
+                      />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <button
+                            onClick={() => setInspectingSale(sale)}
+                            className="min-w-0 text-left cursor-pointer"
+                          >
+                            <span className="block font-semibold text-[14px] text-slate-900 truncate">
+                              {sale.customerName?.trim() || 'Client de passage'}
+                            </span>
+                            <span className="block font-mono text-[11px] font-bold text-indigo-900 break-all">
+                              {sale.reference}
+                            </span>
+                          </button>
+                          <span className="shrink-0 font-bold text-[14px] text-slate-900">
+                            {formatMoney(sale.totalAmount)}
+                          </span>
+                        </div>
+
+                        <p className="text-[12px] text-slate-500 truncate">
+                          <span className="font-mono">{formatShortDate(sale.createdAt)}</span>
+                          {' · '}
+                          {getArticlesSummary(sale)}
+                        </p>
+                        <p className="text-[11.5px] text-slate-400 truncate">
+                          {sale.customerPhone ? `${sale.customerPhone} · ` : ''}
+                          Vendu par {sale.sellerName || 'Vendeur'}
+                        </p>
+
+                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                            <PaymentBadge sale={sale} />
+                            <DeliveryBadge delivery={lastDelivery} />
+                          </div>
+                          <div className="flex items-center shrink-0 -mr-2">
+                            <ReceiptActions
+                              size="md"
+                              onWhatsApp={() => handleWhatsAppSingle(sale)}
+                              onPrint={() => handlePrintSingle(sale)}
+                              onDownload={() => handleDownloadSingle(sale)}
+                              onView={() => setInspectingSale(sale)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* Table (écran large) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 bg-white text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -715,77 +782,24 @@ export const ReceiptsTab: React.FC = () => {
 
                           {/* Reste à payer / Paiement */}
                           <td className="py-3 px-3 text-center">
-                            {sale.remainingAmount > 0 ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                Reste {formatMoney(sale.remainingAmount)}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                Soldé
-                              </span>
-                            )}
+                            <PaymentBadge sale={sale} />
                           </td>
 
                           {/* Statut Envoyé */}
                           <td className="py-3 px-3 text-center">
-                            {lastDelivery ? (
-                              lastDelivery.canal === 'WHATSAPP' ? (
-                                <span
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#25D366]/15 text-[#1e9249] border border-[#25D366]/30"
-                                  title={`Envoyé le ${formatDate(lastDelivery.createdAt)} par ${lastDelivery.userName || 'l’équipe'}`}
-                                >
-                                  <Send className="w-3 h-3" />
-                                  <span>WhatsApp</span>
-                                </span>
-                              ) : (
-                                <span
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-sky-50 text-sky-700 border border-sky-200"
-                                  title={`Imprimé le ${formatDate(lastDelivery.createdAt)}`}
-                                >
-                                  <Printer className="w-3 h-3" />
-                                  <span>Imprimé</span>
-                                </span>
-                              )
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
-                                Non envoyé
-                              </span>
-                            )}
+                            <DeliveryBadge delivery={lastDelivery} />
                           </td>
 
                           {/* Actions rapides */}
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => handleWhatsAppSingle(sale)}
-                                title="Envoyer par WhatsApp"
-                                className="w-7 h-7 rounded-lg text-emerald-600 hover:bg-emerald-50 flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Share2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handlePrintSingle(sale)}
-                                title="Imprimer le reçu (PDF)"
-                                className="w-7 h-7 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDownloadSingle(sale)}
-                                title="Télécharger le reçu PDF"
-                                className="w-7 h-7 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setInspectingSale(sale);
-                                }}
-                                title="Voir l'aperçu complet"
-                                className="w-7 h-7 rounded-lg text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
+                              <ReceiptActions
+                                size="sm"
+                                onWhatsApp={() => handleWhatsAppSingle(sale)}
+                                onPrint={() => handlePrintSingle(sale)}
+                                onDownload={() => handleDownloadSingle(sale)}
+                                onView={() => setInspectingSale(sale)}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -801,15 +815,17 @@ export const ReceiptsTab: React.FC = () => {
 
       {/* 5. BARRE FLOTTANTE SÉLECTION MULTIPLE */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-4 flex-wrap animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div className="flex items-center gap-2 pr-2 border-r border-slate-700">
+        // Sur téléphone, au-dessus de la barre de navigation du bas (sinon ses
+        // boutons passaient dessous, hors d'atteinte).
+        <div className="fixed bottom-24 inset-x-3 md:inset-x-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-40 bg-slate-900 text-white px-4 md:px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-x-4 gap-y-2 flex-wrap animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="flex items-center gap-2 pr-2 md:border-r border-slate-700">
             <span className="w-6 h-6 rounded-full bg-[#4F46E5] text-white text-xs font-bold flex items-center justify-center">
               {selectedIds.size}
             </span>
             <span className="text-xs font-semibold">reçus sélectionnés</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleBulkPrint}
               disabled={isProcessingPdf}
@@ -949,5 +965,97 @@ export const ReceiptsTab: React.FC = () => {
         />
       )}
     </div>
+  );
+};
+
+// Pastilles et actions partagées par le tableau (écran large) et les cartes (téléphone).
+
+const PaymentBadge: React.FC<{ sale: Sale }> = ({ sale }) =>
+  sale.remainingAmount > 0 ? (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
+      Reste {formatMoney(sale.remainingAmount)}
+    </span>
+  ) : (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+      Soldé
+    </span>
+  );
+
+const DeliveryBadge: React.FC<{ delivery?: ReceiptDelivery }> = ({ delivery }) => {
+  if (!delivery) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap">
+        Non envoyé
+      </span>
+    );
+  }
+  if (delivery.canal === 'WHATSAPP') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#25D366]/15 text-[#1e9249] border border-[#25D366]/30"
+        title={`Envoyé le ${formatDate(delivery.createdAt)} par ${delivery.userName || 'l’équipe'}`}
+      >
+        <Send className="w-3 h-3" />
+        <span>WhatsApp</span>
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-sky-50 text-sky-700 border border-sky-200"
+      title={`Imprimé le ${formatDate(delivery.createdAt)}`}
+    >
+      <Printer className="w-3 h-3" />
+      <span>Imprimé</span>
+    </span>
+  );
+};
+
+/** `md` : cibles de 36 px, touchables au doigt sur téléphone. */
+const ReceiptActions: React.FC<{
+  size: 'sm' | 'md';
+  onWhatsApp: () => void;
+  onPrint: () => void;
+  onDownload: () => void;
+  onView: () => void;
+}> = ({ size, onWhatsApp, onPrint, onDownload, onView }) => {
+  const box = size === 'md' ? 'w-9 h-9 rounded-xl' : 'w-7 h-7 rounded-lg';
+  const icon = size === 'md' ? 'w-4 h-4' : 'w-3.5 h-3.5';
+  const base = `${box} flex items-center justify-center transition-colors cursor-pointer`;
+  return (
+    <>
+      <button
+        onClick={onWhatsApp}
+        title="Envoyer par WhatsApp"
+        aria-label="Envoyer par WhatsApp"
+        className={`${base} text-emerald-600 hover:bg-emerald-50`}
+      >
+        <Share2 className={icon} />
+      </button>
+      <button
+        onClick={onPrint}
+        title="Imprimer le reçu (PDF)"
+        aria-label="Imprimer le reçu"
+        className={`${base} text-slate-600 hover:bg-slate-100`}
+      >
+        <Printer className={icon} />
+      </button>
+      <button
+        onClick={onDownload}
+        title="Télécharger le reçu PDF"
+        aria-label="Télécharger le reçu PDF"
+        className={`${base} text-slate-600 hover:bg-slate-100`}
+      >
+        <Download className={icon} />
+      </button>
+      <button
+        onClick={onView}
+        title="Voir l'aperçu complet"
+        aria-label="Voir l'aperçu complet"
+        className={`${base} text-indigo-600 hover:bg-indigo-50`}
+      >
+        <Eye className={icon} />
+      </button>
+    </>
   );
 };

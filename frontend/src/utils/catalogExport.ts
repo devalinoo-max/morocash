@@ -60,7 +60,7 @@ export function downloadBlob(blob: Blob, fileName: string): void {
  * dépasseraient largement les 5 secondes. Une photo illisible ne bloque rien :
  * la ligne sort sans image.
  */
-async function photoToJpeg(src: string, size = 160): Promise<string | undefined> {
+export async function photoToJpeg(src: string, size = 160): Promise<string | undefined> {
   try {
     const res = await fetch(src, { credentials: src.startsWith('/') ? 'include' : 'omit' });
     if (!res.ok) return undefined;

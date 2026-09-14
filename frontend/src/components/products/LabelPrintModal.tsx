@@ -27,6 +27,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/currency';
+import { photoToJpeg } from '../../utils/catalogExport';
 import QRCode from 'qrcode';
 
 interface LabelPrintModalProps {
@@ -56,10 +57,15 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
 }) => {
   const { products: allProducts, settings, updateSettings } = useApp();
   const products = useMemo(() => {
+    // Ouverte depuis la fiche d'un produit, la fenêtre n'a pas de sélection :
+    // sans ce cas, le PDF d'une étiquette individuelle sortait vide.
+    if (preSelectedProduct && !productIds?.length) {
+      return [allProducts.find((p) => p.id === preSelectedProduct.id) ?? preSelectedProduct];
+    }
     if (!productIds) return [];
     const wanted = new Set(productIds);
     return allProducts.filter((p) => wanted.has(p.id));
-  }, [allProducts, productIds]);
+  }, [allProducts, productIds, preSelectedProduct]);
 
   // Load remembered settings or defaults
   const savedSettings = settings.labelSettings || DEFAULT_LABEL_SETTINGS;
@@ -332,6 +338,22 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
     const activeProducts = products.filter((p) => (quantities[p.id] || 0) > 0);
     const productIds = activeProducts.map((p) => p.id);
 
+    // Les photos partent déjà lues, en JPEG. Le générateur tourne côté serveur
+    // et ne pouvait pas les télécharger lui-même : l'adresse d'une photo est
+    // relative (/api/v1/products/…/raw, protégée par la session du navigateur)
+    // et le moteur PDF ne lit pas le WebP. Résultat : aucune photo imprimée.
+    const withPhoto = champs.includes('photo') && format !== '65_38x21';
+    const photos = await Promise.all(
+      activeProducts.map(async (p) => {
+        const src = p.photo || p.photos?.[0];
+        if (!withPhoto || !src) return undefined;
+        if (src.startsWith('data:image/jpeg') || src.startsWith('data:image/png')) return src;
+        // 200 px suffisent pour quelques centimètres d'étiquette, et gardent
+        // une grosse planche sous la limite de taille des requêtes Vercel.
+        return (await photoToJpeg(src, 200)) ?? src;
+      })
+    );
+
     const payload = {
       productIds,
       copies: quantities,
@@ -347,7 +369,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
           height: customHeight,
         },
       },
-      products: activeProducts.map((p) => ({
+      products: activeProducts.map((p, i) => ({
         id: p.id,
         name: p.name,
         salePrice: p.salePrice,
@@ -357,7 +379,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
         category: p.category,
         barcode: p.barcode,
         internalCode: p.internalCode,
-        photo: p.photo || p.photos?.[0],
+        photo: photos[i],
       })),
       settings: {
         shopName: settings.shopName,

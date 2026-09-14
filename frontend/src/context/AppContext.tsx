@@ -78,8 +78,10 @@ import {
   decideAfterFailure,
   isMissingResource,
   isNetworkFailure,
+  isUncertainOutcome,
   mergePending,
 } from '../offline/replayPolicy';
+import { findCustomerByNameAndPhone, findProductByName, isServerId } from '../offline/recovery';
 import { loadIdMap, loadSnapshot, saveIdMap, saveSnapshot } from '../offline/cache';
 import { CACHE_STORE, QUEUE_STORE, idbClear } from '../offline/idb';
 import { NO_CATEGORY_LABEL } from '../api/categories';
@@ -929,6 +931,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // qu'il faut recreer parce que le serveur ne le connait pas.
   const productsRef = useRef(products);
   productsRef.current = products;
+  const customersRef = useRef(customers);
+  customersRef.current = customers;
+  const salesRef = useRef(sales);
+  salesRef.current = sales;
 
   const remapId = (id: string): string => idMap.current[id] ?? id;
 
@@ -945,8 +951,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * « Données invalides » et la commande bloquait toute la file derrière elle.
    */
   const isUnknownToServer = (id: string): boolean => {
-    const resolved = remapId(id);
-    if (/^c[^\s-]{8,}$/i.test(resolved)) return false;
+    if (isServerId(remapId(id))) return false;
     return !pendingMutations.some((m) => m.localId === id);
   };
 
@@ -993,16 +998,100 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * (vrai numero de commande, vrai identifiant produit...). Jette si le
    * serveur refuse ou si le reseau est coupe : l'appelant decide alors.
    */
+  /**
+   * La création de ce produit ou de ce client attend encore dans la file (son
+   * horodatage peut être postérieur à la commande : horloge du téléphone) :
+   * on l'envoie tout de suite, avant la commande qui en dépend.
+   */
+  const sendPendingCreate = async (kind: 'PRODUCT_CREATE' | 'CUSTOMER_CREATE', localId: string) => {
+    const pending = (await listPending()).find((r) => r.kind === kind && r.localId === localId);
+    if (!pending) return false;
+    await sendMutation(pending);
+    await dequeue(pending.id);
+    return true;
+  };
+
+  /**
+   * Identifiant serveur d'un produit vendu dans une commande en attente.
+   *
+   * Sa création a pu aboutir sans que la réponse revienne (504 pendant le
+   * réveil de la base), ou avoir été sortie de la file : la commande partait
+   * alors avec l'id local et le serveur la refusait à chaque essai. On
+   * retrouve le produit sur le serveur par son nom, sinon on le recrée à partir
+   * de ce que l'appareil en sait encore (fiche produit, ou ligne de la vente).
+   */
+  const resolveOrderProductId = async (
+    localId: string,
+    line?: { name?: string; unitPrice?: number; costPrice?: number }
+  ): Promise<string> => {
+    if (isServerId(remapId(localId))) return remapId(localId);
+    if ((await sendPendingCreate('PRODUCT_CREATE', localId)) && isServerId(remapId(localId))) {
+      return remapId(localId);
+    }
+
+    const local = productsRef.current.find((p) => p.id === localId);
+    const nom = local?.name ?? line?.name;
+    if (!nom) return localId; // plus rien pour le retrouver : le serveur dira pourquoi
+
+    const existing = findProductByName(await productsApi.listProducts(), nom);
+    const serverId =
+      existing?.id ??
+      (
+        await productsApi.createProduct(
+          local
+            ? productsApi.toCreateProductInput(local)
+            : {
+                nom,
+                type: 'PRODUIT',
+                prixVente: Math.max(0, Math.round(line?.unitPrice ?? 0)),
+                prixAchat: Math.max(0, Math.round(line?.costPrice ?? 0)),
+                stock: 0,
+                seuilAlerte: 0,
+                unite: 'pièce',
+              }
+        )
+      ).id;
+    await rememberId(localId, serverId);
+    return serverId;
+  };
+
+  /** Même rattrapage pour le client d'une commande en attente. */
+  const resolveOrderCustomerId = async (
+    localId: string,
+    meta?: { customerName?: string; customerPhone?: string }
+  ): Promise<string> => {
+    if (isServerId(remapId(localId))) return remapId(localId);
+    if ((await sendPendingCreate('CUSTOMER_CREATE', localId)) && isServerId(remapId(localId))) {
+      return remapId(localId);
+    }
+
+    const local = customersRef.current.find((c) => c.id === localId);
+    const nom = local?.name ?? meta?.customerName;
+    if (!nom) return localId;
+    const telephone = local?.phone || meta?.customerPhone || undefined;
+
+    const existing = findCustomerByNameAndPhone(await customersApi.listCustomers(), nom, telephone);
+    const serverId = existing?.id ?? (await customersApi.createCustomer({ nom, telephone })).id;
+    await rememberId(localId, serverId);
+    return serverId;
+  };
+
   const sendMutation = async (m: PendingMutation): Promise<void> => {
     switch (m.kind) {
       case 'ORDER_CREATE': {
+        // Les commandes empilées avant ce correctif n'ont pas meta.items : la
+        // vente affichée à l'écran porte les mêmes lignes.
+        const lines: { productId: string; name?: string; unitPrice?: number; costPrice?: number }[] =
+          m.meta?.items ?? salesRef.current.find((s) => s.clientUuid === m.id)?.items ?? [];
+        const items: { productId: string; qte: number }[] = [];
+        for (const it of m.payload.items as { productId: string; qte: number }[]) {
+          const line = lines.find((l) => l.productId === it.productId);
+          items.push({ ...it, productId: await resolveOrderProductId(it.productId, line) });
+        }
         const input: ordersApi.CreateOrderInput = {
           ...m.payload,
-          customerId: remapId(m.payload.customerId),
-          items: m.payload.items.map((it: { productId: string; qte: number }) => ({
-            ...it,
-            productId: remapId(it.productId),
-          })),
+          customerId: await resolveOrderCustomerId(m.payload.customerId, m.meta),
+          items,
         };
         const order = await ordersApi.createOrder(input);
         const sale = ordersApi.toFrontendSale(order, {
@@ -1022,10 +1111,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const categoryId = categoryName
           ? await productsApi.resolveProductCategoryId(categoryName)
           : undefined;
-        const created = await productsApi.createProduct({
-          ...m.payload.input,
-          ...(categoryId ? { categoryId } : {}),
-        });
+        // Un essai précédent a pu créer le produit sans que la réponse revienne :
+        // on reprend cet exemplaire plutôt que d'en créer un second.
+        const alreadyCreated =
+          m.attempts > 0 || m.meta?.maybeSent
+            ? findProductByName(await productsApi.listProducts(), m.payload.input.nom)
+            : undefined;
+        const created =
+          alreadyCreated ??
+          (await productsApi.createProduct({
+            ...m.payload.input,
+            ...(categoryId ? { categoryId } : {}),
+          }));
 
         // Une photo qui ne part pas ne doit jamais faire perdre le produit
         // (point 5) : on enregistre le produit, on signale la photo.
@@ -1138,7 +1235,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       case 'CUSTOMER_CREATE': {
-        const created = await customersApi.createCustomer(m.payload);
+        const alreadyCreated =
+          m.attempts > 0 || m.meta?.maybeSent
+            ? findCustomerByNameAndPhone(
+                await customersApi.listCustomers(),
+                m.payload.nom,
+                m.payload.telephone
+              )
+            : undefined;
+        const created = alreadyCreated ?? (await customersApi.createCustomer(m.payload));
         setCustomers((prev) =>
           prev.map((c) =>
             c.id === m.localId ? { ...c, id: created.id, syncStatus: 'SYNCED' } : c
@@ -1191,9 +1296,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     replayRunning.current = true;
     setIsSyncing(true);
     let sent = 0;
+    let failed = false;
 
     try {
       for (const mutation of rows) {
+        // Une commande a pu envoyer d'avance la création dont elle dépend
+        // (voir sendPendingCreate) : ne pas la renvoyer une seconde fois.
+        if (mutation.kind === 'PRODUCT_CREATE' || mutation.kind === 'CUSTOMER_CREATE') {
+          const stillQueued = (await listPending()).some((r) => r.id === mutation.id);
+          if (!stillQueued) continue;
+        }
         try {
           await sendMutation(mutation);
           await dequeue(mutation.id);
@@ -1203,7 +1315,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // La regle elle-meme vit dans offline/replayPolicy.ts : garder,
           // bloquer ou jeter est la decision la plus lourde de consequences de
           // l'app (perte, doublon, ou file figee), elle doit rester verifiable.
-          const { decision, canRetry } = decideAfterFailure(mutation.kind, error);
+          const { decision, canRetry } = decideAfterFailure(
+            mutation.kind,
+            error,
+            updated?.attempts ?? 1
+          );
 
           if (decision.action === 'RETRY_LATER') {
             // Reseau coupe : on garde tout, on retentera plus tard, avec un
@@ -1217,6 +1333,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // (il reste visible et complet a l'ecran, rien n'est perdu) et on
           // laisse la main au commercant.
           markMutationFailed(mutation);
+          failed = true;
 
           if (decision.action === 'KEEP_AND_BLOCK') {
             blockedId.current = mutation.id;
@@ -1239,7 +1356,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsSyncing(false);
       const remaining = await refreshPending();
       if (sent > 0) {
-        setPendingFailure(null);
+        // Seulement si rien n'a échoué derrière : effacer ici le refus qui
+        // vient d'arrêter la reprise le cachait au commerçant, qui ne voyait
+        // plus que l'erreur de la commande suivante, sans sa cause.
+        if (!failed) setPendingFailure(null);
         if (!opts.silent) {
           setLastSyncedCount(sent);
           setTimeout(() => setLastSyncedCount(null), 3000);
@@ -1653,6 +1773,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         customerName: params.customerName,
         customerPhone: params.customerPhone,
         sellerName,
+        // De quoi retrouver ou recréer un produit dont la création s'est perdue.
+        items: sale.items.map(({ productId, name, unitPrice, costPrice }) => ({
+          productId,
+          name,
+          unitPrice,
+          costPrice,
+        })),
       },
     });
 
@@ -1736,12 +1863,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         showToast(`${product.name} ajouté au catalogue`, 'success');
         return { ...product, id: remapId(localId), syncStatus: 'SYNCED' };
       } catch (error) {
-        if (!isNetworkFailure(error)) {
+        if (!isNetworkFailure(error) && !isUncertainOutcome(error)) {
           setProducts((prev) => prev.filter((p) => p.id !== localId));
           showToast(`${product.name} n'a pas été créé : ${apiErrorMessage(error)}`, 'error');
           return null;
         }
-        // Réseau tombé en vol : repli sur la file, comme hors ligne.
+        // Réseau tombé en vol ou serveur sans réponse : repli sur la file,
+        // comme hors ligne. La requête a pu aboutir, le renvoi vérifiera
+        // d'abord si le produit existe déjà.
+        showToast(`${product.name} ajouté au catalogue`, 'success');
+        queueMutation({ ...mutation, meta: { maybeSent: true } });
+        return product;
       }
     }
 

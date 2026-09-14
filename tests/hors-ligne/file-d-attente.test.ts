@@ -5,9 +5,16 @@ import {
   decideAfterFailure,
   isMissingResource,
   isNetworkFailure,
+  isUncertainOutcome,
   mergePending,
+  UNCERTAIN_AUTO_RETRIES,
   wroteNothing,
 } from '../../frontend/src/offline/replayPolicy';
+import {
+  findCustomerByNameAndPhone,
+  findProductByName,
+  isServerId,
+} from '../../frontend/src/offline/recovery';
 
 /**
  * La file d'attente hors ligne.
@@ -27,6 +34,7 @@ const TROP_DE_REQUETES = new ApiError({ code: 'RATE_LIMITED', message: 'Trop de 
 const VALIDATION = new ApiError({ code: 'VALIDATION_ERROR', message: 'Données invalides.' });
 const PRODUIT_INTROUVABLE = new ApiError({ code: 'PRODUCT_NOT_FOUND', message: 'Produit introuvable.' });
 const QUOTA = new ApiError({ code: 'QUOTA_PRODUCTS_REACHED', message: 'Limite atteinte.' });
+const PLANTAGE = new ApiError({ code: 'SERVER_ERROR', message: 'Réponse invalide du serveur.' });
 
 const TOUS_LES_TYPES: PendingKind[] = [
   'ORDER_CREATE',
@@ -99,6 +107,24 @@ describe('Hors ligne — que devient une ecriture qui echoue', () => {
     }
   });
 
+  it('serveur sans reponse (504 Vercel, reponse illisible) : jamais jete, retente puis bloque', () => {
+    // Le cas reel : la creation du produit aboutit en base, la reponse se perd,
+    // la file jetait la ligne et la commande qui vendait ce produit restait
+    // refusee pour toujours (« un article du panier n est pas un produit
+    // enregistre sur le serveur »).
+    for (const kind of TOUS_LES_TYPES) {
+      const premier = decideAfterFailure(kind, PLANTAGE, 1);
+      expect(premier.decision.action).toBe('RETRY_LATER');
+      expect(premier.canRetry).toBe(true);
+      const dernier = decideAfterFailure(kind, PLANTAGE, UNCERTAIN_AUTO_RETRIES);
+      expect(dernier.decision.action).toBe('KEEP_AND_BLOCK');
+      expect(dernier.canRetry).toBe(true);
+    }
+    expect(isUncertainOutcome(PLANTAGE)).toBe(true);
+    expect(isUncertainOutcome(VALIDATION)).toBe(false);
+    expect(isUncertainOutcome(RESEAU)).toBe(false);
+  });
+
   it('le bouton Reessayer n apparait jamais quand rejouer ferait un doublon', () => {
     expect(decideAfterFailure('PRODUCT_CREATE', VALIDATION).canRetry).toBe(false);
     expect(decideAfterFailure('PRODUCT_UPDATE', VALIDATION).canRetry).toBe(true);
@@ -110,6 +136,35 @@ describe('Hors ligne — que devient une ecriture qui echoue', () => {
     expect(SERVER_DEDUPLICATED.PRODUCT_UPDATE).toBe(true);
     expect(SERVER_DEDUPLICATED.PRODUCT_CREATE).toBe(false);
     expect(SERVER_DEDUPLICATED.CUSTOMER_CREATE).toBe(false);
+  });
+});
+
+describe('Hors ligne — retrouver ce qui a deja ete cree', () => {
+  it('distingue un id serveur d un id local', () => {
+    expect(isServerId('cmu1a2l4c001guyms846ncm2e')).toBe(true);
+    expect(isServerId('5e2e68f8-2fca-4465-b94b-8c74f9eb9647')).toBe(false);
+    expect(isServerId(undefined)).toBe(false);
+  });
+
+  it('retrouve le produit par son nom, sans tenir compte des accents, espaces ni majuscules', () => {
+    const serveur = [
+      { id: 'c-ancien', nom: 'Pagne Wax', actif: true, createdAt: '2026-09-01' },
+      { id: 'c-archive', nom: 'Crème  éclat', actif: false, createdAt: '2026-09-14' },
+      { id: 'c-recent', nom: 'Creme eclat', actif: true, createdAt: '2026-09-13' },
+    ];
+    expect(findProductByName(serveur, '  crème ÉCLAT ')?.id).toBe('c-recent');
+    expect(findProductByName(serveur, 'Savon')).toBeUndefined();
+  });
+
+  it('ne confond pas deux clients du meme nom aux numeros differents', () => {
+    const serveur = [
+      { id: 'c-1', nom: 'Mme Kone', telephone: '+225 07 01 02 03 04', createdAt: '2026-09-01' },
+      { id: 'c-2', nom: 'Mme Kone', telephone: '0505050505', createdAt: '2026-09-02' },
+    ];
+    expect(findCustomerByNameAndPhone(serveur, 'mme kone', '0701020304')?.id).toBe('c-1');
+    expect(findCustomerByNameAndPhone(serveur, 'Mme Kone', '0909090909')).toBeUndefined();
+    // Sans numero saisi : le plus recent.
+    expect(findCustomerByNameAndPhone(serveur, 'Mme Kone')?.id).toBe('c-2');
   });
 });
 

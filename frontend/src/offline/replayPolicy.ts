@@ -43,6 +43,19 @@ export function wroteNothing(error: unknown): boolean {
 }
 
 /**
+ * Le serveur n'a pas dit non : il a plante ou n'a pas repondu a temps (504 de
+ * Vercel pendant le reveil de la base, reponse illisible). L'ecriture a pu
+ * aboutir comme echouer. Ce n'est PAS un refus : jeter la ligne perdait le
+ * produit, et la commande qui le vendait restait bloquee pour toujours.
+ */
+export function isUncertainOutcome(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'SERVER_ERROR';
+}
+
+/** Tentatives automatiques sur un plantage serveur avant de passer la main. */
+export const UNCERTAIN_AUTO_RETRIES = 3;
+
+/**
  * La ressource visee n'existe pas (ou plus) cote serveur. Pour une
  * modification de produit, cela veut dire que sa creation n'est jamais passee :
  * insister sur le meme identifiant echouera toujours.
@@ -72,10 +85,20 @@ export type ReplayDecision =
  */
 export function decideAfterFailure(
   kind: PendingKind,
-  error: unknown
+  error: unknown,
+  attempts = 1
 ): { decision: ReplayDecision; canRetry: boolean } {
   if (isNetworkFailure(error)) {
     return { decision: { action: 'RETRY_LATER' }, canRetry: true };
+  }
+  // Rien n'est jete : le renvoi d'un produit ou d'un client commence par
+  // chercher l'exemplaire deja cree (voir offline/recovery.ts).
+  if (isUncertainOutcome(error)) {
+    return {
+      decision:
+        attempts < UNCERTAIN_AUTO_RETRIES ? { action: 'RETRY_LATER' } : { action: 'KEEP_AND_BLOCK' },
+      canRetry: true,
+    };
   }
   const rejouable = SERVER_DEDUPLICATED[kind] || wroteNothing(error);
   return {
