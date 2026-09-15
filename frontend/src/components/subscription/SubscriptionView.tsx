@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Crown,
@@ -10,53 +10,125 @@ import {
   TrendingUp,
   FileSpreadsheet,
   MessageCircle,
-  Clock,
   HeartHandshake,
+  Loader2,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
 import {
   PLANS,
   getAnnualSavings,
-  calculateProrataUpgrade,
   PRICING_JUSTIFICATION,
 } from '../../data/plans';
+import { ApiError } from '../../api/client';
+import {
+  fetchSubscriptionPayment,
+  startSubscriptionCheckout,
+  type SubscriptionPaymentStatus,
+} from '../../api/subscriptions';
 
 interface SubscriptionViewProps {
   onBack?: () => void;
 }
 
+/** Paramètre ajouté à l'adresse de retour par le backend (voir startCheckout). */
+const RETURN_PARAM = 'paiement';
+const POLL_INTERVAL_MS = 3000;
+const POLL_MAX_ATTEMPTS = 40; // ~2 minutes
+
+type ReturnState =
+  | { phase: 'checking' }
+  | { phase: 'done'; payment: SubscriptionPaymentStatus }
+  | { phase: 'pending' }
+  | { phase: 'error'; message: string };
+
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) => {
-  const { settings, showToast } = useApp();
+  const { settings, showToast, refreshPlanStatus } = useApp();
 
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
-  // Formule que l'utilisateur vient de choisir — le paiement en ligne n'existe
-  // pas encore (voir Plan/Subscription/SubscriptionPayment côté backend,
-  // aucune route ne les alimente), donc on capte l'intérêt honnêtement au
-  // lieu de simuler une activation qui ne correspondrait à rien de réel.
-  const [interestedPlan, setInterestedPlan] = useState<'SOLO' | 'BUSINESS' | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<'SOLO' | 'BUSINESS' | null>(null);
+  const [returnState, setReturnState] = useState<ReturnState | null>(null);
 
   const currentPlan = settings.planStatus; // 'TRIAL' | 'SOLO' | 'BUSINESS' | 'EXPIRED'
   const trialDaysLeft = settings.trialDaysLeft || 14;
 
-  const prorataAmount = calculateProrataUpgrade(trialDaysLeft);
   const soloSavings = getAnnualSavings('SOLO');
   const businessSavings = getAnnualSavings('BUSINESS');
 
-  const handleSelectPlan = (targetPlan: 'SOLO' | 'BUSINESS') => {
+  // Retour de la page de paiement pawaPay : /abonnement?paiement=<id>. Le
+  // retour seul ne prouve rien — on interroge le serveur, qui relit le statut
+  // chez pawaPay, jusqu'à obtenir un résultat final.
+  useEffect(() => {
+    const paymentId = new URLSearchParams(window.location.search).get(RETURN_PARAM);
+    if (!paymentId) return;
+    window.history.replaceState(null, '', window.location.pathname);
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setReturnState({ phase: 'checking' });
+
+    const poll = async (attempt: number) => {
+      try {
+        const payment = await fetchSubscriptionPayment(paymentId);
+        if (cancelled) return;
+        if (payment.statut !== 'EN_ATTENTE') {
+          setReturnState({ phase: 'done', payment });
+          if (payment.statut === 'REUSSI') {
+            await refreshPlanStatus().catch(() => undefined);
+            if (!cancelled) showToast('Paiement reçu : ton abonnement est actif.', 'success');
+          }
+          return;
+        }
+      } catch (error) {
+        if (cancelled) return;
+        if (!(error instanceof ApiError) || error.code !== 'NETWORK_ERROR') {
+          setReturnState({ phase: 'error', message: error instanceof Error ? error.message : 'Vérification impossible.' });
+          return;
+        }
+      }
+      if (attempt + 1 >= POLL_MAX_ATTEMPTS) {
+        setReturnState({ phase: 'pending' });
+        return;
+      }
+      timer = setTimeout(() => void poll(attempt + 1), POLL_INTERVAL_MS);
+    };
+    void poll(0);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // Une seule fois, au retour de pawaPay.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSelectPlan = async (targetPlan: 'SOLO' | 'BUSINESS') => {
     if (targetPlan === currentPlan) {
       showToast(`Tu es déjà sur la formule ${PLANS[targetPlan].nom}`, 'info');
       return;
     }
-    setInterestedPlan(targetPlan);
-  };
+    if (checkoutPlan) return;
 
-  const notifyWhenPaymentReady = () => {
-    setInterestedPlan(null);
-    showToast('Le paiement en ligne arrive bientôt : on te préviendra dès son ouverture.', 'info');
+    setCheckoutPlan(targetPlan);
+    try {
+      const { redirectUrl } = await startSubscriptionCheckout(
+        targetPlan,
+        billingCycle === 'ANNUAL' ? 'ANNUEL' : 'MENSUEL'
+      );
+      window.location.assign(redirectUrl);
+    } catch (error) {
+      setCheckoutPlan(null);
+      showToast(error instanceof Error ? error.message : 'Impossible de lancer le paiement.', 'error');
+    }
   };
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-200">
+      {returnState && (
+        <PaymentReturnBanner state={returnState} onClose={() => setReturnState(null)} />
+      )}
+
       {/* Top Header Card */}
       <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-60 h-60 bg-[#4F46E5]/20 rounded-full blur-3xl pointer-events-none" />
@@ -259,15 +331,22 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
           </div>
 
           <button
-            onClick={() => handleSelectPlan('SOLO')}
-            disabled={currentPlan === 'SOLO'}
+            onClick={() => void handleSelectPlan('SOLO')}
+            disabled={currentPlan === 'SOLO' || checkoutPlan !== null}
             className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
               currentPlan === 'SOLO'
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                 : 'bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 hover:border-slate-300 shadow-xs'
             }`}
           >
-            <span>{currentPlan === 'SOLO' ? 'Formule déjà active' : 'Choisir la formule Solo'}</span>
+            {checkoutPlan === 'SOLO' && <Loader2 className="w-4 h-4 animate-spin" />}
+            <span>
+              {currentPlan === 'SOLO'
+                ? 'Formule déjà active'
+                : checkoutPlan === 'SOLO'
+                ? 'Ouverture du paiement…'
+                : 'Choisir la formule Solo'}
+            </span>
           </button>
         </div>
 
@@ -377,8 +456,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
           </div>
 
           <button
-            onClick={() => handleSelectPlan('BUSINESS')}
-            disabled={currentPlan === 'BUSINESS'}
+            onClick={() => void handleSelectPlan('BUSINESS')}
+            disabled={currentPlan === 'BUSINESS' || checkoutPlan !== null}
             className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md ${
               currentPlan === 'BUSINESS'
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
@@ -387,14 +466,17 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
           >
             {currentPlan === 'BUSINESS' ? (
               <span>Formule active</span>
+            ) : checkoutPlan === 'BUSINESS' ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Ouverture du paiement…</span>
+              </>
             ) : currentPlan === 'SOLO' ? (
-              <span>
-                Passer en Business (Prorata : {formatMoney(prorataAmount)} pour {trialDaysLeft} j)
-              </span>
+              <span>Passer en Business</span>
             ) : (
               <span>Choisir la formule Business</span>
             )}
-            {currentPlan !== 'BUSINESS' && <ArrowRight className="w-4 h-4" />}
+            {currentPlan !== 'BUSINESS' && checkoutPlan !== 'BUSINESS' && <ArrowRight className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -414,7 +496,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
       {/* Mobile Money Payment Methods */}
       <div className="max-w-3xl mx-auto text-center space-y-3 pt-2">
         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-          Paiement local sécurisé par Mobile Money (Côte d'Ivoire, Sénégal, Mali, Burkina, Guinée...)
+          Paiement local sécurisé par Mobile Money (Côte d'Ivoire, Sénégal, Bénin, Togo, Mali, Burkina Faso)
         </span>
         <div className="flex flex-wrap items-center justify-center gap-2.5">
           <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-sky-600 shadow-2xs">
@@ -449,42 +531,64 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
         </div>
       </div>
 
-      {/* Le paiement en ligne n'est pas encore branché (Wave/Orange Money/MoMo affichés
-          plus haut à titre indicatif) — on capte l'intérêt honnêtement plutôt que de
-          simuler une activation de plan qui ne correspondrait à rien de réel. */}
-      {interestedPlan && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-3xl p-6 space-y-4 shadow-2xl border border-slate-100">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <Clock className="w-6 h-6" />
-            </div>
+    </div>
+  );
+};
 
-            <div className="space-y-1.5">
-              <h3 className="font-extrabold text-base text-slate-900">
-                {PLANS[interestedPlan].nom} — bientôt disponible
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Le paiement en ligne par Mobile Money arrive bientôt. En attendant, continue de profiter de ton
-                essai gratuit — aucune donnée n'est perdue et tu ne payes rien tant que ce n'est pas ouvert.
-              </p>
-            </div>
+const PaymentReturnBanner: React.FC<{ state: ReturnState; onClose: () => void }> = ({ state, onClose }) => {
+  let tone = 'bg-slate-50 border-slate-200 text-slate-800';
+  let icon = <Loader2 className="w-5 h-5 animate-spin text-[#4F46E5]" />;
+  let title = 'Vérification de ton paiement…';
+  let text = 'Valide le paiement sur ton téléphone si ce n’est pas encore fait. Ne ferme pas cette page.';
+  let closable = false;
 
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setInterestedPlan(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-              >
-                Retour
-              </button>
-              <button
-                onClick={notifyWhenPaymentReady}
-                className="flex-1 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer"
-              >
-                Me prévenir à l'ouverture
-              </button>
-            </div>
-          </div>
-        </div>
+  if (state.phase === 'pending') {
+    tone = 'bg-amber-50 border-amber-200 text-amber-950';
+    icon = <Loader2 className="w-5 h-5 text-amber-600" />;
+    title = 'Paiement toujours en cours de traitement';
+    text = 'Ton opérateur n’a pas encore confirmé. Ton abonnement s’activera tout seul dès la confirmation : reviens sur cette page dans quelques minutes.';
+    closable = true;
+  } else if (state.phase === 'error') {
+    tone = 'bg-rose-50 border-rose-200 text-rose-900';
+    icon = <XCircle className="w-5 h-5 text-rose-600" />;
+    title = 'Vérification impossible';
+    text = state.message;
+    closable = true;
+  } else if (state.phase === 'done') {
+    closable = true;
+    const { payment } = state;
+    if (payment.statut === 'REUSSI') {
+      tone = 'bg-emerald-50 border-emerald-200 text-emerald-950';
+      icon = <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
+      title = `Paiement de ${formatMoney(payment.montant)} reçu`;
+      text = payment.subscriptionEndsAt
+        ? `Ta formule ${payment.planCode === 'BUSINESS' ? 'Business' : 'Solo'} est active jusqu’au ${new Date(payment.subscriptionEndsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}.`
+        : 'Ton abonnement est actif.';
+    } else {
+      tone = 'bg-rose-50 border-rose-200 text-rose-900';
+      icon = <XCircle className="w-5 h-5 text-rose-600" />;
+      title = payment.statut === 'EXPIRE' ? 'Paiement non effectué' : 'Le paiement a échoué';
+      text =
+        payment.statut === 'EXPIRE'
+          ? 'La page de paiement a expiré avant la validation. Aucun montant n’a été prélevé : tu peux réessayer.'
+          : 'Aucun abonnement n’a été activé. Vérifie ton solde Mobile Money puis réessaie.';
+    }
+  }
+
+  return (
+    <div className={`max-w-5xl mx-auto p-4 rounded-2xl border flex items-start gap-3 ${tone}`} role="status">
+      <div className="shrink-0 mt-0.5">{icon}</div>
+      <div className="flex-1 space-y-0.5">
+        <p className="text-sm font-extrabold">{title}</p>
+        <p className="text-xs leading-relaxed">{text}</p>
+      </div>
+      {closable && (
+        <button
+          onClick={onClose}
+          className="shrink-0 text-xs font-bold underline underline-offset-2 cursor-pointer"
+        >
+          Fermer
+        </button>
       )}
     </div>
   );

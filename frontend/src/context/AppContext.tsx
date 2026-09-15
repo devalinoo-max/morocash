@@ -140,6 +140,8 @@ interface AppContextType {
   settings: ShopSettings;
   updateSettings: (newSettings: Partial<ShopSettings>) => void;
   updateCashRegisterMode: (mode: 'LIBRE' | 'STRICT') => Promise<boolean>;
+  /** Relit la formule depuis le serveur (après un paiement d'abonnement). */
+  refreshPlanStatus: () => Promise<void>;
   products: Product[];
   customers: Customer[];
   sales: Sale[];
@@ -1467,6 +1469,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { planStatus: 'SOLO', trialDaysLeft: 0, quotaMaxProducts: PLANS.SOLO.maxProduits };
   };
 
+  const refreshPlanStatus = async () => {
+    const session = await authApi.fetchCurrentSession();
+    if (!session) return;
+    setCurrentBusiness(session.business);
+    updateSettings(computePlanStatus(session.business));
+  };
+
   const bootstrapSession = async (session: authApi.MeResponse) => {
     setCurrentUser(session.user);
     setCurrentBusiness(session.business);
@@ -2738,6 +2747,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         settings,
         updateSettings,
         updateCashRegisterMode,
+        refreshPlanStatus,
         products,
         customers,
         sales,
