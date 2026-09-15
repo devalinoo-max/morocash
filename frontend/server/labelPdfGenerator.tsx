@@ -1,7 +1,16 @@
 import React from 'react';
-import { Document, Page, View, Text, Image, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, Svg, Path, Font, renderToBuffer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
-import bwipjs from 'bwip-js';
+import {
+  LABEL_BRAND_TEXT,
+  LABEL_PALETTES,
+  LABEL_QR_CAPTION,
+  DEFAULT_LABEL_VARIANT,
+  formatLabelPrice,
+  perforationPath,
+  ticketLayout,
+  type LabelVariant,
+} from '../src/utils/labelTicket';
 
 export interface LabelProductData {
   id: string;
@@ -50,17 +59,26 @@ export type LabelTextSize = 'PETIT' | 'NORMAL' | 'GRAND';
 export type LabelCodeType = 'QR' | 'BARCODE' | 'BOTH';
 
 export interface LabelOptions {
-  champs: LabelField[];
+  /**
+   * Hérités des anciens réglages. Le gabarit ticket est fixe (boutique, photo,
+   * nom, catégorie, prix, QR) : ces champs ne changent plus l'étiquette.
+   */
+  champs?: LabelField[];
+  tailleTexte?: LabelTextSize;
+  typeCode?: LabelCodeType;
+  traitsDecoupe?: boolean;
   format: LabelFormat;
-  tailleTexte: LabelTextSize;
-  typeCode: LabelCodeType;
-  traitsDecoupe: boolean;
+  variante?: LabelVariant;
   startIndex?: number; // 1-based index (default 1)
   customDimensions?: {
     width: number; // in mm
     height: number; // in mm
   };
 }
+
+// Pas de césure : « Filet de protec-tion » se lisait mal sur une étiquette.
+// Un mot trop long passe entier à la ligne suivante.
+Font.registerHyphenationCallback((word) => [word]);
 
 // Convert mm to points (72 pt / 25.4 mm = 2.83464567 pt/mm)
 const mmToPt = (mm: number) => mm * 2.83464567;
@@ -71,12 +89,10 @@ interface SheetConfig {
   isCustomSize?: boolean;
   cols: number;
   rows: number;
-  labelWidthPt: number;
-  labelHeightPt: number;
+  labelWidthMm: number;
+  labelHeightMm: number;
   marginLeftPt: number;
   marginTopPt: number;
-  gapXPt: number;
-  gapYPt: number;
   maxLabelsPerSheet: number;
 }
 
@@ -91,12 +107,10 @@ function getSheetConfig(options: LabelOptions): SheetConfig {
         pageSize: 'A4',
         cols: 3,
         rows: 8,
-        labelWidthPt: mmToPt(63),
-        labelHeightPt: mmToPt(34),
+        labelWidthMm: 63,
+        labelHeightMm: 34,
         marginLeftPt: mmToPt(10.5),
         marginTopPt: mmToPt(12.5),
-        gapXPt: 0,
-        gapYPt: 0,
         maxLabelsPerSheet: 24,
       };
     }
@@ -109,12 +123,10 @@ function getSheetConfig(options: LabelOptions): SheetConfig {
         pageSize: 'A4',
         cols: 3,
         rows: 7,
-        labelWidthPt: mmToPt(70),
-        labelHeightPt: mmToPt(42),
+        labelWidthMm: 70,
+        labelHeightMm: 42,
         marginLeftPt: mmToPt(0),
         marginTopPt: mmToPt(1.5),
-        gapXPt: 0,
-        gapYPt: 0,
         maxLabelsPerSheet: 21,
       };
     }
@@ -127,12 +139,10 @@ function getSheetConfig(options: LabelOptions): SheetConfig {
         pageSize: 'A4',
         cols: 2,
         rows: 6,
-        labelWidthPt: mmToPt(105),
-        labelHeightPt: mmToPt(48),
+        labelWidthMm: 105,
+        labelHeightMm: 48,
         marginLeftPt: mmToPt(0),
         marginTopPt: mmToPt(4.5),
-        gapXPt: 0,
-        gapYPt: 0,
         maxLabelsPerSheet: 12,
       };
     }
@@ -145,31 +155,25 @@ function getSheetConfig(options: LabelOptions): SheetConfig {
         pageSize: 'A4',
         cols: 5,
         rows: 13,
-        labelWidthPt: mmToPt(38),
-        labelHeightPt: mmToPt(21),
+        labelWidthMm: 38,
+        labelHeightMm: 21,
         marginLeftPt: mmToPt(10),
         marginTopPt: mmToPt(12),
-        gapXPt: 0,
-        gapYPt: 0,
         maxLabelsPerSheet: 65,
       };
     }
     case 'thermal_58': {
       // 58 mm width x 40 mm height single label
-      const w = mmToPt(58);
-      const h = mmToPt(40);
       return {
         name: 'thermal_58',
-        pageSize: [w, h],
+        pageSize: [mmToPt(58), mmToPt(40)],
         isCustomSize: true,
         cols: 1,
         rows: 1,
-        labelWidthPt: w,
-        labelHeightPt: h,
+        labelWidthMm: 58,
+        labelHeightMm: 40,
         marginLeftPt: 0,
         marginTopPt: 0,
-        gapXPt: 0,
-        gapYPt: 0,
         maxLabelsPerSheet: 1,
       };
     }
@@ -177,36 +181,36 @@ function getSheetConfig(options: LabelOptions): SheetConfig {
     default: {
       const wMm = options.customDimensions?.width || 63;
       const hMm = options.customDimensions?.height || 34;
-      const wPt = mmToPt(wMm);
-      const hPt = mmToPt(hMm);
       return {
         name: 'custom',
-        pageSize: [wPt, hPt],
+        pageSize: [mmToPt(wMm), mmToPt(hMm)],
         isCustomSize: true,
         cols: 1,
         rows: 1,
-        labelWidthPt: wPt,
-        labelHeightPt: hPt,
+        labelWidthMm: wMm,
+        labelHeightMm: hMm,
         marginLeftPt: 0,
         marginTopPt: 0,
-        gapXPt: 0,
-        gapYPt: 0,
         maxLabelsPerSheet: 1,
       };
     }
   }
 }
 
+// Le moteur PDF ne lit que le JPEG et le PNG : toute autre image ferait
+// échouer la planche entière, la case photo reste alors vide.
+const isPdfImage = (src: string) => /^data:image\/(jpe?g|png)[;,]/i.test(src);
+
 // Fetch image safely and convert to base64, with 3000ms timeout
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   if (!url) return null;
-  if (url.startsWith('data:image/')) return url;
+  if (url.startsWith('data:image/')) return isPdfImage(url) ? url : null;
 
   try {
     let fetchUrl = url;
     // Optimize Cloudinary URLs to 300px
     if (fetchUrl.includes('cloudinary.com') && fetchUrl.includes('/upload/')) {
-      fetchUrl = fetchUrl.replace('/upload/', '/upload/w_300,c_limit,q_auto/');
+      fetchUrl = fetchUrl.replace('/upload/', '/upload/w_300,c_limit,f_jpg,q_auto/');
     }
 
     const controller = new AbortController();
@@ -214,7 +218,7 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
 
     const response = await fetch(fetchUrl, {
       signal: controller.signal,
-      headers: { Accept: 'image/*' },
+      headers: { Accept: 'image/jpeg,image/png' },
     });
     clearTimeout(timeoutId);
 
@@ -223,7 +227,8 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const contentType = response.headers.get('content-type') || 'image/jpeg';
-    return `data:${contentType};base64,${buffer.toString('base64')}`;
+    const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+    return isPdfImage(dataUri) ? dataUri : null;
   } catch {
     // Fail silently so label still prints without photo
     return null;
@@ -237,10 +242,11 @@ async function generateQrDataUri(text: string): Promise<string> {
       type: 'svg',
       errorCorrectionLevel: 'M',
       // Zone de silence : sans marge blanche autour du symbole, un lecteur
-      // n'en trouve pas les bords des que l'etiquette est collee contre un
-      // autre element imprime. La norme demande 4 modules ; 2 suffisent en
-      // pratique et gardent les modules assez gros sur une etiquette de 17 mm.
+      // n'en trouve pas les bords, surtout sur le fond indigo du ticket. La
+      // norme demande 4 modules ; 2 suffisent en pratique et gardent les
+      // modules assez gros sur une petite étiquette.
       margin: 2,
+      color: { dark: '#0F172A', light: '#FFFFFF' },
     });
     return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
   } catch (err) {
@@ -249,32 +255,10 @@ async function generateQrDataUri(text: string): Promise<string> {
   }
 }
 
-// Generate 1D Barcode as SVG Data URI with bwip-js
-function generateBarcodeDataUri(text: string): string {
-  try {
-    // Le code est encode tel quel. On en retirait la ponctuation : l'etiquette
-    // de « INT-612332909 » se relisait « INT612332909 », un code que le
-    // catalogue ne connait pas. Le Code 128 encode sans peine tiret et point.
-    const svg = bwipjs.toSVG({
-      bcid: 'code128',
-      text: text.trim(),
-      scale: 2,
-      height: 10,
-      includetext: false,
-    });
-    return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
-  } catch (err) {
-    console.error('Error generating barcode SVG:', err);
-    return '';
-  }
-}
-
 interface PreparedProductLabel {
   product: LabelProductData;
   qrDataUri: string;
-  barcodeDataUri: string;
   photoBase64: string | null;
-  codeText: string;
 }
 
 export async function generateLabelsPdfBuffer({
@@ -290,20 +274,12 @@ export async function generateLabelsPdfBuffer({
 }): Promise<Buffer> {
   const config = getSheetConfig(options);
   const startIndex = Math.max(1, options.startIndex || 1);
+  const palette = LABEL_PALETTES[options.variante === 'couleur' ? 'couleur' : DEFAULT_LABEL_VARIANT];
+  const shopName = settings?.shopName?.trim() || 'Ma boutique';
 
   // 1. Prepare assets for all selected products
-  const productMap = new Map<string, LabelProductData>();
-  products.forEach((p) => productMap.set(p.id, p));
-
   const preparedMap = new Map<string, PreparedProductLabel>();
 
-  const todayStr = new Date().toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  });
-
-  // Load photos & generate barcodes concurrently
   await Promise.all(
     products.map(async (p) => {
       const copyCount = copies[p.id] || 0;
@@ -311,29 +287,10 @@ export async function generateLabelsPdfBuffer({
 
       const codeText = p.internalCode || p.barcode || p.id;
       const qrDataUri = await generateQrDataUri(codeText);
+      const photoUrl = p.photo || p.photos?.[0];
+      const photoBase64 = photoUrl ? await fetchImageAsBase64(photoUrl) : null;
 
-      let barcodeDataUri = '';
-      if (p.barcode && (options.typeCode === 'BARCODE' || options.typeCode === 'BOTH')) {
-        barcodeDataUri = generateBarcodeDataUri(p.barcode);
-      } else if (options.typeCode === 'BARCODE' || options.typeCode === 'BOTH') {
-        barcodeDataUri = generateBarcodeDataUri(codeText);
-      }
-
-      let photoBase64: string | null = null;
-      if (options.champs.includes('photo') && options.format !== '65_38x21') {
-        const photoUrl = p.photo || p.photos?.[0];
-        if (photoUrl) {
-          photoBase64 = await fetchImageAsBase64(photoUrl);
-        }
-      }
-
-      preparedMap.set(p.id, {
-        product: p,
-        qrDataUri,
-        barcodeDataUri,
-        photoBase64,
-        codeText,
-      });
+      preparedMap.set(p.id, { product: p, qrDataUri, photoBase64 });
     })
   );
 
@@ -364,392 +321,159 @@ export async function generateLabelsPdfBuffer({
     sheets.push(labelList.slice(i, i + chunkSize));
   }
 
-  // 4. Determine font sizes according to options.tailleTexte
-  const isSmall = options.tailleTexte === 'PETIT';
-  const isLarge = options.tailleTexte === 'GRAND';
-
-  const priceFontSize = isSmall ? 11 : isLarge ? 16 : 13.5;
-  const nameFontSize = isSmall ? 7 : isLarge ? 9.5 : 8;
-  const metaFontSize = 6;
+  // 4. Un seul gabarit pour toute la planche : le prix le plus long fixe la
+  // taille du prix de toutes les étiquettes.
+  const priceChars = Math.max(
+    0,
+    ...Array.from(preparedMap.values()).map((p) => formatLabelPrice(p.product.salePrice).length)
+  );
+  const L = ticketLayout(config.labelWidthMm, config.labelHeightMm, priceChars);
+  const pt = mmToPt;
+  const labelW = pt(L.width);
+  const labelH = pt(L.height);
+  const outline = perforationPath(L, pt(1));
+  const box = (b: { x: number; y: number; w?: number; h?: number }) => ({
+    position: 'absolute' as const,
+    left: pt(b.x),
+    top: pt(b.y),
+    ...(b.w !== undefined ? { width: pt(b.w) } : {}),
+    ...(b.h !== undefined ? { height: pt(b.h) } : {}),
+  });
 
   // Single label component
   const SingleLabel = ({ item }: { item: PreparedProductLabel | null; key?: React.Key }) => {
     if (!item) {
-      return (
-        <View
-          style={{
-            width: config.labelWidthPt,
-            height: config.labelHeightPt,
-            borderWidth: options.traitsDecoupe ? 0.4 : 0,
-            borderColor: '#e2e8f0',
-            borderStyle: 'dashed',
-            backgroundColor: '#ffffff',
-          }}
-        />
-      );
+      return <View style={{ width: labelW, height: labelH, backgroundColor: '#ffffff' }} />;
     }
 
-    const { product, qrDataUri, barcodeDataUri, photoBase64, codeText } = item;
-    const hasPhoto = Boolean(photoBase64) && options.champs.includes('photo') && options.format !== '65_38x21';
-    const showShop = options.champs.includes('boutique') && Boolean(settings?.shopName);
-    const showPrice = options.champs.includes('prix');
-    const showName = options.champs.includes('nom');
-    const showCode = options.champs.includes('code');
-    const showDigits = options.champs.includes('codeChiffres');
-    const showDate = options.champs.includes('dateImpression');
-    const showStock = options.champs.includes('stock') && product.stock !== undefined;
-    const showUnit = options.champs.includes('unite') && Boolean(product.unit);
-    const showCategory = options.champs.includes('categorie') && Boolean(product.category);
-    const showOldPrice = options.champs.includes('ancienPrix') && Boolean(product.previousPrice && product.previousPrice > product.salePrice);
-
-    // Code rendering dimensions
-    const isTinyFormat = options.format === '65_38x21';
-    const qrSizePt = isTinyFormat ? mmToPt(17) : mmToPt(20);
-    const barcodeWidthPt = isTinyFormat ? mmToPt(25) : mmToPt(32);
-    const barcodeHeightPt = isTinyFormat ? mmToPt(8) : mmToPt(11);
-
-    // Border and padding
-    const innerPaddingPt = mmToPt(1.8);
+    const { product, qrDataUri, photoBase64 } = item;
 
     return (
-      <View
-        style={{
-          width: config.labelWidthPt,
-          height: config.labelHeightPt,
-          padding: innerPaddingPt,
-          borderWidth: options.traitsDecoupe ? 0.35 : 0,
-          borderColor: '#cbd5e1',
-          borderStyle: 'dashed',
-          overflow: 'hidden',
-          backgroundColor: '#ffffff',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        {/* Layout 1: WITH PHOTO (3 columns: photo on left, details center, code right) */}
-        {hasPhoto ? (
-          <View style={{ flexDirection: 'row', width: '100%', height: '100%', alignItems: 'center' }}>
-            {/* Left Photo */}
-            <View
+      <View style={{ width: labelW, height: labelH, position: 'relative', backgroundColor: '#ffffff' }}>
+        {/* Ticket dentelé */}
+        <Svg
+          width={labelW}
+          height={labelH}
+          viewBox={`0 0 ${labelW} ${labelH}`}
+          style={{ position: 'absolute', left: 0, top: 0 }}
+        >
+          <Path d={outline} fill={palette.paper} stroke={palette.stroke} strokeWidth={pt(L.strokeW)} />
+        </Svg>
+
+        {/* Bandeau de marque */}
+        <View
+          style={{
+            ...box(L.header),
+            backgroundColor: palette.band,
+            borderRadius: pt(L.radius),
+            paddingHorizontal: pt(L.header.padX),
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Text
+            style={{
+              flex: 1,
+              fontSize: pt(L.header.shopFs),
+              fontFamily: 'Helvetica-Bold',
+              color: palette.shop,
+              maxLines: 1,
+              textOverflow: 'ellipsis',
+              paddingRight: pt(L.header.padX),
+            }}
+          >
+            {shopName}
+          </Text>
+          <Text style={{ fontSize: pt(L.header.brandFs), fontFamily: 'Helvetica', color: palette.brand }}>
+            {LABEL_BRAND_TEXT}
+          </Text>
+        </View>
+
+        {/* Case photo : même place et même taille, qu'il y ait une photo ou non */}
+        <View
+          style={{
+            ...box({ x: L.photo.x, y: L.photo.y, w: L.photo.size, h: L.photo.size }),
+            backgroundColor: palette.photoBg,
+            borderWidth: pt(L.strokeW),
+            borderColor: palette.photoBorder,
+            borderRadius: pt(L.radius),
+            overflow: 'hidden',
+          }}
+        >
+          {photoBase64 && (
+            <Image src={photoBase64} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          )}
+        </View>
+
+        {/* Nom (2 lignes réservées) et catégorie */}
+        <View style={box({ x: L.text.x, y: L.text.y, w: L.text.w })}>
+          <View style={{ height: pt(L.text.nameLineH * 2) }}>
+            <Text
               style={{
-                width: mmToPt(18),
-                height: mmToPt(18),
-                marginRight: mmToPt(1.5),
-                borderRadius: 2,
-                overflow: 'hidden',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#f1f5f9',
+                fontSize: pt(L.text.nameFs),
+                fontFamily: 'Helvetica-Bold',
+                color: palette.name,
+                lineHeight: 1.15,
+                maxLines: 2,
+                textOverflow: 'ellipsis',
               }}
             >
-              {photoBase64 && (
-                <Image
-                  src={photoBase64}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
-              )}
-            </View>
-
-            {/* Center Content: Name & Price */}
-            <View style={{ flex: 1, height: '100%', justifyContent: 'space-between', paddingRight: mmToPt(1) }}>
-              <View>
-                {showShop && (
-                  <Text
-                    style={{
-                      fontSize: metaFontSize - 0.5,
-                      fontFamily: 'Helvetica',
-                      color: '#475569',
-                      marginBottom: 1,
-                    }}
-                  >
-                    {settings?.shopName}
-                  </Text>
-                )}
-                {showName && (
-                  <Text
-                    style={{
-                      fontSize: nameFontSize,
-                      fontFamily: 'Helvetica',
-                      fontWeight: 'bold',
-                      color: '#000000',
-                      lineHeight: 1.1,
-                      maxLines: 2,
-                    }}
-                  >
-                    {product.name}
-                  </Text>
-                )}
-                {showCategory && (
-                  <Text style={{ fontSize: metaFontSize - 1, color: '#64748b' }}>
-                    {product.category}
-                  </Text>
-                )}
-              </View>
-
-              <View>
-                {showOldPrice && (
-                  <Text
-                    style={{
-                      fontSize: metaFontSize,
-                      fontFamily: 'Helvetica',
-                      color: '#64748b',
-                      textDecoration: 'line-through',
-                    }}
-                  >
-                    {product.previousPrice?.toLocaleString('fr-FR')} F
-                  </Text>
-                )}
-                {showPrice && (
-                  <Text
-                    style={{
-                      fontSize: priceFontSize,
-                      fontFamily: 'Helvetica',
-                      fontWeight: 'bold',
-                      color: '#000000',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {product.salePrice.toLocaleString('fr-FR')} F
-                  </Text>
-                )}
-                {(showStock || showUnit) && (
-                  <Text style={{ fontSize: metaFontSize - 1, color: '#64748b', marginTop: 1 }}>
-                    {showStock ? `Stock: ${product.stock}` : ''}
-                    {showStock && showUnit ? ' · ' : ''}
-                    {showUnit ? product.unit : ''}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {/* Right: Code */}
-            {showCode && (
-              <View
-                style={{
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: qrSizePt,
-                }}
-              >
-                {options.typeCode === 'BARCODE' && barcodeDataUri ? (
-                  <View style={{ alignItems: 'center' }}>
-                    <Image
-                      src={barcodeDataUri}
-                      style={{ width: barcodeWidthPt, height: barcodeHeightPt }}
-                    />
-                    {showDigits && (
-                      <Text
-                        style={{
-                          fontSize: metaFontSize,
-                          fontFamily: 'Courier',
-                          letterSpacing: 0.5,
-                          marginTop: 1,
-                          color: '#000000',
-                        }}
-                      >
-                        {product.barcode || codeText}
-                      </Text>
-                    )}
-                  </View>
-                ) : (
-                  <View style={{ alignItems: 'center' }}>
-                    <Image
-                      src={qrDataUri}
-                      style={{ width: qrSizePt, height: qrSizePt }}
-                    />
-                    {showDigits && (
-                      <Text
-                        style={{
-                          fontSize: metaFontSize - 0.5,
-                          fontFamily: 'Courier',
-                          letterSpacing: 0.5,
-                          marginTop: 1,
-                          color: '#000000',
-                        }}
-                      >
-                        {codeText}
-                      </Text>
-                    )}
-                  </View>
-                )}
-                {showDate && (
-                  <Text style={{ fontSize: metaFontSize - 1.5, color: '#94a3b8', marginTop: 1 }}>
-                    {todayStr}
-                  </Text>
-                )}
-              </View>
-            )}
+              {product.name}
+            </Text>
           </View>
-        ) : (
-          /* Layout 2: WITHOUT PHOTO (Nom en haut sur 2 lignes · prix en gros à gauche · code à droite) */
-          <View style={{ width: '100%', height: '100%', justifyContent: 'space-between' }}>
-            {/* Top row: Shop name & Product name */}
-            <View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                {showShop && (
-                  <Text
-                    style={{
-                      fontSize: metaFontSize,
-                      fontFamily: 'Helvetica',
-                      color: '#475569',
-                      marginBottom: 1,
-                    }}
-                  >
-                    {settings?.shopName}
-                  </Text>
-                )}
-                {showDate && (
-                  <Text style={{ fontSize: metaFontSize - 1, color: '#94a3b8' }}>
-                    {todayStr}
-                  </Text>
-                )}
-              </View>
+          <Text
+            style={{
+              fontSize: pt(L.text.categoryFs),
+              fontFamily: 'Helvetica',
+              color: palette.category,
+              maxLines: 1,
+              textOverflow: 'ellipsis',
+              marginTop: pt(L.text.nameFs * 0.15),
+            }}
+          >
+            {product.category || ' '}
+          </Text>
+        </View>
 
-              {showName && (
-                <Text
-                  style={{
-                    fontSize: nameFontSize,
-                    fontFamily: 'Helvetica',
-                    fontWeight: 'bold',
-                    color: '#000000',
-                    lineHeight: 1.15,
-                    maxLines: 2,
-                  }}
-                >
-                  {product.name}
-                </Text>
-              )}
-            </View>
+        {/* Encadré prix */}
+        <View
+          style={{
+            ...box(L.price),
+            backgroundColor: palette.priceBg,
+            borderRadius: pt(L.radius),
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: pt(L.price.fs),
+              fontFamily: 'Helvetica-Bold',
+              color: palette.priceText,
+              lineHeight: 1,
+              maxLines: 1,
+            }}
+          >
+            {formatLabelPrice(product.salePrice)}
+          </Text>
+        </View>
 
-            {/* Bottom row: Price & Details on left, Code on right */}
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'flex-end',
-                marginTop: mmToPt(1),
-              }}
-            >
-              {/* Left price block */}
-              <View style={{ justifyContent: 'flex-end', flex: 1, paddingRight: mmToPt(1.5) }}>
-                {showOldPrice && (
-                  <Text
-                    style={{
-                      fontSize: metaFontSize,
-                      fontFamily: 'Helvetica',
-                      color: '#64748b',
-                      textDecoration: 'line-through',
-                      marginBottom: 1,
-                    }}
-                  >
-                    {product.previousPrice?.toLocaleString('fr-FR')} F
-                  </Text>
-                )}
-                {showPrice && (
-                  <Text
-                    style={{
-                      fontSize: priceFontSize,
-                      fontFamily: 'Helvetica',
-                      fontWeight: 'bold',
-                      color: '#000000',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {product.salePrice.toLocaleString('fr-FR')} F
-                  </Text>
-                )}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2, marginTop: 1 }}>
-                  {showCategory && (
-                    <Text style={{ fontSize: metaFontSize - 1, color: '#64748b' }}>
-                      {product.category}
-                    </Text>
-                  )}
-                  {showCategory && (showStock || showUnit) && (
-                    <Text style={{ fontSize: metaFontSize - 1, color: '#94a3b8' }}>·</Text>
-                  )}
-                  {showStock && (
-                    <Text style={{ fontSize: metaFontSize - 1, color: '#64748b' }}>
-                      Stock: {product.stock}
-                    </Text>
-                  )}
-                  {showStock && showUnit && (
-                    <Text style={{ fontSize: metaFontSize - 1, color: '#94a3b8' }}>·</Text>
-                  )}
-                  {showUnit && (
-                    <Text style={{ fontSize: metaFontSize - 1, color: '#64748b' }}>
-                      {product.unit}
-                    </Text>
-                  )}
-                </View>
-              </View>
-
-              {/* Right: Code */}
-              {showCode && (
-                <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
-                  {options.typeCode === 'BOTH' ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                      {barcodeDataUri && (
-                        <Image
-                          src={barcodeDataUri}
-                          style={{ width: barcodeWidthPt * 0.8, height: barcodeHeightPt }}
-                        />
-                      )}
-                      <Image
-                        src={qrDataUri}
-                        style={{ width: qrSizePt * 0.9, height: qrSizePt * 0.9 }}
-                      />
-                    </View>
-                  ) : options.typeCode === 'BARCODE' && barcodeDataUri ? (
-                    <View style={{ alignItems: 'center' }}>
-                      <Image
-                        src={barcodeDataUri}
-                        style={{ width: barcodeWidthPt, height: barcodeHeightPt }}
-                      />
-                      {showDigits && (
-                        <Text
-                          style={{
-                            fontSize: metaFontSize,
-                            fontFamily: 'Courier',
-                            letterSpacing: 0.5,
-                            marginTop: 1,
-                            color: '#000000',
-                          }}
-                        >
-                          {product.barcode || codeText}
-                        </Text>
-                      )}
-                    </View>
-                  ) : (
-                    <View style={{ alignItems: 'center' }}>
-                      <Image
-                        src={qrDataUri}
-                        style={{ width: qrSizePt, height: qrSizePt }}
-                      />
-                      {showDigits && (
-                        <Text
-                          style={{
-                            fontSize: metaFontSize - 0.5,
-                            fontFamily: 'Courier',
-                            letterSpacing: 0.5,
-                            marginTop: 1,
-                            color: '#000000',
-                          }}
-                        >
-                          {codeText}
-                        </Text>
-                      )}
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          </View>
-        )}
+        {/* QR en bas */}
+        <View
+          style={{
+            ...box({ x: L.qr.x, y: L.qr.y, w: L.qr.size, h: L.qr.size }),
+            backgroundColor: palette.qrTile,
+            borderRadius: pt(L.radius * 0.6),
+          }}
+        >
+          {qrDataUri ? <Image src={qrDataUri} style={{ width: '100%', height: '100%' }} /> : null}
+        </View>
+        <View style={{ ...box(L.caption), alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: pt(L.caption.fs), fontFamily: 'Helvetica-Bold', color: palette.caption }}>
+            {LABEL_QR_CAPTION}
+          </Text>
+        </View>
       </View>
     );
   };

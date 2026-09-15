@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import {
-  Product,
-  LabelField,
-  LabelFormat,
-  LabelTextSize,
-  LabelCodeType,
-  LabelSettings,
-} from '../../types';
+import { Product, LabelFormat, LabelSettings } from '../../types';
 import { countLabel } from '../../utils/plural';
 import {
   X,
@@ -15,19 +8,21 @@ import {
   Download,
   Share2,
   RotateCcw,
-  AlertTriangle,
-  FileText,
-  Check,
   Plus,
   Minus,
   Eye,
   Smartphone,
-  Sparkles,
-  Info,
   Layers,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/currency';
 import { photoToJpeg } from '../../utils/catalogExport';
+import {
+  DEFAULT_LABEL_VARIANT,
+  LABEL_PALETTES,
+  LabelVariant,
+  formatLabelPrice,
+} from '../../utils/labelTicket';
+import { LabelTicketPreview } from './LabelTicketPreview';
 import QRCode from 'qrcode';
 
 interface LabelPrintModalProps {
@@ -47,6 +42,16 @@ const DEFAULT_LABEL_SETTINGS: LabelSettings = {
   tailleTexte: 'NORMAL',
   typeCode: 'QR',
   traitsDecoupe: true,
+  variante: DEFAULT_LABEL_VARIANT,
+};
+
+// Dimensions du papier de chaque format, en mm (thermique : 58 × 40).
+const FORMAT_MM: Record<Exclude<LabelFormat, 'custom'>, [number, number]> = {
+  '24_63x34': [63, 34],
+  '21_70x42': [70, 42],
+  '12_105x48': [105, 48],
+  '65_38x21': [38, 21],
+  thermal_58: [58, 40],
 };
 
 export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
@@ -70,13 +75,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
   // Load remembered settings or defaults
   const savedSettings = settings.labelSettings || DEFAULT_LABEL_SETTINGS;
 
-  const [champs, setChamps] = useState<LabelField[]>(savedSettings.champs || ['nom', 'prix', 'code']);
   const [format, setFormat] = useState<LabelFormat>(savedSettings.format || '24_63x34');
-  const [tailleTexte, setTailleTexte] = useState<LabelTextSize>(savedSettings.tailleTexte || 'NORMAL');
-  const [typeCode, setTypeCode] = useState<LabelCodeType>(savedSettings.typeCode || 'QR');
-  const [traitsDecoupe, setTraitsDecoupe] = useState<boolean>(
-    savedSettings.traitsDecoupe !== undefined ? savedSettings.traitsDecoupe : true
-  );
+  const [variante, setVariante] = useState<LabelVariant>(savedSettings.variante || DEFAULT_LABEL_VARIANT);
   const [customWidth, setCustomWidth] = useState<number>(savedSettings.customWidth || 63);
   const [customHeight, setCustomHeight] = useState<number>(savedSettings.customHeight || 34);
 
@@ -95,11 +95,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       const active = settings.labelSettings || DEFAULT_LABEL_SETTINGS;
-      setChamps(active.champs || ['nom', 'prix', 'code']);
       setFormat(active.format || '24_63x34');
-      setTailleTexte(active.tailleTexte || 'NORMAL');
-      setTypeCode(active.typeCode || 'QR');
-      setTraitsDecoupe(active.traitsDecoupe !== undefined ? active.traitsDecoupe : true);
+      setVariante(active.variante || DEFAULT_LABEL_VARIANT);
       setStartIndex(1);
       setStatusMessage(null);
 
@@ -124,11 +121,9 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
   // Persist settings changes
   const saveCurrentSettings = (partial: Partial<LabelSettings>) => {
     const updated: LabelSettings = {
-      champs,
+      ...(settings.labelSettings || DEFAULT_LABEL_SETTINGS),
       format,
-      tailleTexte,
-      typeCode,
-      traitsDecoupe,
+      variante,
       customWidth,
       customHeight,
       ...partial,
@@ -138,29 +133,11 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
 
   // Reset to default settings
   const handleResetDefaults = () => {
-    setChamps(DEFAULT_LABEL_SETTINGS.champs);
     setFormat(DEFAULT_LABEL_SETTINGS.format);
-    setTailleTexte(DEFAULT_LABEL_SETTINGS.tailleTexte);
-    setTypeCode(DEFAULT_LABEL_SETTINGS.typeCode);
-    setTraitsDecoupe(DEFAULT_LABEL_SETTINGS.traitsDecoupe);
+    setVariante(DEFAULT_LABEL_VARIANT);
     updateSettings({ labelSettings: DEFAULT_LABEL_SETTINGS });
     setStatusMessage('Réglages par défaut rétablis');
     setTimeout(() => setStatusMessage(null), 2500);
-  };
-
-  // Checkbox toggle logic: At least ONE field must remain checked
-  const toggleChamp = (field: LabelField) => {
-    let next = [...champs];
-    if (next.includes(field)) {
-      next = next.filter((f) => f !== field);
-      if (next.length === 0) {
-        next = ['nom']; // Automatically re-check product name
-      }
-    } else {
-      next.push(field);
-    }
-    setChamps(next);
-    saveCurrentSettings({ champs: next });
   };
 
   // Active product for live preview
@@ -184,59 +161,26 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
     const textToEncode =
       previewProduct.internalCode || previewProduct.barcode || `MC-${previewProduct.id}`;
 
+    // Même QR que le PDF : zone de silence de 2 modules, indispensable pour
+    // qu'il se lise sur le fond indigo.
     QRCode.toDataURL(textToEncode, {
       errorCorrectionLevel: 'M',
-      margin: 0,
-      width: 160,
-      color: { dark: '#000000', light: '#ffffff' },
+      margin: 2,
+      width: 240,
+      color: { dark: '#0F172A', light: '#FFFFFF' },
     })
       .then((url) => setPreviewQrDataUrl(url))
       .catch((err) => console.error('Preview QR error:', err));
   }, [previewProduct]);
 
-  // Check if preview product has manufacturer barcode
-  const hasManufacturerBarcode = useMemo(() => {
-    if (preSelectedProduct) {
-      return Boolean(preSelectedProduct.barcode);
-    }
-    // Check if any product has barcode
-    return products.some((p) => Boolean(p.barcode));
-  }, [preSelectedProduct, products]);
-
-  // If manufacturer barcode is selected but unavailable, fallback to QR
-  useEffect(() => {
-    if (!hasManufacturerBarcode && typeCode === 'BARCODE') {
-      setTypeCode('QR');
-      saveCurrentSettings({ typeCode: 'QR' });
-    }
-  }, [hasManufacturerBarcode, typeCode]);
-
-  // Check if any product has an old/previous price
-  const hasAnyPreviousPrice = useMemo(() => {
-    if (preSelectedProduct) {
-      return Boolean(
-        preSelectedProduct.previousPrice && preSelectedProduct.previousPrice > preSelectedProduct.salePrice
-      );
-    }
-    return products.some((p) => p.previousPrice && p.previousPrice > p.salePrice);
-  }, [preSelectedProduct, products]);
-
-  // Layout capacity & overflow warning check
-  const capacityWarning = useMemo(() => {
-    const limits: Record<LabelFormat, number> = {
-      '65_38x21': 3,
-      '24_63x34': 6,
-      '21_70x42': 7,
-      '12_105x48': 10,
-      thermal_58: 5,
-      custom: customHeight < 30 ? 3 : 7,
-    };
-    const maxCapacity = limits[format] || 6;
-    if (champs.length > maxCapacity) {
-      return "Trop d'informations pour ce format. L'étiquette sera serrée. Choisis un format plus grand ou décoche un élément.";
-    }
-    return null;
-  }, [champs, format, customHeight]);
+  // Le prix le plus long fixe la taille du prix de toute la planche, comme
+  // dans le PDF : l'aperçu montre exactement le gabarit imprimé.
+  const priceChars = useMemo(
+    () => Math.max(0, ...products.map((p) => formatLabelPrice(p.salePrice).length)),
+    [products]
+  );
+  const [labelWidthMm, labelHeightMm] =
+    format === 'custom' ? [customWidth || 63, customHeight || 34] : FORMAT_MM[format];
 
   // Format definitions
   const formatMeta: Record<
@@ -342,11 +286,10 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
     // et ne pouvait pas les télécharger lui-même : l'adresse d'une photo est
     // relative (/api/v1/products/…/raw, protégée par la session du navigateur)
     // et le moteur PDF ne lit pas le WebP. Résultat : aucune photo imprimée.
-    const withPhoto = champs.includes('photo') && format !== '65_38x21';
     const photos = await Promise.all(
       activeProducts.map(async (p) => {
         const src = p.photo || p.photos?.[0];
-        if (!withPhoto || !src) return undefined;
+        if (!src) return undefined;
         if (src.startsWith('data:image/jpeg') || src.startsWith('data:image/png')) return src;
         // 200 px suffisent pour quelques centimètres d'étiquette, et gardent
         // une grosse planche sous la limite de taille des requêtes Vercel.
@@ -358,11 +301,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
       productIds,
       copies: quantities,
       options: {
-        champs,
         format,
-        tailleTexte,
-        typeCode,
-        traitsDecoupe,
+        variante,
         startIndex,
         customDimensions: {
           width: customWidth,
@@ -497,12 +437,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Single label preview properties
-  const isTiny = format === '65_38x21';
-  const hasPhotoChecked = champs.includes('photo');
+  // Photo du produit montré dans l'aperçu (case vide s'il n'en a pas)
   const photoUrl = previewProduct?.photo || previewProduct?.photos?.[0];
-  const isPhotoExcluded = isTiny && hasPhotoChecked;
-  const showPhoto = hasPhotoChecked && Boolean(photoUrl) && !isTiny;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
@@ -553,280 +489,65 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
         <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
           {/* ================= LEFT COLUMN: SETTINGS (7 COLS) ================= */}
           <div className="md:col-span-7 p-4 sm:p-5 space-y-5 overflow-y-auto max-h-[58vh] md:max-h-[68vh]">
-            {/* A. QUE VEUX-TU VOIR SUR L'ÉTIQUETTE ? */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <span>A. Que veux-tu voir sur l’étiquette ?</span>
-                </label>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  {champs.length} sélectionné{champs.length > 1 ? 's' : ''}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/60">
-                {/* 1. Nom du produit */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('nom')}
-                    onChange={() => toggleChamp('nom')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Nom du produit</span>
-                </label>
-
-                {/* 2. Prix de vente */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('prix')}
-                    onChange={() => toggleChamp('prix')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Prix de vente</span>
-                </label>
-
-                {/* 3. Code à scanner */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('code')}
-                    onChange={() => toggleChamp('code')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Code à scanner</span>
-                </label>
-
-                {/* 4. Photo du produit */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('photo')}
-                    onChange={() => toggleChamp('photo')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Photo du produit</span>
-                </label>
-
-                {/* 5. Nom de ta boutique */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('boutique')}
-                    onChange={() => toggleChamp('boutique')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Nom boutique</span>
-                </label>
-
-                {/* 6. Logo de ta boutique */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('logo')}
-                    onChange={() => toggleChamp('logo')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Logo boutique</span>
-                </label>
-
-                {/* 7. Quantité en stock */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('stock')}
-                    onChange={() => toggleChamp('stock')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Quantité en stock</span>
-                </label>
-
-                {/* 8. Unité */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('unite')}
-                    onChange={() => toggleChamp('unite')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Unité (pièce, kg…)</span>
-                </label>
-
-                {/* 9. Catégorie */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('categorie')}
-                    onChange={() => toggleChamp('categorie')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Catégorie</span>
-                </label>
-
-                {/* 10. Code écrit en chiffres */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('codeChiffres')}
-                    onChange={() => toggleChamp('codeChiffres')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Code sous l'image</span>
-                </label>
-
-                {/* 11. Date d'impression */}
-                <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={champs.includes('dateImpression')}
-                    onChange={() => toggleChamp('dateImpression')}
-                    className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span>Date d’impression</span>
-                </label>
-
-                {/* 12. Prix barré (ancien prix) */}
-                {hasAnyPreviousPrice && (
-                  <label className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer text-xs font-semibold text-slate-800">
-                    <input
-                      type="checkbox"
-                      checked={champs.includes('ancienPrix')}
-                      onChange={() => toggleChamp('ancienPrix')}
-                      className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5] cursor-pointer"
-                    />
-                    <span>Prix barré (promo)</span>
-                  </label>
-                )}
-              </div>
-
-              {/* Overflow warning */}
-              {capacityWarning && (
-                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2 text-amber-800 text-[11px] leading-relaxed">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>{capacityWarning}</span>
-                </div>
-              )}
-            </div>
-
-            {/* B. TAILLE DU TEXTE */}
+            {/* A. COULEUR DE L'ÉTIQUETTE */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                B. Taille du texte
+                A. Couleur de l’étiquette
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['PETIT', 'NORMAL', 'GRAND'] as LabelTextSize[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => {
-                      setTailleTexte(t);
-                      saveCurrentSettings({ tailleTexte: t });
-                    }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      tailleTexte === t
-                        ? 'border-[#4F46E5] bg-indigo-50/50 text-[#4F46E5] shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {t === 'PETIT' ? 'Petit' : t === 'NORMAL' ? 'Normal' : 'Grand'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* C. QUEL CODE IMPRIMER */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                C. Quel code imprimer
-              </label>
-              <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/60 text-xs">
-                {/* QR Code */}
-                <label className="flex items-start gap-2.5 p-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer">
-                  <input
-                    type="radio"
-                    name="codeType"
-                    checked={typeCode === 'QR'}
-                    onChange={() => {
-                      setTypeCode('QR');
-                      saveCurrentSettings({ typeCode: 'QR' });
-                    }}
-                    className="w-4 h-4 mt-0.5 text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5]"
-                  />
-                  <div>
-                    <span className="font-bold text-slate-800">Le code MoroCash (QR)</span>
-                    <span className="text-[10px] text-emerald-600 font-semibold ml-1.5 bg-emerald-50 px-1.5 py-0.5 rounded">
-                      recommandé
-                    </span>
-                    <p className="text-[11px] text-slate-400">
-                      Se lit facilement, même froissé, plié ou légèrement sali
-                    </p>
-                  </div>
-                </label>
-
-                {/* Fabricant (Code-barres) */}
-                <label
-                  className={`flex items-start gap-2.5 p-1.5 rounded-xl transition-colors ${
-                    hasManufacturerBarcode
-                      ? 'hover:bg-white cursor-pointer'
-                      : 'opacity-50 cursor-not-allowed'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="codeType"
-                    disabled={!hasManufacturerBarcode}
-                    checked={typeCode === 'BARCODE'}
-                    onChange={() => {
-                      if (hasManufacturerBarcode) {
-                        setTypeCode('BARCODE');
-                        saveCurrentSettings({ typeCode: 'BARCODE' });
-                      }
-                    }}
-                    className="w-4 h-4 mt-0.5 text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5]"
-                  />
-                  <div>
-                    <span className="font-bold text-slate-800">Le code du fabricant (code-barres)</span>
-                    {!hasManufacturerBarcode && (
-                      <span className="text-[10px] text-slate-400 block mt-0.5 italic">
-                        Ce produit n'a pas de code du fabricant
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { id: 'claire', title: 'Claire', desc: 'Fond blanc, contour indigo' },
+                    { id: 'couleur', title: 'Pleine couleur', desc: 'Fond indigo, texte blanc' },
+                  ] as { id: LabelVariant; title: string; desc: string }[]
+                ).map((v) => {
+                  const palette = LABEL_PALETTES[v.id];
+                  const actif = variante === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      aria-pressed={actif}
+                      onClick={() => {
+                        setVariante(v.id);
+                        saveCurrentSettings({ variante: v.id });
+                      }}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                        actif
+                          ? 'border-[#4F46E5] bg-indigo-50/50 shadow-xs'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <span
+                        className="w-7 h-7 rounded-md shrink-0"
+                        style={{ background: palette.paper, border: `2px solid ${palette.stroke}` }}
+                        aria-hidden="true"
+                      />
+                      <span>
+                        <span className="flex items-center gap-1.5 font-bold text-slate-900">
+                          {v.title}
+                          {v.id === DEFAULT_LABEL_VARIANT && (
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                              Recommandée
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-[11px] text-slate-500">{v.desc}</span>
                       </span>
-                    )}
-                  </div>
-                </label>
-
-                {/* Les deux */}
-                <label
-                  className={`flex items-start gap-2.5 p-1.5 rounded-xl transition-colors ${
-                    hasManufacturerBarcode
-                      ? 'hover:bg-white cursor-pointer'
-                      : 'opacity-50 cursor-not-allowed'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="codeType"
-                    disabled={!hasManufacturerBarcode}
-                    checked={typeCode === 'BOTH'}
-                    onChange={() => {
-                      if (hasManufacturerBarcode) {
-                        setTypeCode('BOTH');
-                        saveCurrentSettings({ typeCode: 'BOTH' });
-                      }
-                    }}
-                    className="w-4 h-4 mt-0.5 text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5]"
-                  />
-                  <div>
-                    <span className="font-bold text-slate-800">Les deux (QR + code-barres)</span>
-                  </div>
-                </label>
+                    </button>
+                  );
+                })}
               </div>
+              <p className="text-[11px] text-slate-500 leading-snug">
+                Chaque étiquette porte le nom de ta boutique, la photo et le nom du produit, sa
+                catégorie, son prix et un QR code à scanner.
+              </p>
             </div>
 
-            {/* D. FORMAT DE LA PLANCHE */}
+            {/* B. FORMAT DE LA PLANCHE */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                D. Format de la planche
+                B. Format de la planche
               </label>
               <div className="space-y-1.5">
                 {[
@@ -922,25 +643,12 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                 la page").
               </div>
 
-              {/* Trait de découpe option */}
-              <label className="flex items-center gap-2 pt-1 text-xs font-semibold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={traitsDecoupe}
-                  onChange={(e) => {
-                    setTraitsDecoupe(e.target.checked);
-                    saveCurrentSettings({ traitsDecoupe: e.target.checked });
-                  }}
-                  className="w-4 h-4 rounded text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5]"
-                />
-                <span>Afficher les traits de découpe (pointillés gris)</span>
-              </label>
             </div>
 
-            {/* E. COMBIEN D'EXEMPLAIRES */}
+            {/* C. COMBIEN D'EXEMPLAIRES */}
             <div className="space-y-2">
               <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-                <span>E. Combien d’exemplaires</span>
+                <span>C. Combien d’exemplaires</span>
                 <span className="text-[#4F46E5] font-black">
                   {totalLabels} étiquette{totalLabels > 1 ? 's' : ''} · {totalSheets} planche
                   {totalSheets > 1 ? 's' : ''}
@@ -1025,7 +733,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                           >
                             <p className="font-bold text-slate-900 truncate">{p.name}</p>
                             <p className="text-[10px] text-slate-400">
-                              {formatMoney(p.salePrice)} F · Stock: {p.stock}
+                              {formatMoney(p.salePrice)} · Stock: {p.stock}
                             </p>
                           </div>
 
@@ -1054,12 +762,12 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
               )}
             </div>
 
-            {/* F. COMMENCER À L'ÉTIQUETTE N° */}
+            {/* D. COMMENCER À L'ÉTIQUETTE N° */}
             {currentFormatMeta.countPerSheet > 1 && (
               <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                    F. Commencer à l'étiquette n°
+                    D. Commencer à l'étiquette n°
                   </label>
                   <span className="text-[11px] font-bold text-slate-600">
                     {startIndex > 1
@@ -1162,243 +870,27 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                 </div>
               )}
 
-              {/* Photo excluded warning for small format */}
-              {isPhotoExcluded && (
-                <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-[10px] text-amber-700 font-medium">
-                  Photo trop grande pour ce format (ignorée)
-                </div>
-              )}
-
-              {/* THE LIVE PREVIEW LABEL CONTAINER (Exact mathematical proportions) */}
+              {/* Aperçu à l'échelle : même gabarit que le PDF imprimé */}
               <div className="w-full flex items-center justify-center py-2">
-                <div
-                  className={`w-full max-w-[270px] bg-white rounded-lg transition-all text-black relative flex flex-col justify-between overflow-hidden shadow-sm ${
-                    traitsDecoupe
-                      ? 'border border-dashed border-slate-300'
-                      : 'border border-slate-200'
-                  }`}
-                  style={{
-                    aspectRatio:
-                      format === '65_38x21'
-                        ? '38 / 21'
-                        : format === '21_70x42'
-                        ? '70 / 42'
-                        : format === '12_105x48'
-                        ? '105 / 48'
-                        : format === 'thermal_58'
-                        ? '58 / 40'
-                        : format === 'custom'
-                        ? `${customWidth} / ${customHeight}`
-                        : '63 / 34',
-                    padding: '8px',
-                  }}
-                >
-                  {/* LAYOUT WITH PHOTO (3 columns) */}
-                  {showPhoto ? (
-                    <div className="flex items-center justify-between w-full h-full gap-2">
-                      {/* Photo on left */}
-                      <div className="w-14 h-14 rounded bg-slate-100 shrink-0 overflow-hidden border border-slate-200 flex items-center justify-center">
-                        <img
-                          src={photoUrl}
-                          alt={previewProduct?.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      {/* Name & price center */}
-                      <div className="flex-1 flex flex-col justify-between h-full min-w-0 pr-1">
-                        <div>
-                          {champs.includes('boutique') && settings.shopName && (
-                            <p className="text-[7px] text-slate-500 truncate leading-tight">
-                              {settings.shopName}
-                            </p>
-                          )}
-                          {champs.includes('nom') && (
-                            <p
-                              className={`font-bold text-black leading-tight line-clamp-2 ${
-                                tailleTexte === 'PETIT'
-                                  ? 'text-[8.5px]'
-                                  : tailleTexte === 'GRAND'
-                                  ? 'text-[11px]'
-                                  : 'text-[9.5px]'
-                              }`}
-                            >
-                              {previewProduct?.name}
-                            </p>
-                          )}
-                          {champs.includes('categorie') && previewProduct?.category && (
-                            <p className="text-[7px] text-slate-400 truncate">
-                              {previewProduct.category}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          {champs.includes('ancienPrix') &&
-                            previewProduct?.previousPrice &&
-                            previewProduct.previousPrice > previewProduct.salePrice && (
-                              <p className="text-[8px] text-slate-400 line-through leading-none">
-                                {formatMoney(previewProduct.previousPrice)} F
-                              </p>
-                            )}
-                          {champs.includes('prix') && (
-                            <p
-                              className={`font-black text-black tracking-tight leading-none ${
-                                tailleTexte === 'PETIT'
-                                  ? 'text-[12px]'
-                                  : tailleTexte === 'GRAND'
-                                  ? 'text-[16px]'
-                                  : 'text-[14px]'
-                              }`}
-                            >
-                              {formatMoney(previewProduct?.salePrice || 0)} F
-                            </p>
-                          )}
-                          {(champs.includes('stock') || champs.includes('unite')) && (
-                            <p className="text-[7.5px] text-slate-500 mt-0.5 truncate">
-                              {champs.includes('stock') ? `Stk: ${previewProduct?.stock}` : ''}
-                              {champs.includes('stock') && champs.includes('unite') ? ' · ' : ''}
-                              {champs.includes('unite') ? previewProduct?.unit : ''}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Code on right */}
-                      {champs.includes('code') && (
-                        <div className="shrink-0 flex flex-col items-center justify-center">
-                          {previewQrDataUrl ? (
-                            <img
-                              src={previewQrDataUrl}
-                              alt="QR"
-                              className="w-12 h-12 object-contain"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 bg-slate-100 rounded flex items-center justify-center text-[7px]">
-                              QR
-                            </div>
-                          )}
-                          {champs.includes('codeChiffres') && (
-                            <span className="font-mono text-[6.5px] font-bold tracking-widest text-slate-700 block mt-0.5">
-                              {previewProduct?.internalCode || previewProduct?.barcode || ''}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* LAYOUT WITHOUT PHOTO (Standard: Top 2-line name, bottom: price left, code right) */
-                    <div className="flex flex-col justify-between w-full h-full">
-                      {/* Top: Shop & Name */}
-                      <div>
-                        <div className="flex items-center justify-between text-[7px] text-slate-500 mb-0.5">
-                          {champs.includes('boutique') && (
-                            <span className="truncate max-w-[130px] font-semibold">
-                              {settings.shopName}
-                            </span>
-                          )}
-                          {champs.includes('dateImpression') && (
-                            <span className="text-slate-400">
-                              {new Date().toLocaleDateString('fr-FR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                              })}
-                            </span>
-                          )}
-                        </div>
-
-                        {champs.includes('nom') && (
-                          <p
-                            className={`font-bold text-black leading-snug line-clamp-2 ${
-                              tailleTexte === 'PETIT'
-                                ? 'text-[9px]'
-                                : tailleTexte === 'GRAND'
-                                ? 'text-[12px]'
-                                : 'text-[10.5px]'
-                            }`}
-                          >
-                            {previewProduct?.name}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Bottom row: Price left, Code right */}
-                      <div className="flex items-end justify-between gap-1 pt-1">
-                        <div className="flex-1 pr-1">
-                          {champs.includes('ancienPrix') &&
-                            previewProduct?.previousPrice &&
-                            previewProduct.previousPrice > previewProduct.salePrice && (
-                              <span className="text-[8px] text-slate-400 line-through block leading-none mb-0.5">
-                                {formatMoney(previewProduct.previousPrice)} F
-                              </span>
-                            )}
-                          {champs.includes('prix') && (
-                            <span
-                              className={`font-black text-black tracking-tight leading-none block ${
-                                tailleTexte === 'PETIT'
-                                  ? 'text-[13px]'
-                                  : tailleTexte === 'GRAND'
-                                  ? 'text-[17px]'
-                                  : 'text-[15px]'
-                              }`}
-                            >
-                              {formatMoney(previewProduct?.salePrice || 0)} F
-                            </span>
-                          )}
-
-                          <div className="flex items-center gap-1 text-[7.5px] text-slate-500 mt-0.5 truncate">
-                            {champs.includes('categorie') && previewProduct?.category && (
-                              <span>{previewProduct.category}</span>
-                            )}
-                            {champs.includes('stock') && (
-                              <span>Stk: {previewProduct?.stock}</span>
-                            )}
-                            {champs.includes('unite') && previewProduct?.unit && (
-                              <span>{previewProduct.unit}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Right: Code */}
-                        {champs.includes('code') && (
-                          <div className="shrink-0 flex flex-col items-center justify-end">
-                            {typeCode === 'BARCODE' && previewProduct?.barcode ? (
-                              <div className="flex flex-col items-center">
-                                <div className="h-6 w-20 bg-slate-900 rounded-[2px] flex items-center justify-center text-[7px] text-white font-mono">
-                                  ||| || |||| ||
-                                </div>
-                                {champs.includes('codeChiffres') && (
-                                  <span className="font-mono text-[7px] tracking-wider text-black block mt-0.5">
-                                    {previewProduct.barcode}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center">
-                                {previewQrDataUrl ? (
-                                  <img
-                                    src={previewQrDataUrl}
-                                    alt="QR"
-                                    className="w-11 h-11 object-contain"
-                                  />
-                                ) : (
-                                  <div className="w-11 h-11 bg-slate-100 rounded flex items-center justify-center text-[7px]">
-                                    QR
-                                  </div>
-                                )}
-                                {champs.includes('codeChiffres') && (
-                                  <span className="font-mono text-[6.5px] tracking-widest text-slate-700 block mt-0.5">
-                                    {previewProduct?.internalCode || previewProduct?.barcode || ''}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {previewProduct ? (
+                  <LabelTicketPreview
+                    widthMm={labelWidthMm}
+                    heightMm={labelHeightMm}
+                    widthPx={
+                      labelHeightMm > labelWidthMm
+                        ? Math.round((220 * labelWidthMm) / labelHeightMm)
+                        : 270
+                    }
+                    variant={variante}
+                    shopName={settings.shopName?.trim() || 'Ma boutique'}
+                    name={previewProduct.name}
+                    category={previewProduct.category}
+                    price={previewProduct.salePrice}
+                    photoUrl={photoUrl}
+                    qrDataUrl={previewQrDataUrl}
+                    priceChars={priceChars}
+                  />
+                ) : null}
               </div>
 
               <div className="text-center">
@@ -1539,7 +1031,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                         {isSkipped ? 'Vide' : previewProduct?.name?.slice(0, 10)}
                       </span>
                       <span className="font-mono text-[4px] leading-none">
-                        {isSkipped ? '' : `${formatMoney(previewProduct?.salePrice || 0)} F`}
+                        {isSkipped ? '' : formatMoney(previewProduct?.salePrice || 0)}
                       </span>
                     </div>
                   );

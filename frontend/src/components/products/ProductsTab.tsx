@@ -46,7 +46,7 @@ export const ProductsTab: React.FC = () => {
   // Label print modal
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [selectedProductForPrint, setSelectedProductForPrint] = useState<Product | null>(null);
-  // « Étiquettes » ouvre TOUJOURS la sélection d'abord ; l'impression ne
+  // « Imprimer vos étiquettes » ouvre TOUJOURS la sélection d'abord ; l'impression ne
   // travaille ensuite que sur les produits cochés.
   const [isLabelSelectionOpen, setIsLabelSelectionOpen] = useState(false);
   const [labelProductIds, setLabelProductIds] = useState<string[]>([]);
@@ -87,7 +87,7 @@ export const ProductsTab: React.FC = () => {
   usePageMenu([
     {
       id: 'labels',
-      label: 'Imprimer les étiquettes',
+      label: 'Imprimer vos étiquettes',
       icon: Printer,
       onSelect: () => setIsLabelSelectionOpen(true),
     },
@@ -285,7 +285,7 @@ export const ProductsTab: React.FC = () => {
             className="flex-1 sm:flex-none h-10 px-3.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <Tag className="w-4 h-4 text-slate-500" />
-            Étiquettes
+            Imprimer vos étiquettes
           </button>
           <button
             id="btn-open-catalog-export"
@@ -294,7 +294,7 @@ export const ProductsTab: React.FC = () => {
             className="flex-1 sm:flex-none h-10 px-3.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4 text-slate-500" />
-            Exporter
+            Télécharger votre catalogue
           </button>
         </div>
 

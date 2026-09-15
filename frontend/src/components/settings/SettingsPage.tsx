@@ -31,12 +31,10 @@ import {
   ActivityType,
   ReceiptSettings,
   LabelFormat,
-  LabelField,
-  LabelTextSize,
-  LabelCodeType,
   UserRole,
 } from '../../types';
 import { formatMoney, formatDate } from '../../utils/formatters';
+import { DEFAULT_LABEL_VARIANT, LABEL_PALETTES, type LabelVariant } from '../../utils/labelTicket';
 import {
   editableReceiptMessage,
   receiptPhone,
@@ -859,106 +857,48 @@ export const SettingsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Ce qui apparaît sur l'étiquette */}
+              {/* Couleur du ticket */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Champs affichés sur les étiquettes</label>
-                  <SavedBadge fieldKey="label_champs" />
+                  <label className="text-xs font-bold text-slate-700">Couleur de l'étiquette</label>
+                  <SavedBadge fieldKey="label_variante" />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {[
-                    { id: 'nom' as LabelField, label: 'Nom produit' },
-                    { id: 'prix' as LabelField, label: 'Prix de vente' },
-                    { id: 'code' as LabelField, label: 'Code-barres / QR' },
-                    { id: 'boutique' as LabelField, label: 'Nom boutique' },
-                    { id: 'logo' as LabelField, label: 'Logo' },
-                    { id: 'stock' as LabelField, label: 'Quantité stock' },
-                    { id: 'unite' as LabelField, label: 'Unité (kg/pcs)' },
-                    { id: 'dateImpression' as LabelField, label: 'Date impression' },
-                  ].map((field) => {
-                    const currentChamps = settings.labelSettings?.champs || ['nom', 'prix', 'code', 'boutique'];
-                    const isChecked = currentChamps.includes(field.id);
+                    { id: 'claire' as LabelVariant, name: 'Claire', desc: 'Fond blanc, contour indigo' },
+                    { id: 'couleur' as LabelVariant, name: 'Pleine couleur', desc: 'Fond indigo, texte blanc' },
+                  ].map((v) => {
+                    const isSel = (settings.labelSettings?.variante || DEFAULT_LABEL_VARIANT) === v.id;
                     return (
-                      <label
-                        key={field.id}
-                        className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer"
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => handleLabelFieldSave('variante', v.id)}
+                        className={`p-3 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center gap-3 ${
+                          isSel
+                            ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            let updated: LabelField[];
-                            if (e.target.checked) {
-                              updated = [...currentChamps, field.id];
-                            } else {
-                              updated = currentChamps.filter((c) => c !== field.id);
-                            }
-                            handleLabelFieldSave('champs', updated);
-                          }}
-                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        <span
+                          className="w-7 h-7 rounded-md shrink-0"
+                          style={{ background: LABEL_PALETTES[v.id].paper, border: `2px solid ${LABEL_PALETTES[v.id].stroke}` }}
+                          aria-hidden="true"
                         />
-                        <span className="text-xs font-medium text-slate-700">{field.label}</span>
-                      </label>
+                        <span>
+                          <span className="flex items-center gap-1.5 font-bold text-slate-900">
+                            {v.name}
+                            {v.id === DEFAULT_LABEL_VARIANT && (
+                              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                Recommandée
+                              </span>
+                            )}
+                          </span>
+                          <span className="block text-[11px] text-slate-500">{v.desc}</span>
+                        </span>
+                      </button>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* Taille du texte + Type de code + Traits de découpe */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                {/* Taille texte */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">Taille du texte</label>
-                    <SavedBadge fieldKey="label_tailleTexte" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
-                    {(['PETIT', 'NORMAL', 'GRAND'] as LabelTextSize[]).map((sz) => {
-                      const isSel = (settings.labelSettings?.tailleTexte || 'NORMAL') === sz;
-                      return (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => handleLabelFieldSave('tailleTexte', sz)}
-                          className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            isSel ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          {sz === 'PETIT' ? 'Petit' : sz === 'NORMAL' ? 'Normal' : 'Grand'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Type de code */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">Type de code</label>
-                    <SavedBadge fieldKey="label_typeCode" />
-                  </div>
-                  <select
-                    value={settings.labelSettings?.typeCode || 'QR'}
-                    onChange={(e) => handleLabelFieldSave('typeCode', e.target.value as LabelCodeType)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="QR">QR MoroCash (Recommandé)</option>
-                    <option value="BARCODE">Code-barres EAN / Code 128</option>
-                    <option value="BOTH">Les deux</option>
-                  </select>
-                </div>
-
-                {/* Traits de découpe */}
-                <div className="space-y-1.5 flex flex-col justify-end">
-                  <label className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                    <span className="text-xs font-bold text-slate-700">Traits de découpe</span>
-                    <input
-                      type="checkbox"
-                      checked={settings.labelSettings?.traitsDecoupe !== false}
-                      onChange={(e) => handleLabelFieldSave('traitsDecoupe', e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                    />
-                  </label>
                 </div>
               </div>
 

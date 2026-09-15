@@ -63,11 +63,8 @@ async function startServer() {
         products: targetProducts,
         copies,
         options: {
-          champs: options.champs || ['nom', 'prix', 'code'],
           format: options.format || '24_63x34',
-          tailleTexte: options.tailleTexte || 'NORMAL',
-          typeCode: options.typeCode || 'QR',
-          traitsDecoupe: options.traitsDecoupe !== undefined ? options.traitsDecoupe : true,
+          variante: options.variante === 'couleur' ? 'couleur' : 'claire',
           startIndex: options.startIndex ? Number(options.startIndex) : 1,
           customDimensions: options.customDimensions,
         },

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import type { Customer, Sale, ShopSettings } from '../../src/types';
+import type { Customer, Product, Sale, ShopSettings } from '../../src/types';
+import { BOUTIQUE_ETIQUETTES, PRODUITS_ETIQUETTES } from './produitsEtiquettes';
 import { initialSettings } from '../../src/data/mockInitialData';
 
 /**
@@ -11,11 +12,25 @@ import { initialSettings } from '../../src/data/mockInitialData';
 const params = new URLSearchParams(window.location.search);
 const nbArticles = Number(params.get('articles') ?? '3');
 const nomsLongs = params.get('noms') === 'longs';
+const etiquettes = params.get('ecran') === 'etiquettes';
+
+// Photos servies par l'adresse de l'API, comme en vrai (le test y répond en WebP).
+const products: Product[] = PRODUITS_ETIQUETTES.map((p) => ({
+  id: p.id,
+  name: p.name,
+  salePrice: p.salePrice,
+  category: p.category,
+  internalCode: p.internalCode,
+  barcode: p.barcode,
+  photo: p.avecPhoto ? `/api/v1/products/${p.id}/raw` : undefined,
+  stock: 12,
+  unit: 'pièce',
+}) as unknown as Product);
 
 const settings: ShopSettings = {
   ...initialSettings,
   businessId: 'cmbusiness0001',
-  shopName: nomsLongs ? 'Boutique Étoile d’Afrique et Frères de Treichville' : 'Allo',
+  shopName: etiquettes ? BOUTIQUE_ETIQUETTES : nomsLongs ? 'Boutique Étoile d’Afrique et Frères de Treichville' : 'Allo',
   ownerName: 'Moussa Traoré',
   ownerPhone: '0700000000',
   telephone: '0707070707',
@@ -75,6 +90,7 @@ export const FauxAppProvider: React.FC<{ children: React.ReactNode; ouvrirRecu: 
   const value = useMemo<Ctx>(
     () => ({
       settings,
+      products,
       sales: [sale],
       customers: [customer],
       receiptDeliveries: [],

@@ -1,4 +1,5 @@
 import type { ReceiptPrintPrefs } from './utils/receiptPrint';
+import type { LabelVariant } from './utils/labelTicket';
 
 export type ActivityType ='COMMERCE' | 'SERVICES' | 'MIXTE';
 export type UserRole = 'OWNER' | 'SELLER' | 'ACCOUNTANT';
@@ -292,6 +293,8 @@ export interface LabelSettings {
   tailleTexte: LabelTextSize;
   typeCode: LabelCodeType;
   traitsDecoupe: boolean;
+  /** Couleur du ticket : indigo plein ou fond blanc à contour indigo. */
+  variante?: LabelVariant;
   customWidth?: number; // in mm
   customHeight?: number; // in mm
 }
