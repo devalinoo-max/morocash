@@ -44,7 +44,10 @@ export async function startCheckout(
   }
 
   // Le montant vient toujours de la base, jamais du navigateur.
-  const montant = input.periode === 'ANNUEL' ? plan.prixAnnuel : plan.prixMensuel;
+  const prixNormal = input.periode === 'ANNUEL' ? plan.prixAnnuel : plan.prixMensuel;
+  // TEST TEMPORAIRE — paiement réel à 300 F à la place de l'offre à 20 000 F
+  // (Business mensuel). L'affichage garde 20 000 F. À retirer après le test.
+  const montant = prixNormal === 20000 ? 300 : prixNormal;
   const depositId = randomUUID();
   const subscription = await createPendingSubscriptionPayment({
     businessId: business.id,
