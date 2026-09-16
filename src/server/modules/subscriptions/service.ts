@@ -12,6 +12,7 @@ import {
   findActivePlanByCode,
   findBusinessById,
   findBusinessPaymentByReference,
+  findBusinessSubscriptionHistory,
   findPaymentByReference,
   type SubscriptionPaymentWithPlan,
 } from '@/server/repositories/subscriptions';
@@ -44,10 +45,7 @@ export async function startCheckout(
   }
 
   // Le montant vient toujours de la base, jamais du navigateur.
-  const prixNormal = input.periode === 'ANNUEL' ? plan.prixAnnuel : plan.prixMensuel;
-  // TEST TEMPORAIRE — paiement réel à 300 F à la place de l'offre à 20 000 F
-  // (Business mensuel). L'affichage garde 20 000 F. À retirer après le test.
-  const montant = prixNormal === 20000 ? 300 : prixNormal;
+  const montant = input.periode === 'ANNUEL' ? plan.prixAnnuel : plan.prixMensuel;
   const depositId = randomUUID();
   const subscription = await createPendingSubscriptionPayment({
     businessId: business.id,
@@ -147,6 +145,73 @@ export interface PaymentStatusView {
   periode: 'MENSUEL' | 'ANNUEL' | null;
   montant: number;
   subscriptionEndsAt: Date | null;
+}
+
+export interface SubscriptionOverview {
+  statut: string;
+  planCode: string | null;
+  planNom: string | null;
+  /** Période en cours (ou la dernière payée si tout est échu). Null pendant l'essai. */
+  current: {
+    periode: 'MENSUEL' | 'ANNUEL';
+    dateDebut: Date;
+    dateFin: Date;
+  } | null;
+  /** Fin de tout ce qui est déjà payé, périodes prépayées comprises. */
+  subscriptionEndsAt: Date | null;
+  joursRestants: number | null;
+  trialEndsAt: Date | null;
+  payments: {
+    paymentId: string;
+    date: Date;
+    montant: number;
+    methode: PaymentMethod;
+    referencePasserelle: string | null;
+    planCode: string | null;
+    periode: 'MENSUEL' | 'ANNUEL' | null;
+    dateDebut: Date | null;
+    dateFin: Date | null;
+  }[];
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Page « Mon abonnement » : formule, dates, jours restants et paiements réussis. */
+export async function getSubscriptionOverview(businessId: string): Promise<SubscriptionOverview> {
+  const business = await findBusinessById(businessId);
+  if (!business) {
+    throw new AppError('RESOURCE_NOT_OWNED', 'Boutique introuvable.');
+  }
+  const [subscriptions, payments] = await findBusinessSubscriptionHistory(businessId);
+
+  const now = Date.now();
+  // Périodes triées par fin décroissante : on cherche celle qui couvre
+  // aujourd'hui ; à défaut (tout est échu), la plus récente.
+  const current =
+    subscriptions.find((s) => s.dateDebut.getTime() <= now && s.dateFin.getTime() > now) ?? subscriptions[0] ?? null;
+  const plan = current?.plan ?? null;
+  const endsAt = business.subscriptionEndsAt;
+
+  return {
+    statut: business.statut,
+    planCode: plan?.code ?? null,
+    planNom: plan?.nom ?? null,
+    current: current ? { periode: current.periode, dateDebut: current.dateDebut, dateFin: current.dateFin } : null,
+    subscriptionEndsAt: endsAt,
+    joursRestants: endsAt ? Math.max(0, Math.ceil((endsAt.getTime() - now) / DAY_MS)) : null,
+    trialEndsAt: business.trialEndsAt,
+    payments: payments.map((p) => ({
+      paymentId: p.referenceInterne,
+      date: p.createdAt,
+      montant: p.montant,
+      methode: p.methode,
+      referencePasserelle: p.referencePasserelle,
+      planCode: p.subscription?.plan.code ?? null,
+      periode: p.subscription?.periode ?? null,
+      dateDebut: p.subscription?.dateDebut ?? null,
+      dateFin: p.subscription?.dateFin ?? null,
+    })),
+  };
 }
 
 /** Page de retour : la boutique ne voit que ses propres paiements. */

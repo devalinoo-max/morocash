@@ -65,6 +65,23 @@ export function findBusinessPaymentByReference(businessId: string, depositId: st
   });
 }
 
+/** « Mon abonnement » : abonnements payés (actifs) et paiements réussis de la boutique, du plus récent au plus ancien. */
+export function findBusinessSubscriptionHistory(businessId: string) {
+  return Promise.all([
+    prisma.subscription.findMany({
+      where: { businessId, actif: true },
+      include: { plan: true },
+      orderBy: { dateFin: 'desc' },
+    }),
+    prisma.subscriptionPayment.findMany({
+      where: { businessId, statut: 'REUSSI' },
+      include: withPlan,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    }),
+  ]);
+}
+
 export function findBusinessById(businessId: string) {
   return prisma.business.findUnique({ where: { id: businessId } });
 }

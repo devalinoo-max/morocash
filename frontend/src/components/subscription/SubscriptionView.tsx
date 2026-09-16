@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react';
-import { formatMoney } from '../../utils/formatters';
+import { formatMoney, formatPaymentMethod } from '../../utils/formatters';
 import {
   PLANS,
   getAnnualSavings,
@@ -23,8 +23,10 @@ import {
 } from '../../data/plans';
 import { ApiError } from '../../api/client';
 import {
+  fetchSubscriptionOverview,
   fetchSubscriptionPayment,
   startSubscriptionCheckout,
+  type SubscriptionOverview,
   type SubscriptionPaymentStatus,
 } from '../../api/subscriptions';
 
@@ -49,6 +51,16 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
   const [checkoutPlan, setCheckoutPlan] = useState<'SOLO' | 'BUSINESS' | null>(null);
   const [returnState, setReturnState] = useState<ReturnState | null>(null);
+  const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
+
+  const loadOverview = () =>
+    fetchSubscriptionOverview()
+      .then(setOverview)
+      .catch(() => undefined); // hors ligne : la page reste utilisable sans le détail
+
+  useEffect(() => {
+    void loadOverview();
+  }, []);
 
   const currentPlan = settings.planStatus; // 'TRIAL' | 'SOLO' | 'BUSINESS' | 'EXPIRED'
   const trialDaysLeft = settings.trialDaysLeft || 14;
@@ -76,6 +88,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
           setReturnState({ phase: 'done', payment });
           if (payment.statut === 'REUSSI') {
             await refreshPlanStatus().catch(() => undefined);
+            await loadOverview();
             if (!cancelled) showToast('Paiement reçu : ton abonnement est actif.', 'success');
           }
           return;
@@ -188,6 +201,9 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
           </div>
         </div>
       </div>
+
+      {/* Mon abonnement : visible dès qu'une formule a été payée */}
+      {overview?.current && <MySubscriptionCard overview={overview} />}
 
       {/* Billing Cycle Switcher */}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -534,6 +550,139 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
     </div>
   );
 };
+
+const formatLongDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+const periodeLabel = (periode: 'MENSUEL' | 'ANNUEL' | null) =>
+  periode === 'ANNUEL' ? 'Annuel' : periode === 'MENSUEL' ? 'Mensuel' : '—';
+
+const methodLabel = (methode: string) => (methode === 'AUTRE' ? 'Mobile Money' : formatPaymentMethod(methode));
+
+const planLabel = (code: 'SOLO' | 'BUSINESS' | null) =>
+  code === 'BUSINESS' ? 'Business' : code === 'SOLO' ? 'Solo' : '—';
+
+/** Détail de la formule payée : dates, jours restants, dernier paiement et historique. */
+const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ overview }) => {
+  const { current, payments, joursRestants, subscriptionEndsAt } = overview;
+  if (!current) return null;
+
+  const lastPayment = payments[0] ?? null;
+  const expired = joursRestants === 0;
+  // Barre de progression sur la période en cours uniquement.
+  const start = new Date(current.dateDebut).getTime();
+  const end = new Date(current.dateFin).getTime();
+  const elapsed = end > start ? Math.min(1, Math.max(0, (Date.now() - start) / (end - start))) : 1;
+  // Des périodes déjà payées d'avance prolongent au-delà de la période en cours.
+  const hasPrepaid = !!subscriptionEndsAt && new Date(subscriptionEndsAt).getTime() > end;
+
+  return (
+    <section className="max-w-5xl mx-auto bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
+      <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100">
+        <div className="space-y-1">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Mon abonnement</span>
+          <h3 className="text-xl font-black text-slate-900">
+            Formule {overview.planNom ?? planLabel(overview.planCode)}{' '}
+            <span className="text-sm font-bold text-slate-500">· {periodeLabel(current.periode)}</span>
+          </h3>
+        </div>
+        <span
+          className={`self-start px-3 py-1 rounded-full text-xs font-black border ${
+            expired ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          }`}
+        >
+          {expired ? 'Expiré' : 'Actif'}
+        </span>
+      </div>
+
+      <div className="p-5 sm:p-6 space-y-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <InfoTile label="Début de la période" value={formatLongDate(current.dateDebut)} />
+          <InfoTile
+            label={expired ? 'Terminé le' : 'Actif jusqu’au'}
+            value={subscriptionEndsAt ? formatLongDate(subscriptionEndsAt) : formatLongDate(current.dateFin)}
+          />
+          <InfoTile
+            label="Jours restants"
+            value={joursRestants === null ? '—' : `${joursRestants} jour${joursRestants > 1 ? 's' : ''}`}
+            highlight={!expired && joursRestants !== null && joursRestants <= 5}
+          />
+          <InfoTile
+            label="Dernier paiement"
+            value={lastPayment ? formatMoney(lastPayment.montant) : '—'}
+            sub={lastPayment ? `${methodLabel(lastPayment.methode)} · ${formatLongDate(lastPayment.date)}` : undefined}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${expired ? 'bg-rose-400' : 'bg-[#4F46E5]'}`}
+              style={{ width: `${Math.round(elapsed * 100)}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Période du {formatLongDate(current.dateDebut)} au {formatLongDate(current.dateFin)}
+            {hasPrepaid && subscriptionEndsAt ? ` · déjà payé jusqu’au ${formatLongDate(subscriptionEndsAt)}` : ''}
+          </p>
+        </div>
+
+        {payments.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-extrabold text-slate-900">Historique des paiements</h4>
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="text-left font-bold px-3 py-2">Date</th>
+                    <th className="text-left font-bold px-3 py-2">Formule</th>
+                    <th className="text-left font-bold px-3 py-2">Période couverte</th>
+                    <th className="text-left font-bold px-3 py-2">Moyen</th>
+                    <th className="text-left font-bold px-3 py-2">Référence</th>
+                    <th className="text-right font-bold px-3 py-2">Montant</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {payments.map((p) => (
+                    <tr key={p.paymentId} className="text-slate-700">
+                      <td className="px-3 py-2.5 whitespace-nowrap">{formatLongDate(p.date)}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap font-semibold">
+                        {planLabel(p.planCode)} · {periodeLabel(p.periode).toLowerCase()}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {p.dateDebut && p.dateFin ? `${formatLongDate(p.dateDebut)} → ${formatLongDate(p.dateFin)}` : '—'}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{methodLabel(p.methode)}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                        {p.referencePasserelle ?? p.paymentId.slice(0, 8)}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-right font-black text-slate-900">
+                        {formatMoney(p.montant)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const InfoTile: React.FC<{ label: string; value: string; sub?: string; highlight?: boolean }> = ({
+  label,
+  value,
+  sub,
+  highlight,
+}) => (
+  <div className={`p-3 rounded-2xl border ${highlight ? 'bg-amber-50 border-amber-200' : 'bg-slate-50/80 border-slate-200/70'}`}>
+    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">{label}</span>
+    <span className={`text-sm font-black block mt-0.5 ${highlight ? 'text-amber-800' : 'text-slate-900'}`}>{value}</span>
+    {sub && <span className="text-[11px] text-slate-500 block mt-0.5">{sub}</span>}
+  </div>
+);
 
 const PaymentReturnBanner: React.FC<{ state: ReturnState; onClose: () => void }> = ({ state, onClose }) => {
   let tone = 'bg-slate-50 border-slate-200 text-slate-800';
