@@ -13,7 +13,14 @@ function appBaseUrl(request: Request): string {
   const candidate = configured || request.headers.get('origin') || '';
   try {
     const url = new URL(candidate);
-    if (url.protocol === 'https:' || url.hostname === 'localhost') return url.origin;
+    if (url.protocol === 'https:') return url.origin;
+    // En local, pawaPay refuse un returnUrl sur « localhost » mais accepte
+    // 127.0.0.1 (testé en sandbox) — ouvrir alors l'app sur 127.0.0.1, sinon
+    // le cookie de session ne suit pas au retour.
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      url.hostname = '127.0.0.1';
+      return url.origin;
+    }
   } catch {
     // adresse absente ou invalide : erreur ci-dessous
   }

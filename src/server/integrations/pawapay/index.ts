@@ -85,7 +85,8 @@ export async function createPaymentPage(input: PaymentPageInput): Promise<string
     language: 'FR',
   });
 
-  if (status === 200 && data.redirectUrl) {
+  // pawaPay répond 201 Created (testé en sandbox), pas 200 comme dans sa doc.
+  if (status >= 200 && status < 300 && data.redirectUrl) {
     return data.redirectUrl;
   }
 
