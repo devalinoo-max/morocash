@@ -129,10 +129,6 @@ interface AppContextType {
   ) => Promise<{ success: boolean; requiresBusinessSelection?: boolean; businesses?: { businessId: string; businessNom: string }[]; message?: string }>;
   logoutUser: () => Promise<void>;
   closeAccount: () => Promise<boolean>;
-  // Vrai juste après une inscription réussie (pas après une connexion ni une
-  // reprise de session) — pilote l'écran "essai vs payer" une seule fois.
-  justRegistered: boolean;
-  dismissWelcomeChoice: () => void;
 
   // State
   uiState: UIState;
@@ -604,7 +600,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return defaultReceiptDeliveries;
     }
   });
-  const [justRegistered, setJustRegistered] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
 
   // Persistence effects
@@ -1601,16 +1596,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const registerBusinessAccount = async (input: authApi.RegisterInput) => {
     try {
       const result = await authApi.registerBusiness(input);
+      // Avant l'ouverture de session : le tableau de bord s'affiche d'emblée
+      // avec les mots du métier choisi (produit, prestation ou les deux).
+      updateSettings({ activityType: input.typeActivite });
+      setActiveTab('home');
+      setActiveMoreSubTab(null);
       await bootstrapSession({ user: result.user, business: result.business });
-      setJustRegistered(true);
       showToast('Boutique créée avec succès ! Bienvenue sur MoroCash.', 'success');
       return { success: true };
     } catch (error) {
       return { success: false, message: apiErrorMessage(error) };
     }
   };
-
-  const dismissWelcomeChoice = () => setJustRegistered(false);
 
   const loginUser = async (input: authApi.LoginInput) => {
     try {
@@ -2740,8 +2737,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loginUser,
         logoutUser,
         closeAccount,
-        justRegistered,
-        dismissWelcomeChoice,
         uiState,
         setUiState,
         settings,

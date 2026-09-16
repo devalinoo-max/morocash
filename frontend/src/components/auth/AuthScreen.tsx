@@ -13,31 +13,32 @@ import {
   Wifi,
   ShieldCheck,
   Star,
+  Package,
+  Scissors,
+  Layers,
+  Check,
+  type LucideIcon,
 } from 'lucide-react';
+import type { ActivityType } from '../../types';
 import { Logo, LogoMark } from '../common/Logo';
 import { PinInput } from '../common/PinInput';
 import { COUNTRIES, DEFAULT_COUNTRY, CountryOption } from '../../data/countries';
 
 
 /**
- * Secteurs proposes a l'inscription. Ils ne servent qu'a choisir les
- * categories de depart (voir starterProductCategories cote serveur) : rien
- * n'est verrouille par ce choix.
+ * Type d'activite, demande une seule fois a l'inscription : il fixe le
+ * vocabulaire de l'app (produit, prestation ou les deux, voir getTerminology).
  */
-const BUSINESS_SECTORS = [
-  { code: 'ALIMENTATION' as const, label: 'Alimentation' },
-  { code: 'COSMETIQUES' as const, label: 'Cosmétiques' },
-  { code: 'PRET_A_PORTER' as const, label: 'Prêt-à-porter' },
-  { code: 'ELECTRONIQUE' as const, label: 'Électronique' },
-  { code: 'SERVICES' as const, label: 'Services' },
-  { code: 'AUTRE' as const, label: 'Autre chose' },
+const ACTIVITY_TYPES: { code: ActivityType; label: string; description: string; icon: LucideIcon }[] = [
+  { code: 'COMMERCE', label: 'Produits', description: 'Bijoux, cosmétiques...', icon: Package },
+  { code: 'SERVICES', label: 'Services', description: 'Coiffure, conseil...', icon: Scissors },
+  { code: 'MIXTE', label: 'Les deux', description: 'Produits et prestations', icon: Layers },
 ];
-
-type BusinessSector = (typeof BUSINESS_SECTORS)[number]['code'];
 
 type Mode = 'LOGIN' | 'REGISTER';
 
 const BRAND_INDIGO = '#4338CA';
+const ONBOARDING_INDIGO = '#4F46E5';
 
 interface AuthScreenProps {
   initialMode?: Mode;
@@ -49,8 +50,10 @@ interface AuthScreenProps {
  * Écran d'authentification réel (étape 13) — le backend n'accepte pas de nom
  * de gérant à l'inscription (POST /auth/register génère le nom du OWNER),
  * donc ce champ n'est pas proposé ici : ce serait inventer un paramètre hors
- * spec. Inscription en 2 étapes (boutique/localisation puis contact/PIN) pour
- * un onboarding plus guidé qu'un long formulaire unique.
+ * spec. Inscription en 2 écrans, jamais plus : « Ma boutique » (nom, type
+ * d'activité, ville, pays) puis « Connexion » (WhatsApp, e-mail, PIN ×2). Le
+ * bouton final crée compte et boutique d'un coup et ouvre le tableau de bord ;
+ * le premier produit s'ajoute ensuite, depuis une carte du tableau de bord.
  */
 export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER', onModeChange }) => {
   const { registerBusinessAccount, loginUser } = useApp();
@@ -71,7 +74,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   const [country, setCountry] = useState<CountryOption>(DEFAULT_COUNTRY);
   const [email, setEmail] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
-  const [secteur, setSecteur] = useState<BusinessSector>('ALIMENTATION');
+  const [typeActivite, setTypeActivite] = useState<ActivityType | null>(null);
+  const pinsMatch = /^\d{6}$/.test(pin) && pin === pinConfirm;
 
   // Connexion multi-boutiques (même numéro dans plusieurs boutiques)
   const [businessChoices, setBusinessChoices] = useState<{ businessId: string; businessNom: string }[] | null>(null);
@@ -93,6 +97,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       setErrorMessage('Le nom de la boutique est obligatoire.');
       return;
     }
+    if (!typeActivite) {
+      setErrorMessage("Choisis ton type d'activité.");
+      return;
+    }
     setRegisterStep(2);
   };
 
@@ -108,12 +116,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       setErrorMessage('Adresse e-mail invalide.');
       return;
     }
-    if (!/^\d{6}$/.test(pin)) {
-      setErrorMessage('Le code PIN doit comporter exactement 6 chiffres.');
-      return;
-    }
-    if (pin !== pinConfirm) {
-      setErrorMessage('Les deux codes PIN ne correspondent pas.');
+    if (!pinsMatch || !typeActivite) {
       return;
     }
 
@@ -125,7 +128,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       email: email.trim() || undefined,
       telephone: telephone.trim(),
       pin,
-      secteur,
+      typeActivite,
     });
     setIsSubmitting(false);
     if (!result.success) {
@@ -301,121 +304,154 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                 </div>
               ) : mode === 'REGISTER' ? (
                 <>
-                  {/* Progression 2 étapes */}
-                  <div className="flex items-center gap-2 pb-1">
+                  {/* Progression : 2 barres courtes, remplies jusqu'à l'écran courant */}
+                  <div className="flex items-center gap-1.5 pb-1" aria-label={`Étape ${registerStep} sur 2`}>
                     {[1, 2].map((step) => (
                       <div
                         key={step}
-                        className={`h-1.5 flex-1 rounded-full transition-colors ${
-                          registerStep >= step ? 'bg-[#4338CA]' : 'bg-slate-150 bg-slate-100'
-                        }`}
+                        className="h-1.5 w-8 rounded-full transition-colors"
+                        style={{ backgroundColor: registerStep >= step ? ONBOARDING_INDIGO : '#E2E8F0' }}
                       />
                     ))}
                   </div>
 
                   {registerStep === 1 ? (
-                    <form onSubmit={handleContinueStep1} className="space-y-3">
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Étape 1 · Ta boutique</p>
+                    <form onSubmit={handleContinueStep1} className="space-y-4">
+                      <div className="space-y-1">
+                        <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Parle-nous de ta boutique</h2>
+                        <p className="text-xs text-slate-500">Ça change les mots qu'on utilise avec toi.</p>
+                      </div>
+
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">Nom de la boutique</label>
+                        <label htmlFor="register-shop-name" className="text-xs font-bold text-slate-700 block mb-1">
+                          Nom de la boutique
+                        </label>
                         <div className="relative">
                           <Store className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
+                            id="register-shop-name"
                             type="text"
                             value={businessNom}
                             onChange={(e) => setBusinessNom(e.target.value)}
                             placeholder="Ex: Boutique Étoile d'Afrique"
-                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4338CA] focus:border-[#4338CA] outline-none"
+                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-5 gap-2">
-                        <div className="col-span-2">
-                          <label className="text-xs font-bold text-slate-700 block mb-1">Pays</label>
-                          <select
-                            value={country.code}
-                            onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
-                            className="w-full px-2.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white cursor-pointer focus:ring-2 focus:ring-[#4338CA] outline-none"
-                          >
-                            {COUNTRIES.map((c) => (
-                              <option key={c.code} value={c.code}>
-                                {c.flag} {c.code}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="col-span-3">
-                          <label className="text-xs font-bold text-slate-700 block mb-1">Ville (optionnel)</label>
-                          <div className="relative">
-                            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input
-                              type="text"
-                              value={ville}
-                              onChange={(e) => setVille(e.target.value)}
-                              placeholder="Ex: Abidjan"
-                              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4338CA] focus:border-[#4338CA] outline-none"
-                            />
-                          </div>
+
+                      <div role="radiogroup" aria-labelledby="register-activity-label">
+                        <p id="register-activity-label" className="text-xs font-bold text-slate-700 mb-1.5">
+                          Type d'activité
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {ACTIVITY_TYPES.map(({ code, label, description, icon: Icon }) => {
+                            const selected = typeActivite === code;
+                            return (
+                              <button
+                                key={code}
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                onClick={() => setTypeActivite(code)}
+                                className="relative p-2.5 rounded-2xl border-2 text-left cursor-pointer transition-all"
+                                style={{
+                                  borderColor: selected ? ONBOARDING_INDIGO : '#E2E8F0',
+                                  backgroundColor: selected ? '#EEF2FF' : '#FFFFFF',
+                                }}
+                              >
+                                {selected && (
+                                  <span
+                                    className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white"
+                                    style={{ backgroundColor: ONBOARDING_INDIGO }}
+                                  >
+                                    <Check className="w-2.5 h-2.5" strokeWidth={3.5} />
+                                  </span>
+                                )}
+                                <span
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center mb-2"
+                                  style={{
+                                    backgroundColor: selected ? '#FFFFFF' : '#EEF2FF',
+                                    color: ONBOARDING_INDIGO,
+                                  }}
+                                >
+                                  <Icon className="w-4 h-4" />
+                                </span>
+                                <span className="block text-xs font-extrabold text-slate-900">{label}</span>
+                                <span className="block text-[10px] leading-snug text-slate-500 mt-0.5">{description}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                      {/* Secteur : une seule touche, sur l'étape qui existe déjà.
-                          Il ne sert qu'à proposer des catégories de départ qui
-                          parlent du métier du commerçant — il n'ajoute donc ni
-                          écran, ni décision qu'on ne puisse défaire ensuite. */}
+
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                          Tu vends quoi ?
+                        <label htmlFor="register-city" className="text-xs font-bold text-slate-700 block mb-1">
+                          Ville
                         </label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {BUSINESS_SECTORS.map((s) => (
-                            <button
-                              key={s.code}
-                              type="button"
-                              onClick={() => setSecteur(s.code)}
-                              className={`px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                                secteur === s.code
-                                  ? 'bg-[#4338CA] border-[#4338CA] text-white shadow-sm'
-                                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                              }`}
-                            >
-                              {s.label}
-                            </button>
-                          ))}
+                        <div className="relative">
+                          <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            id="register-city"
+                            type="text"
+                            value={ville}
+                            onChange={(e) => setVille(e.target.value)}
+                            placeholder="Ex: Abidjan"
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
+                          />
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-1.5">
-                          Ça nous sert juste à te proposer des catégories toutes prêtes. Tu pourras
-                          les changer.
-                        </p>
+                      </div>
+
+                      <div>
+                        <label htmlFor="register-country" className="text-xs font-bold text-slate-700 block mb-1">
+                          Pays
+                        </label>
+                        <select
+                          id="register-country"
+                          value={country.code}
+                          onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 bg-white cursor-pointer focus:ring-2 focus:ring-[#4F46E5] outline-none"
+                        >
+                          {COUNTRIES.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.flag} {c.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <button
                         type="submit"
-                        className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all hover:opacity-90"
-                        style={{ backgroundColor: BRAND_INDIGO, boxShadow: '0 10px 25px -5px rgba(67,56,202,0.35)' }}
+                        className="w-full py-3.5 rounded-xl text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all hover:opacity-90"
+                        style={{ backgroundColor: ONBOARDING_INDIGO, boxShadow: '0 10px 25px -5px rgba(79,70,229,0.35)' }}
                       >
-                        <span>Continuer</span>
-                        <ArrowRight className="w-4 h-4" />
+                        Continuer
                       </button>
                     </form>
                   ) : (
-                    <form onSubmit={handleRegister} className="space-y-3">
+                    <form onSubmit={handleRegister} className="space-y-4">
                       <button
                         type="button"
-                        onClick={() => setRegisterStep(1)}
+                        onClick={() => {
+                          setErrorMessage(null);
+                          setRegisterStep(1);
+                        }}
                         className="flex items-center gap-1 text-xs font-bold text-slate-500 cursor-pointer"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" /> Retour
                       </button>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Étape 2 · Contact &amp; sécurité</p>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">Numéro WhatsApp</label>
-                        <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4338CA] focus-within:border-[#4338CA] transition-all">
-                          <span className="bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-600 border-r border-slate-200 flex items-center gap-1 shrink-0">
-                            {country.flag} {country.dialCode}
+                        <label htmlFor="register-phone" className="text-xs font-bold text-slate-700 block mb-1">
+                          Numéro WhatsApp
+                        </label>
+                        <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4F46E5] focus-within:border-[#4F46E5] transition-all">
+                          <span className="bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-600 border-r border-slate-200 flex items-center shrink-0">
+                            {country.code} {country.dialCode}
                           </span>
                           <input
+                            id="register-phone"
                             type="tel"
+                            inputMode="numeric"
                             value={telephone}
                             onChange={(e) => setTelephone(e.target.value.replace(/\D/g, ''))}
                             placeholder="0708091011"
@@ -425,38 +461,54 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">E-mail (optionnel)</label>
+                        <label htmlFor="register-email" className="text-xs font-bold text-slate-700 block mb-1">
+                          E-mail (optionnel)
+                        </label>
                         <div className="relative">
                           <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
+                            id="register-email"
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="boutique@exemple.com"
-                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4338CA] focus:border-[#4338CA] outline-none"
+                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
                           />
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1">Pour recevoir tes bilans de caisse en plus de WhatsApp.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">Pour recevoir tes bilans de caisse en plus de WhatsApp.</p>
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1.5">Choisis ton code PIN (6 chiffres)</label>
-                        <PinInput value={pin} onChange={setPin} />
+                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                          Code PIN à 6 chiffres
+                        </label>
+                        <PinInput id="register-pin" value={pin} onChange={setPin} />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1.5">Confirme ton code PIN</label>
-                        <PinInput value={pinConfirm} onChange={setPinConfirm} />
+                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                          Confirmation du code PIN
+                        </label>
+                        <PinInput id="register-pin-confirm" value={pinConfirm} onChange={setPinConfirm} />
+                        {pinConfirm.length === 6 && pin !== pinConfirm && (
+                          <p className="text-[11px] font-semibold text-rose-600 mt-1.5">
+                            Les deux codes ne sont pas identiques.
+                          </p>
+                        )}
                       </div>
 
-                      <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 cursor-pointer transition-all hover:opacity-90"
-                        style={{ backgroundColor: BRAND_INDIGO, boxShadow: '0 10px 25px -5px rgba(67,56,202,0.35)' }}
-                      >
-                        <span>{isSubmitting ? 'Création en cours...' : 'Créer ma boutique'}</span>
-                        {!isSubmitting && <ArrowRight className="w-4 h-4" />}
-                      </button>
+                      <div className="space-y-3 pt-1">
+                        <button
+                          type="submit"
+                          disabled={isSubmitting || !pinsMatch}
+                          className="w-full py-3.5 rounded-full text-white font-extrabold text-sm flex items-center justify-center shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer transition-all enabled:hover:opacity-90"
+                          style={{ backgroundColor: ONBOARDING_INDIGO, boxShadow: '0 10px 25px -5px rgba(79,70,229,0.35)' }}
+                        >
+                          {isSubmitting ? 'Création en cours...' : 'Créer ma boutique →'}
+                        </button>
+                        <p className="text-center text-[11px] text-slate-400 leading-relaxed px-2">
+                          En continuant, tu acceptes nos conditions d'utilisation et notre politique de confidentialité.
+                        </p>
+                      </div>
                     </form>
                   )}
                 </>
@@ -495,9 +547,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
             </div>
           </div>
 
-          <p className="text-center text-[11px] text-slate-400 leading-relaxed px-4">
-            En continuant, tu acceptes nos conditions d'utilisation et notre politique de confidentialité.
-          </p>
+          {/* À l'inscription, la mention figure sous le bouton « Créer ma boutique ». */}
+          {mode === 'LOGIN' && (
+            <p className="text-center text-[11px] text-slate-400 leading-relaxed px-4">
+              En continuant, tu acceptes nos conditions d'utilisation et notre politique de confidentialité.
+            </p>
+          )}
         </div>
       </div>
     </div>

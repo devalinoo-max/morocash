@@ -25,7 +25,6 @@ import { NewSaleModal } from './components/pos/NewSaleModal';
 import { ReceiptModal } from './components/pos/ReceiptModal';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { LandingPage } from './components/landing/LandingPage';
-import { WelcomeChoiceScreen } from './components/onboarding/WelcomeChoiceScreen';
 import { InstallAppButton } from './components/pwa/InstallAppButton';
 import { PwaUpdateToast } from './components/pwa/PwaUpdateToast';
 import {
@@ -65,7 +64,6 @@ const MainLayout: React.FC = () => {
     syncPendingOperations,
     attemptNewSale,
     authStatus,
-    justRegistered,
     isNewSaleOpen,
     setIsNewSaleOpen,
     isNewProductOpen,
@@ -254,12 +252,6 @@ const MainLayout: React.FC = () => {
         onModeChange={(mode) => setAuthInitialMode(mode === 'LOGIN' ? 'login' : 'register')}
       />
     );
-  }
-
-  // Choix "essai gratuit vs voir les formules" affiche une seule fois, juste
-  // apres une inscription reussie (jamais apres une connexion existante).
-  if (justRegistered) {
-    return <WelcomeChoiceScreen />;
   }
 
   const renderActiveView = () => {

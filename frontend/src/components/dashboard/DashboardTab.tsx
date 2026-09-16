@@ -22,6 +22,7 @@ import {
   CreditCard,
   Banknote,
   Send,
+  Package,
 } from 'lucide-react';
 import { formatMoney, formatMoneyCompact, formatDate, getTerminology } from '../../utils/formatters';
 import {
@@ -66,6 +67,7 @@ export const DashboardTab: React.FC = () => {
     setSelectedSaleForReceipt,
     addToCart,
     updateSettings,
+    setIsNewProductOpen,
   } = useApp();
 
   const terminology = getTerminology(settings.activityType);
@@ -268,6 +270,38 @@ export const DashboardTab: React.FC = () => {
 
   return (
     <div id="dashboard-tab-content" className="space-y-6 pb-20 max-w-[1460px] mx-auto animate-in fade-in duration-200">
+      {/* Catalogue vide : le premier produit ne fait plus partie de
+          l'inscription, on le propose ici — une invitation, jamais un blocage. */}
+      {products.length === 0 && (
+        <div
+          id="dashboard-first-product-card"
+          className="flex flex-col sm:flex-row sm:items-center gap-4 bg-white p-5 rounded-2xl border border-dashed border-indigo-200 shadow-xs"
+        >
+          <div className="w-11 h-11 rounded-xl bg-[#EEF2FF] text-[#4F46E5] flex items-center justify-center shrink-0">
+            <Package className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-extrabold text-slate-900">
+              {settings.activityType === 'SERVICES' ? 'Ajoute ta première prestation' : 'Ajoute ton premier produit'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Il apparaîtra ensuite dans tes commandes, en un clic.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('products');
+              setIsNewProductOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-sm cursor-pointer transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            {settings.activityType === 'SERVICES' ? 'Ajouter une prestation' : 'Ajouter un produit'}
+          </button>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* 1. FILTRES (BLOC 4: Segment [Aujourd'hui | Cette semaine | Ce mois] + Date + Switch) */}
       {/* ========================================================================= */}

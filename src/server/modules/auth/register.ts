@@ -24,11 +24,15 @@ export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email('Adresse e-mail invalide').max(180).optional().or(z.literal('')),
   telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide'),
   pin: z.string().regex(/^\d{6}$/, 'Le code doit comporter exactement 6 chiffres'),
+  // Type d'activité (Produits / Services / Les deux), demandé une seule fois à
+  // l'inscription : il fixe le vocabulaire de l'app (produit ou prestation).
+  typeActivite: z.enum(['COMMERCE', 'SERVICES', 'MIXTE']).default('COMMERCE'),
   // Secteur d'activité : sert uniquement à proposer des catégories de départ
   // adaptées (voir starterProductCategories). Non stocké — le commerçant peut
   // renommer, supprimer ou ignorer ces catégories dès la première minute, il
   // serait donc trompeur d'en faire un attribut durable de sa boutique.
-  secteur: z.enum(BUSINESS_SECTORS).default('AUTRE'),
+  // L'inscription ne le demande plus : à défaut, il se déduit du type d'activité.
+  secteur: z.enum(BUSINESS_SECTORS).optional(),
 });
 
 // z.input (pas z.infer/z.output) : `pays` a une valeur par défaut, donc les
@@ -54,6 +58,7 @@ export async function registerBusiness(
           nom: input.businessNom,
           ville: input.ville,
           pays: input.pays,
+          typeActivite: input.typeActivite,
           email: input.email || undefined,
           statut: 'ESSAI',
           trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
@@ -86,7 +91,9 @@ export async function registerBusiness(
             type: 'DEPENSE',
             systeme: true,
           },
-          ...starterProductCategories(input.secteur).map((nom) => ({
+          ...starterProductCategories(
+            input.secteur ?? (input.typeActivite === 'SERVICES' ? 'SERVICES' : 'AUTRE')
+          ).map((nom) => ({
             businessId: business.id,
             nom,
             type: 'PRODUIT' as const,

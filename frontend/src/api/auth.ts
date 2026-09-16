@@ -1,5 +1,5 @@
 import { api, ApiError } from './client';
-import type { UserRole } from '../types';
+import type { ActivityType, UserRole } from '../types';
 
 export interface ApiUser {
   id: string;
@@ -39,8 +39,8 @@ export interface RegisterInput {
   email?: string;
   telephone: string;
   pin: string;
-  /** Secteur d'activite : sert a proposer des categories de depart adaptees. */
-  secteur?: 'ALIMENTATION' | 'COSMETIQUES' | 'PRET_A_PORTER' | 'ELECTRONIQUE' | 'SERVICES' | 'AUTRE';
+  /** Produits / Services / Les deux : fixe le vocabulaire de l'app. */
+  typeActivite: ActivityType;
 }
 
 export interface LoginInput {
