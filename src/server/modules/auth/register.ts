@@ -9,11 +9,10 @@ import {
   starterProductCategories,
 } from '@/server/modules/categories/defaults';
 
-// Durée d'essai par défaut à la création d'une boutique — non spécifiée explicitement
-// dans le cahier des charges (le champ Business.trialEndsAt existe, sa durée est un
-// paramètre opérationnel laissé ouvert) ; 14 jours est une valeur de départ raisonnable,
-// ajustable sans changement de schéma.
-const TRIAL_DAYS = 14;
+// Essai gratuit de 30 jours à la création d'une boutique (grille des 3 formules :
+// Essai, Solo, Business). Pendant l'essai, les quotas de Solo s'appliquent
+// (voir checkQuota).
+const TRIAL_DAYS = 30;
 
 export const SUPPORTED_COUNTRIES = ['CI', 'SN', 'BJ', 'TG', 'ML', 'BF'] as const;
 

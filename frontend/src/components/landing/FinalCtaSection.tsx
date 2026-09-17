@@ -27,7 +27,7 @@ export const FinalCtaSection: React.FC<FinalCtaSectionProps> = ({
             Ce soir, sais-tu ce que tu as <span className="font-serif-em italic font-normal">gagné aujourd&apos;hui</span> ?
           </h2>
           <p className="text-sm md:text-base text-white/85 leading-relaxed max-w-lg mx-auto">
-            Essaie MoroCash gratuitement pendant 14 jours. Sans engagement, sans carte bancaire exigée.
+            Essaie MoroCash gratuitement pendant 30 jours. Sans engagement, sans carte bancaire exigée.
           </p>
           <div className="pt-2">
             <button

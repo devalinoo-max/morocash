@@ -1,6 +1,6 @@
 import { api } from './client';
 
-export type SubscriptionPeriod = 'MENSUEL' | 'ANNUEL';
+export type SubscriptionPeriod = 'MENSUEL' | 'TRIMESTRIEL' | 'SEMESTRIEL' | 'ANNUEL';
 
 export interface SubscriptionPaymentStatus {
   paymentId: string;
@@ -19,6 +19,7 @@ export interface SubscriptionOverview {
   subscriptionEndsAt: string | null;
   joursRestants: number | null;
   trialEndsAt: string | null;
+  utilisateurs: number;
   payments: {
     paymentId: string;
     date: string;

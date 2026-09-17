@@ -1,6 +1,7 @@
 import { addMonths } from 'date-fns';
 import type { PaymentMethod, Prisma, SubPayState, SubPeriod } from '@prisma/client';
 import { prisma } from '@/server/database/client';
+import { PERIOD_MONTHS } from '@/server/shared/subscription';
 
 /**
  * Paiements d'abonnement. Hors de `scoped()` : le callback pawaPay arrive sans
@@ -82,6 +83,11 @@ export function findBusinessSubscriptionHistory(businessId: string) {
   ]);
 }
 
+/** Comptes actifs de la boutique (la table User n'est pas sous RLS). */
+export function countActiveUsers(businessId: string) {
+  return prisma.user.count({ where: { businessId, actif: true } });
+}
+
 export function findBusinessById(businessId: string) {
   return prisma.business.findUnique({ where: { id: businessId } });
 }
@@ -132,7 +138,7 @@ export function activatePaidSubscription(input: {
       business.statut === 'ACTIF' && business.subscriptionEndsAt && business.subscriptionEndsAt > now
         ? business.subscriptionEndsAt
         : now;
-    const dateFin = addMonths(dateDebut, payment.subscription.periode === 'ANNUEL' ? 12 : 1);
+    const dateFin = addMonths(dateDebut, PERIOD_MONTHS[payment.subscription.periode]);
 
     await tx.subscription.update({
       where: { id: payment.subscription.id },

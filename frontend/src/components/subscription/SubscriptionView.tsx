@@ -4,22 +4,22 @@ import {
   Crown,
   Check,
   ArrowRight,
-  ShieldCheck,
-  Users,
-  Sparkles,
-  TrendingUp,
-  FileSpreadsheet,
-  MessageCircle,
+  ArrowLeft,
   HeartHandshake,
   Loader2,
   CheckCircle2,
   XCircle,
+  Gift,
 } from 'lucide-react';
 import { formatMoney, formatPaymentMethod } from '../../utils/formatters';
 import {
   PLANS,
-  getAnnualSavings,
+  BILLING_PERIODS,
   PRICING_JUSTIFICATION,
+  TRIAL_DAYS,
+  getFullPrice,
+  getSavings,
+  type BillingPeriod,
 } from '../../data/plans';
 import { ApiError } from '../../api/client';
 import {
@@ -45,11 +45,15 @@ type ReturnState =
   | { phase: 'pending' }
   | { phase: 'error'; message: string };
 
-export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) => {
+type PlanId = 'SOLO' | 'BUSINESS';
+
+export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
   const { settings, showToast, refreshPlanStatus } = useApp();
 
-  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
-  const [checkoutPlan, setCheckoutPlan] = useState<'SOLO' | 'BUSINESS' | null>(null);
+  // Formule dont on choisit la durée (page « Choisis ta durée »), puis durée
+  // dont le paiement est en cours d'ouverture.
+  const [durationPlan, setDurationPlan] = useState<PlanId | null>(null);
+  const [checkoutPeriod, setCheckoutPeriod] = useState<BillingPeriod | null>(null);
   const [returnState, setReturnState] = useState<ReturnState | null>(null);
   const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
 
@@ -63,10 +67,12 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
   }, []);
 
   const currentPlan = settings.planStatus; // 'TRIAL' | 'SOLO' | 'BUSINESS' | 'EXPIRED'
-  const trialDaysLeft = settings.trialDaysLeft || 14;
-
-  const soloSavings = getAnnualSavings('SOLO');
-  const businessSavings = getAnnualSavings('BUSINESS');
+  // On ne repropose jamais la formule payée : Solo laisse voir Business,
+  // Business (la plus complète) ne laisse plus aucune formule à choisir.
+  const planRank = PLAN_RANK[currentPlan];
+  const showSoloCard = planRank < PLAN_RANK.SOLO;
+  const showBusinessCard = planRank < PLAN_RANK.BUSINESS;
+  const trialDaysLeft = settings.trialDaysLeft ?? TRIAL_DAYS;
 
   // Retour de la page de paiement pawaPay : /abonnement?paiement=<id>. Le
   // retour seul ne prouve rien — on interroge le serveur, qui relit le statut
@@ -116,25 +122,37 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSelectPlan = async (targetPlan: 'SOLO' | 'BUSINESS') => {
+  const openDurationPicker = (targetPlan: PlanId) => {
     if (targetPlan === currentPlan) {
       showToast(`Tu es déjà sur la formule ${PLANS[targetPlan].nom}`, 'info');
       return;
     }
-    if (checkoutPlan) return;
+    setDurationPlan(targetPlan);
+    window.scrollTo({ top: 0 });
+  };
 
-    setCheckoutPlan(targetPlan);
+  const startPayment = async (periode: BillingPeriod) => {
+    if (!durationPlan || checkoutPeriod) return;
+    setCheckoutPeriod(periode);
     try {
-      const { redirectUrl } = await startSubscriptionCheckout(
-        targetPlan,
-        billingCycle === 'ANNUAL' ? 'ANNUEL' : 'MENSUEL'
-      );
+      const { redirectUrl } = await startSubscriptionCheckout(durationPlan, periode);
       window.location.assign(redirectUrl);
     } catch (error) {
-      setCheckoutPlan(null);
+      setCheckoutPeriod(null);
       showToast(error instanceof Error ? error.message : 'Impossible de lancer le paiement.', 'error');
     }
   };
+
+  if (durationPlan) {
+    return (
+      <DurationPicker
+        planId={durationPlan}
+        pendingPeriod={checkoutPeriod}
+        onBack={() => setDurationPlan(null)}
+        onPay={(periode) => void startPayment(periode)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-200">
@@ -155,33 +173,34 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
 
             <h2 className="text-xl sm:text-2xl font-black tracking-tight">
               {currentPlan === 'TRIAL'
-                ? `Essai gratuit de 14 jours`
+                ? `Essai gratuit de ${TRIAL_DAYS} jours`
                 : currentPlan === 'BUSINESS'
                 ? `Formule active : Business`
                 : currentPlan === 'SOLO'
                 ? `Formule active : Solo`
-                : `Abonnement expiré`}
+                : `Ton abonnement a expiré`}
             </h2>
 
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
               {currentPlan === 'TRIAL' ? (
                 <>
-                  Il te reste <strong className="text-amber-400">{trialDaysLeft} jours</strong> d'essai complet.
-                  Pendant l'essai, le tarif de référence est celui du plan{' '}
+                  Il te reste <strong className="text-amber-400">{trialDaysLeft} jour{trialDaysLeft > 1 ? 's' : ''}</strong> d'essai.
+                  Pendant l'essai, tu profites de tout ce que propose la formule{' '}
                   <strong className="text-white">Solo ({formatMoney(PLANS.SOLO.prixMensuel)} / mois)</strong>.
                 </>
               ) : currentPlan === 'BUSINESS' ? (
                 <>
-                  Accès complet pour toute ton équipe (jusqu'à 5 personnes), produits illimités et export Excel.
+                  Accès complet pour toute ton équipe (jusqu'à {PLANS.BUSINESS.maxUsers} personnes), commandes et produits illimités.
                 </>
               ) : currentPlan === 'SOLO' ? (
                 <>
-                  Tu vends tout seul, avec jusqu'à 1 000 produits et toutes les fonctionnalités de caisse.
+                  Jusqu'à {PLANS.SOLO.maxUsers} utilisateurs, {PLANS.SOLO.maxCommandesMois} commandes par mois et{' '}
+                  {PLANS.SOLO.maxProduits.toLocaleString('fr-FR')} produits.
                 </>
               ) : (
                 <>
-                  La saisie de nouvelles ventes est bloquée. Choisis une formule ci-dessous pour retrouver un accès complet — ton
-                  historique reste 100% intact.
+                  Ton compte est en lecture seule. Choisis une formule ci-dessous pour le réactiver — ton historique
+                  reste 100% intact.
                 </>
               )}
             </p>
@@ -193,7 +212,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
               Statut du compte
             </span>
             <span className={`text-base font-black block mt-0.5 ${currentPlan === 'EXPIRED' ? 'text-rose-400' : 'text-amber-400'}`}>
-              {currentPlan === 'TRIAL' ? 'Période d’essai' : currentPlan === 'EXPIRED' ? 'Expiré' : 'Abonnement actif'}
+              {currentPlan === 'TRIAL' ? 'Période d’essai' : currentPlan === 'EXPIRED' ? 'Lecture seule' : 'Abonnement actif'}
             </span>
             <span className="text-[11px] text-slate-300 mt-1 block">
               Historique 100% garanti à vie
@@ -205,330 +224,40 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
       {/* Mon abonnement : visible dès qu'une formule a été payée */}
       {overview?.current && <MySubscriptionCard overview={overview} />}
 
-      {/* Billing Cycle Switcher */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-        <div className="bg-slate-100 p-1.5 rounded-2xl border border-slate-200/90 inline-flex items-center gap-1 shadow-inner">
-          <button
-            onClick={() => setBillingCycle('MONTHLY')}
-            className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              billingCycle === 'MONTHLY'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+      {/* Formule la plus complète : plus de choix, on détaille ce qu'elle apporte */}
+      {!showBusinessCard && <BusinessAdvantages overview={overview} />}
+
+      {showBusinessCard && (
+        <>
+          <div
+            className={`grid grid-cols-1 gap-6 mx-auto items-stretch pt-3 ${
+              showSoloCard ? 'lg:grid-cols-2 max-w-5xl' : 'max-w-xl'
             }`}
           >
-            Facturation Mensuelle
-          </button>
-          <button
-            onClick={() => setBillingCycle('ANNUAL')}
-            className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 ${
-              billingCycle === 'ANNUAL'
-                ? 'bg-[#4F46E5] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Facturation Annuelle</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                billingCycle === 'ANNUAL'
-                  ? 'bg-amber-400 text-slate-950'
-                  : 'bg-emerald-100 text-emerald-800'
-              }`}
-            >
-              2 mois offerts
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Two Offer Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto items-stretch">
-        {/* ========================================================
-            CARD 1 : SOLO (15 000 F / mois | 150 000 F / an)
-           ======================================================== */}
-        <div
-          className={`bg-white rounded-3xl p-6 sm:p-7 border transition-all flex flex-col justify-between space-y-6 ${
-            currentPlan === 'SOLO'
-              ? 'border-2 border-[#4F46E5] ring-4 ring-indigo-50 shadow-md'
-              : 'border-slate-200/90 hover:border-slate-300 shadow-xs'
-          }`}
-        >
-          <div className="space-y-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Formule Solo
-                </span>
-                <h3 className="text-2xl font-black text-slate-900 mt-0.5">
-                  {PLANS.SOLO.nom}
-                </h3>
-                {/* Baseline imposée par les spécifications */}
-                <p className="text-xs font-bold text-[#4F46E5] mt-1">
-                  "{PLANS.SOLO.baseline}"
-                </p>
-              </div>
-
-              {currentPlan === 'SOLO' && (
-                <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-[#4F46E5] border border-indigo-200">
-                  Formule actuelle
-                </span>
-              )}
-            </div>
-
-            {/* Price display */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-1">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl sm:text-4xl font-black text-slate-900">
-                  {formatMoney(
-                    billingCycle === 'MONTHLY'
-                      ? PLANS.SOLO.prixMensuel
-                      : PLANS.SOLO.prixAnnuel
-                  )}
-                </span>
-                <span className="text-xs font-bold text-slate-500">
-                  {billingCycle === 'MONTHLY' ? '/ mois' : '/ an'}
-                </span>
-              </div>
-
-              {billingCycle === 'ANNUAL' ? (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-extrabold">
-                  <span>tu économises {formatMoney(soloSavings)} par an</span>
-                </div>
-              ) : (
-                <p className="text-[11px] text-slate-500">
-                  Renouvelable chaque mois par Mobile Money
-                </p>
-              )}
-            </div>
-
-            {/* Feature List */}
-            <div className="space-y-2.5 pt-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Ce qui est inclus :
-              </span>
-              <ul className="space-y-2.5 text-xs text-slate-700 font-medium">
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span><strong>1 utilisateur unique</strong> (propriétaire)</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span>Jusqu’à <strong>1 000 produits</strong> en catalogue</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span>Commandes & clients illimités</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span><strong>Ce que tu as gagné</strong> inclus pour toujours</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span>Caisse, dépenses, reçus WhatsApp et étiquettes</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span>Historique illimité (jamais bloqué)</span>
-                </li>
-                <li className="flex items-center gap-2.5 text-slate-400">
-                  <span className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">
-                    ✕
-                  </span>
-                  <span>Employés et permissions (réservé Business)</span>
-                </li>
-                <li className="flex items-center gap-2.5 text-slate-400">
-                  <span className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">
-                    ✕
-                  </span>
-                  <span>Export Excel / CSV (réservé Business)</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <button
-            onClick={() => void handleSelectPlan('SOLO')}
-            disabled={currentPlan === 'SOLO' || checkoutPlan !== null}
-            className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
-              currentPlan === 'SOLO'
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                : 'bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 hover:border-slate-300 shadow-xs'
-            }`}
-          >
-            {checkoutPlan === 'SOLO' && <Loader2 className="w-4 h-4 animate-spin" />}
-            <span>
-              {currentPlan === 'SOLO'
-                ? 'Formule déjà active'
-                : checkoutPlan === 'SOLO'
-                ? 'Ouverture du paiement…'
-                : 'Choisir la formule Solo'}
-            </span>
-          </button>
-        </div>
-
-        {/* ========================================================
-            CARD 2 : BUSINESS (20 000 F / mois | 200 000 F / an)
-           ======================================================== */}
-        <div
-          className={`bg-white rounded-3xl p-6 sm:p-7 border-2 transition-all flex flex-col justify-between space-y-6 relative ${
-            currentPlan === 'BUSINESS'
-              ? 'border-emerald-500 ring-4 ring-emerald-50 shadow-lg'
-              : 'border-[#4F46E5] shadow-xl'
-          }`}
-        >
-          {/* Top highlight badge */}
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#4F46E5] text-white text-[11px] font-black tracking-wide shadow-md">
-            ⭐ RECOMMANDÉ POUR ÉQUIPES
-          </div>
-
-          <div className="space-y-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-600">
-                  Formule Équipe
-                </span>
-                <h3 className="text-2xl font-black text-slate-900 mt-0.5">
-                  {PLANS.BUSINESS.nom}
-                </h3>
-                {/* Baseline imposée par les spécifications */}
-                <p className="text-xs font-bold text-emerald-600 mt-1">
-                  "{PLANS.BUSINESS.baseline}"
-                </p>
-              </div>
-
-              {currentPlan === 'BUSINESS' ? (
-                <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Formule actuelle
-                </span>
-              ) : (
-                <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-[#4F46E5] border border-indigo-200">
-                  Équipe
-                </span>
-              )}
-            </div>
-
-            {/* Price display */}
-            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 space-y-1">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl sm:text-4xl font-black text-slate-900">
-                  {formatMoney(
-                    billingCycle === 'MONTHLY'
-                      ? PLANS.BUSINESS.prixMensuel
-                      : PLANS.BUSINESS.prixAnnuel
-                  )}
-                </span>
-                <span className="text-xs font-bold text-slate-500">
-                  {billingCycle === 'MONTHLY' ? '/ mois' : '/ an'}
-                </span>
-              </div>
-
-              {billingCycle === 'ANNUAL' ? (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-extrabold">
-                  <span>tu économises {formatMoney(businessSavings)} par an</span>
-                </div>
-              ) : (
-                <p className="text-[11px] text-indigo-700 font-medium">
-                  Seulement 5 000 F de plus que Solo pour toute ton équipe
-                </p>
-              )}
-            </div>
-
-            {/* Feature List */}
-            <div className="space-y-2.5 pt-2">
-              <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider block">
-                Tout ce qui est dans Solo + :
-              </span>
-              <ul className="space-y-2.5 text-xs text-slate-800 font-medium">
-                <li className="flex items-center gap-2.5 font-bold text-slate-950">
-                  <Users className="w-4 h-4 text-[#4F46E5] shrink-0 stroke-[2.5]" />
-                  <span>Jusqu’à <strong>5 employés et vendeurs</strong> autorisés</span>
-                </li>
-                <li className="flex items-center gap-2.5 font-bold text-slate-950">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span><strong>Produits illimités</strong> (aucun quota)</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span>Permissions strictes (marges et bénéfices masqués)</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span>Rapports comparatifs de périodes (hier / semaine / mois)</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Export des données sous <strong>Excel / CSV</strong></span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-                  <span>Suivi des clôtures de caisse par vendeur</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Assistance <strong>WhatsApp prioritaire 7j/7</strong></span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <button
-            onClick={() => void handleSelectPlan('BUSINESS')}
-            disabled={currentPlan === 'BUSINESS' || checkoutPlan !== null}
-            className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md ${
-              currentPlan === 'BUSINESS'
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
-                : 'bg-[#4F46E5] hover:bg-indigo-700 text-white shadow-indigo-200'
-            }`}
-          >
-            {currentPlan === 'BUSINESS' ? (
-              <span>Formule active</span>
-            ) : checkoutPlan === 'BUSINESS' ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Ouverture du paiement…</span>
-              </>
-            ) : currentPlan === 'SOLO' ? (
-              <span>Passer en Business</span>
-            ) : (
-              <span>Choisir la formule Business</span>
+            {showSoloCard && (
+              <PlanCard planId="SOLO" ctaLabel="Choisir la formule Solo" onSelect={() => openDurationPicker('SOLO')} />
             )}
-            {currentPlan !== 'BUSINESS' && checkoutPlan !== 'BUSINESS' && <ArrowRight className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
+            <PlanCard
+              planId="BUSINESS"
+              highlighted
+              ctaLabel={currentPlan === 'SOLO' ? 'Passer en Business' : 'Choisir la formule Business'}
+              onSelect={() => openDurationPicker('BUSINESS')}
+            />
+          </div>
 
-      {/* ========================================================================= */}
-      {/* 2. JUSTIFIER LE PRIX SUR LA PAGE : ENCADRÉ DISCRET FOND #F8FAFC */}
-      {/* ========================================================================= */}
-      <div className="max-w-4xl mx-auto p-5 sm:p-6 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-slate-800 space-y-2 text-center sm:text-left">
-        <p className="text-xs sm:text-sm font-semibold leading-relaxed text-slate-700">
-          "{PRICING_JUSTIFICATION.quote}"
-        </p>
-        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-          MoroCash s'autofinance dès ta première semaine d'utilisation.
-        </p>
-      </div>
+          {/* Justifier le prix : encadré discret */}
+          <div className="max-w-4xl mx-auto p-5 sm:p-6 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-slate-800 space-y-2 text-center sm:text-left">
+            <p className="text-xs sm:text-sm font-semibold leading-relaxed text-slate-700">
+              "{PRICING_JUSTIFICATION.quote}"
+            </p>
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              MoroCash s'autofinance dès ta première semaine d'utilisation.
+            </p>
+          </div>
 
-      {/* Mobile Money Payment Methods */}
-      <div className="max-w-3xl mx-auto text-center space-y-3 pt-2">
-        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-          Paiement local sécurisé par Mobile Money (Côte d'Ivoire, Sénégal, Bénin, Togo, Mali, Burkina Faso)
-        </span>
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
-          <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-sky-600 shadow-2xs">
-            Wave (0% frais)
-          </span>
-          <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-orange-600 shadow-2xs">
-            Orange Money
-          </span>
-          <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-amber-600 shadow-2xs">
-            MTN MoMo
-          </span>
-          <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-blue-600 shadow-2xs">
-            Moov Money
-          </span>
-        </div>
-      </div>
+          <MobileMoneyMethods />
+        </>
+      )}
 
       {/* RÈGLE INCHANGÉE : L'historique n'est JAMAIS limité par le plan */}
       <div className="max-w-3xl mx-auto p-5 rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-950 flex items-start gap-3.5">
@@ -551,11 +280,219 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ onBack }) =>
   );
 };
 
+const MobileMoneyMethods: React.FC = () => (
+  <div className="max-w-3xl mx-auto text-center space-y-3 pt-2">
+    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+      Paiement local sécurisé par Mobile Money (Côte d'Ivoire, Sénégal, Bénin, Togo, Mali, Burkina Faso)
+    </span>
+    <div className="flex flex-wrap items-center justify-center gap-2.5">
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-sky-600 shadow-2xs">
+        Wave (0% frais)
+      </span>
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-orange-600 shadow-2xs">
+        Orange Money
+      </span>
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-amber-600 shadow-2xs">
+        MTN MoMo
+      </span>
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-blue-600 shadow-2xs">
+        Moov Money
+      </span>
+    </div>
+  </div>
+);
+
+/** Carte d'une formule : prix au mois, rappel du prix à l'année et avantages. */
+const PlanCard: React.FC<{
+  planId: PlanId;
+  highlighted?: boolean;
+  ctaLabel: string;
+  onSelect: () => void;
+}> = ({ planId, highlighted = false, ctaLabel, onSelect }) => {
+  const plan = PLANS[planId];
+  const isBusiness = planId === 'BUSINESS';
+
+  return (
+    <div
+      className={`bg-white rounded-3xl p-6 sm:p-7 transition-all flex flex-col justify-between space-y-6 relative ${
+        highlighted ? 'border-2 border-[#4F46E5] shadow-xl' : 'border border-slate-200/90 hover:border-slate-300 shadow-xs'
+      }`}
+    >
+      {isBusiness && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#4F46E5] text-white text-[11px] font-black tracking-wide shadow-md whitespace-nowrap">
+          ⭐ RECOMMANDÉ POUR ÉQUIPES
+        </div>
+      )}
+
+      <div className="space-y-5">
+        <div>
+          <span className={`text-[11px] font-extrabold uppercase tracking-wider ${isBusiness ? 'text-indigo-600' : 'text-slate-400'}`}>
+            {isBusiness ? 'Formule Équipe' : 'Formule Solo'}
+          </span>
+          <h3 className="text-2xl font-black text-slate-900 mt-0.5">{plan.nom}</h3>
+          <p className={`text-xs font-bold mt-1 ${isBusiness ? 'text-emerald-600' : 'text-[#4F46E5]'}`}>"{plan.baseline}"</p>
+        </div>
+
+        <div className={`p-4 rounded-2xl space-y-1 border ${isBusiness ? 'bg-indigo-50/60 border-indigo-100' : 'bg-slate-50/80 border-slate-200/70'}`}>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-3xl sm:text-4xl font-black text-slate-900">{formatMoney(plan.prixMensuel)}</span>
+            <span className="text-xs font-bold text-slate-500">/ mois</span>
+          </div>
+          <p className="text-[11px] text-slate-600">
+            Paiement pour 1, 3, 6 ou 12 mois ·{' '}
+            <strong className="text-emerald-700">
+              {formatMoney(plan.prix.ANNUEL)} l’année, 2 mois offerts
+            </strong>
+          </p>
+        </div>
+
+        <ul className="space-y-2.5 text-xs text-slate-700 font-medium pt-1">
+          {plan.features.map((feature) => (
+            <li key={feature} className="flex items-start gap-2.5">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5] mt-px" />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <button
+        onClick={onSelect}
+        className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
+          highlighted
+            ? 'bg-[#4F46E5] hover:bg-indigo-700 text-white shadow-md shadow-indigo-200'
+            : 'bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 hover:border-slate-300 shadow-xs'
+        }`}
+      >
+        <span>{ctaLabel}</span>
+        <ArrowRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
+
+/**
+ * Page « Choisis ta durée » : 1, 3, 6 ou 12 mois pour la formule choisie. Le
+ * montant affiché est indicatif — le serveur relit toujours le prix en base.
+ */
+const DurationPicker: React.FC<{
+  planId: PlanId;
+  pendingPeriod: BillingPeriod | null;
+  onBack: () => void;
+  onPay: (periode: BillingPeriod) => void;
+}> = ({ planId, pendingPeriod, onBack, onPay }) => {
+  const plan = PLANS[planId];
+  const [selected, setSelected] = useState<BillingPeriod>('ANNUEL');
+  const selectedPeriod = BILLING_PERIODS.find((p) => p.id === selected) ?? BILLING_PERIODS[0];
+  const isPending = pendingPeriod !== null;
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6 pb-20 animate-in fade-in duration-200">
+      <button
+        onClick={onBack}
+        disabled={isPending}
+        className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer disabled:opacity-50"
+      >
+        <ArrowLeft className="w-4 h-4" /> Retour aux formules
+      </button>
+
+      <div className="space-y-1">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#4F46E5]">{plan.nom}</span>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Choisis ta durée</h2>
+        <p className="text-sm text-slate-500">
+          Tu paies une seule fois par Mobile Money, sans prélèvement automatique. Plus la durée est longue, moins chaque
+          mois te coûte.
+        </p>
+      </div>
+
+      <div role="radiogroup" aria-label="Durée de l'abonnement" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {BILLING_PERIODS.map((period) => {
+          const total = plan.prix[period.id];
+          const savings = getSavings(planId, period.id);
+          const isSelected = selected === period.id;
+          const isYear = period.id === 'ANNUEL';
+
+          return (
+            <button
+              key={period.id}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              disabled={isPending}
+              onClick={() => setSelected(period.id)}
+              className={`relative text-left p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer disabled:cursor-not-allowed ${
+                isSelected ? 'border-[#4F46E5] bg-[#EEF2FF]' : 'border-slate-200 bg-white hover:border-slate-300'
+              }`}
+            >
+              {isYear && (
+                <span className="absolute -top-2.5 right-4 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wide shadow-sm">
+                  <Gift className="w-3 h-3" /> 2 mois offerts
+                </span>
+              )}
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="block text-sm font-black text-slate-900">{period.label}</span>
+                  <span className="block text-2xl font-black text-slate-900 leading-none">{formatMoney(total)}</span>
+                  <span className="block text-[11px] text-slate-500">
+                    {period.mois > 1 ? `soit ${formatMoney(Math.round(total / period.mois))} / mois` : 'sans engagement'}
+                  </span>
+                </div>
+                <span
+                  className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    isSelected ? 'border-[#4F46E5] bg-[#4F46E5] text-white' : 'border-slate-300'
+                  }`}
+                >
+                  {isSelected && <Check className="w-3 h-3" strokeWidth={3.5} />}
+                </span>
+              </div>
+              {savings > 0 && (
+                <span className="mt-3 inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-extrabold">
+                  {isYear
+                    ? `Au lieu de ${formatMoney(getFullPrice(planId, period.id))} : tu économises ${formatMoney(savings)}`
+                    : `Tu économises ${formatMoney(savings)}`}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-slate-600">
+            {plan.nom} · {selectedPeriod.label}
+          </span>
+          <span className="font-black text-slate-900">{formatMoney(plan.prix[selected])}</span>
+        </div>
+        <button
+          onClick={() => onPay(selected)}
+          disabled={isPending}
+          className="w-full py-3.5 rounded-full bg-[#4F46E5] hover:bg-indigo-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all disabled:opacity-60 disabled:cursor-wait"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Ouverture du paiement…</span>
+            </>
+          ) : (
+            <>
+              <span>Payer {formatMoney(plan.prix[selected])}</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </div>
+
+      <MobileMoneyMethods />
+    </div>
+  );
+};
+
 const formatLongDate = (iso: string) =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-const periodeLabel = (periode: 'MENSUEL' | 'ANNUEL' | null) =>
-  periode === 'ANNUEL' ? 'Annuel' : periode === 'MENSUEL' ? 'Mensuel' : '—';
+const periodeLabel = (periode: BillingPeriod | null) =>
+  BILLING_PERIODS.find((p) => p.id === periode)?.label ?? '—';
 
 const methodLabel = (methode: string) => (methode === 'AUTRE' ? 'Mobile Money' : formatPaymentMethod(methode));
 
@@ -563,6 +500,58 @@ const planLabel = (code: 'SOLO' | 'BUSINESS' | null) =>
   code === 'BUSINESS' ? 'Business' : code === 'SOLO' ? 'Solo' : '—';
 
 /** Détail de la formule payée : dates, jours restants, dernier paiement et historique. */
+const PLAN_RANK: Record<'TRIAL' | 'EXPIRED' | 'SOLO' | 'BUSINESS', number> = {
+  TRIAL: 0,
+  EXPIRED: 0,
+  SOLO: 1,
+  BUSINESS: 2,
+};
+
+/** Formule Business active : tous ses avantages et l'usage des comptes. */
+const BusinessAdvantages: React.FC<{ overview: SubscriptionOverview | null }> = ({ overview }) => {
+  const plan = PLANS.BUSINESS;
+  const utilisateurs = overview?.utilisateurs ?? null;
+  const placesLibres = utilisateurs === null ? null : Math.max(0, plan.maxUsers - utilisateurs);
+
+  return (
+    <section className="max-w-5xl mx-auto bg-white rounded-3xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Mes avantages</span>
+          <h3 className="text-lg font-black text-slate-900">Tu es déjà sur la formule la plus complète</h3>
+        </div>
+        <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+          {plan.nom}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <InfoTile
+          label="Utilisateurs"
+          value={`${utilisateurs ?? '—'} / ${plan.maxUsers}`}
+          sub={
+            placesLibres === null
+              ? undefined
+              : placesLibres === 0
+              ? 'Toutes les places sont prises'
+              : `${placesLibres} place${placesLibres > 1 ? 's' : ''} libre${placesLibres > 1 ? 's' : ''}`
+          }
+        />
+        <InfoTile label="Produits" value="Illimités" sub="Aucun plafond" />
+      </div>
+
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs text-slate-700 font-medium">
+        {plan.features.map((feature) => (
+          <li key={feature} className="flex items-start gap-2.5">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5] mt-px" />
+            <span>{feature}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+};
+
 const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ overview }) => {
   const { current, payments, joursRestants, subscriptionEndsAt } = overview;
   if (!current) return null;

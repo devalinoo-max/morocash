@@ -156,7 +156,7 @@ export const ReadOnlyBanner: React.FC = () => {
       <div className="flex items-center gap-2 text-xs sm:text-sm">
         <Lock className="w-4 h-4 text-rose-600 shrink-0" />
         <span>
-          <strong>Abonnement expiré (Lecture seule) :</strong> La saisie de nouvelles ventes est bloquée.
+          <strong>Ton abonnement a expiré.</strong> Ton compte est en lecture seule : tes données restent consultables.
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -178,7 +178,7 @@ export const ReadOnlyBanner: React.FC = () => {
           }}
           className="bg-rose-600 text-white hover:bg-rose-700 active:scale-95 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
         >
-          Réactiver mon compte
+          Réactiver
         </button>
       </div>
     </div>

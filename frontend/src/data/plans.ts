@@ -4,15 +4,35 @@
  *
  * All pricing, quotas, baselines, and savings are derived strictly from this source.
  * No price should be hardcoded anywhere else in the application.
+ *
+ * 3 formules : Essai (30 jours, limites de Solo), Solo, Business. Les prix
+ * doivent rester alignés avec la table Plan (migration
+ * 20260916180000_plans_durees_nouveaux_prix) : c'est elle qui fixe le montant
+ * réellement demandé au paiement.
  */
+
+/** Durée d'essai gratuit à l'inscription (voir register.ts côté serveur). */
+export const TRIAL_DAYS = 30;
+
+export type BillingPeriod = 'MENSUEL' | 'TRIMESTRIEL' | 'SEMESTRIEL' | 'ANNUEL';
+
+/** Durées proposées au paiement, dans l'ordre d'affichage. */
+export const BILLING_PERIODS: { id: BillingPeriod; mois: number; label: string }[] = [
+  { id: 'MENSUEL', mois: 1, label: '1 mois' },
+  { id: 'TRIMESTRIEL', mois: 3, label: '3 mois' },
+  { id: 'SEMESTRIEL', mois: 6, label: '6 mois' },
+  { id: 'ANNUEL', mois: 12, label: '12 mois' },
+];
 
 export interface PlanDefinition {
   id: 'SOLO' | 'BUSINESS';
   nom: string;
   prixMensuel: number;
-  prixAnnuel: number;
+  /** Prix total payé pour chaque durée. */
+  prix: Record<BillingPeriod, number>;
   maxUsers: number;
   maxProduits: number; // 0 = illimité
+  maxCommandesMois: number; // 0 = illimité
   rapportsComparatifs: boolean;
   exportExcel: boolean;
   employesAutorises: boolean;
@@ -27,74 +47,71 @@ export const PLANS: Record<'SOLO' | 'BUSINESS', PlanDefinition> = {
   SOLO: {
     id: 'SOLO',
     nom: 'Formule Solo',
-    prixMensuel: 15000,
-    prixAnnuel: 150000, // 2 mois offerts (10 x 15 000 F = 150 000 F)
-    maxUsers: 1,
+    prixMensuel: 9900,
+    prix: { MENSUEL: 9900, TRIMESTRIEL: 27600, SEMESTRIEL: 51700, ANNUEL: 99000 },
+    maxUsers: 2,
     maxProduits: 1000,
+    maxCommandesMois: 900,
     rapportsComparatifs: false,
     exportExcel: false,
-    employesAutorises: false,
+    employesAutorises: true,
     actif: true,
     baseline: 'Si tu vends tout seul',
     aide: 'chat',
-    description: 'Idéal si tu gères ton activité seul(e), de chez toi ou en boutique.',
+    description: 'Idéal si tu gères ton activité seul(e) ou à deux, de chez toi ou en boutique.',
     features: [
-      '1 utilisateur unique (Propriétaire)',
-      'Jusqu’à 1 000 produits enregistrés',
-      'Ventes & commandes illimitées',
-      'Clients & carnet de crédit illimités',
-      'Historique illimité (jamais bridé)',
-      'Ce que tu as gagné inclus',
-      'Caisse, dépenses et reçus WhatsApp',
-      'Impression d’étiquettes',
-      'Support par chat en direct',
+      '2 utilisateurs (le 2ᵉ ne voit pas tes marges)',
+      '900 commandes par mois',
+      'Jusqu’à 1 000 produits',
+      'Stock complet : scan code-barres, coût moyen, mouvements',
+      'Clients, dettes et relance WhatsApp',
+      'Reçus texte, image et PDF',
+      'Dépenses et rapports jour / mois',
+      'Étiquettes imprimables et QR code',
+      'Caisse : ouverture et fermeture',
+      'Fonctionne hors ligne',
     ],
   },
   BUSINESS: {
     id: 'BUSINESS',
     nom: 'Formule Business',
-    prixMensuel: 20000,
-    prixAnnuel: 200000, // 2 mois offerts (10 x 20 000 F = 200 000 F)
-    maxUsers: 5,
+    prixMensuel: 19900,
+    prix: { MENSUEL: 19900, TRIMESTRIEL: 55500, SEMESTRIEL: 103900, ANNUEL: 199000 },
+    maxUsers: 10,
     maxProduits: 0, // 0 = illimité
+    maxCommandesMois: 0, // 0 = illimité
     rapportsComparatifs: true,
     exportExcel: true,
     employesAutorises: true,
     actif: true,
     baseline: 'Si tu as des vendeurs qui travaillent pour toi',
     aide: 'WhatsApp prioritaire',
-    description: 'Gère ton équipe jusqu’à 5 personnes avec permissions strictes et protège tes bénéfices.',
+    description: 'Gère ton équipe jusqu’à 10 personnes avec permissions avancées et protège tes bénéfices.',
     features: [
       'Tout ce qui est dans l’offre Solo +',
-      'Jusqu’à 5 employés et vendeurs autorisés',
-      'Produits illimités (aucun plafond)',
-      'Rapports comparatifs de périodes (hier / semaine / mois)',
-      'Export des données sous Excel / CSV',
-      'Permissions strictes (marges et bénéfices masqués)',
-      'Suivi des caisses individuelles par vendeur',
-      'Assistance WhatsApp prioritaire 7j/7',
+      'Jusqu’à 10 utilisateurs',
+      'Commandes illimitées',
+      'Produits illimités',
+      'Employés et permissions avancées',
+      'Caisse avec écarts par caissier',
+      'Back-office de gestion',
     ],
   },
 };
 
-/**
- * Calcul du montant de l'économie annuelle réalisée par rapport à 12 mensualités.
- * Solo : (15 000 * 12) - 150 000 = 30 000 F
- * Business : (20 000 * 12) - 200 000 = 40 000 F
- */
-export function getAnnualSavings(planId: 'SOLO' | 'BUSINESS'): number {
-  const plan = PLANS[planId];
-  return plan.prixMensuel * 12 - plan.prixAnnuel;
+/** Prix « sans remise » d'une durée : le prix mensuel multiplié par le nombre de mois. */
+export function getFullPrice(planId: 'SOLO' | 'BUSINESS', periode: BillingPeriod): number {
+  const mois = BILLING_PERIODS.find((p) => p.id === periode)?.mois ?? 1;
+  return PLANS[planId].prixMensuel * mois;
 }
 
 /**
- * Calcul du prorata lors d'un passage de Solo à Business en cours de mois :
- * montant = (20000 − 15000) × joursRestants / 30, arrondi au supérieur
+ * Économie réalisée sur une durée par rapport au paiement mois par mois.
+ * Sur 12 mois : Solo 118 800 − 99 000 = 19 800 F, Business 238 800 − 199 000 = 39 800 F,
+ * soit 2 mois offerts.
  */
-export function calculateProrataUpgrade(joursRestants: number): number {
-  const diff = PLANS.BUSINESS.prixMensuel - PLANS.SOLO.prixMensuel;
-  const jours = Math.max(0, Math.min(30, joursRestants));
-  return Math.ceil((diff * jours) / 30);
+export function getSavings(planId: 'SOLO' | 'BUSINESS', periode: BillingPeriod): number {
+  return Math.max(0, getFullPrice(planId, periode) - PLANS[planId].prix[periode]);
 }
 
 /**
@@ -103,12 +120,8 @@ export function calculateProrataUpgrade(joursRestants: number): number {
 export const QUOTA_MESSAGES = {
   PRODUCT_LIMIT_REACHED:
     'Tu as atteint 1 000 produits. Passe en Business pour en ajouter sans limite.',
-  SOLO_NO_EMPLOYEES:
-    'L’offre Solo est pour une seule personne. Passe en Business pour ajouter tes vendeurs.',
-  SOLO_EMPLOYEES_EXPLANATION:
-    'Avec l’offre Solo, tu es seul à utiliser MoroCash. Passe en Business pour ajouter jusqu’à 5 personnes, et décider de ce que chacune peut voir.',
-  DOWNGRADE_DEACTIVATION_NOTICE: (count: number) =>
-    `Tes ${count} vendeur${count > 1 ? 's' : ''} ne peu${count > 1 ? 'vent' : 't'} plus se connecter. Repasse en Business pour leur rendre l'accès.`,
+  ORDER_LIMIT_REACHED: (max: number) =>
+    `Tu as atteint ${max.toLocaleString('fr-FR')} commandes ce mois-ci. Passe en Business pour vendre sans limite.`,
 };
 
 /**

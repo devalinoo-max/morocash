@@ -1,4 +1,35 @@
-import type { Business } from '@prisma/client';
+import type { Business, Plan, SubPeriod } from '@prisma/client';
+
+/** Durées d'abonnement proposées au paiement, en mois. */
+export const PERIOD_MONTHS: Record<SubPeriod, number> = {
+  MENSUEL: 1,
+  TRIMESTRIEL: 3,
+  SEMESTRIEL: 6,
+  ANNUEL: 12,
+};
+
+/** Prix d'une formule pour une durée — toujours lu en base, jamais envoyé par le navigateur. */
+export function planPriceForPeriod(
+  plan: Pick<Plan, 'prixMensuel' | 'prixTrimestriel' | 'prixSemestriel' | 'prixAnnuel'>,
+  periode: SubPeriod
+): number {
+  switch (periode) {
+    case 'TRIMESTRIEL':
+      return plan.prixTrimestriel;
+    case 'SEMESTRIEL':
+      return plan.prixSemestriel;
+    case 'ANNUEL':
+      return plan.prixAnnuel;
+    case 'MENSUEL':
+    default:
+      return plan.prixMensuel;
+  }
+}
+
+/** Libellé court d'une durée : « 1 mois », « 3 mois »… */
+export function periodLabel(periode: SubPeriod): string {
+  return `${PERIOD_MONTHS[periode]} mois`;
+}
 
 type BusinessLockFields = Pick<Business, 'statut' | 'trialEndsAt' | 'subscriptionEndsAt'>;
 

@@ -139,8 +139,10 @@ enum ExpenseOrigin {
 }
 
 enum SubPeriod {
-  MENSUEL
-  ANNUEL
+  MENSUEL      // 1 mois
+  ANNUEL       // 12 mois
+  TRIMESTRIEL  // 3 mois
+  SEMESTRIEL   // 6 mois
 }
 
 enum SubPayState {
@@ -156,9 +158,12 @@ model Plan {
   code                String   @unique          // SOLO | BUSINESS
   nom                 String
   prixMensuel         Int
+  prixTrimestriel     Int      @default(0)
+  prixSemestriel      Int      @default(0)
   prixAnnuel          Int
   maxUsers            Int
   maxProduits         Int
+  maxCommandesMois    Int      @default(0)  // 0 = illimité
   rapportsComparatifs Boolean  @default(false)
   exportExcel         Boolean  @default(false)
   actif               Boolean  @default(true)

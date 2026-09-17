@@ -4,7 +4,7 @@ import { Reveal } from './Reveal';
 const STATS = [
   { value: '10 s', label: 'pour enregistrer une vente' },
   { value: '3 min', label: 'pour être prêt à vendre' },
-  { value: '0 F', label: "pendant 14 jours d'essai" },
+  { value: '0 F', label: "pendant 30 jours d'essai" },
   { value: '0', label: 'carte bancaire demandée' },
 ];
 

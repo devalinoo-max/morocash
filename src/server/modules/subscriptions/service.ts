@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
-import type { Business, PaymentMethod } from '@prisma/client';
+import type { Business, PaymentMethod, SubPeriod } from '@prisma/client';
 import { AppError } from '@/server/shared/errors';
-import { isAdministrativelyLocked } from '@/server/shared/subscription';
+import { isAdministrativelyLocked, periodLabel, planPriceForPeriod } from '@/server/shared/subscription';
 import { PAWAPAY_COUNTRY, createPaymentPage, getDeposit, type PawapayDeposit } from '@/server/integrations/pawapay';
 import {
   activatePaidSubscription,
@@ -13,6 +13,7 @@ import {
   findBusinessById,
   findBusinessPaymentByReference,
   findBusinessSubscriptionHistory,
+  countActiveUsers,
   findPaymentByReference,
   type SubscriptionPaymentWithPlan,
 } from '@/server/repositories/subscriptions';
@@ -22,7 +23,7 @@ const PAYMENT_PAGE_EXPIRY_MS = 20 * 60 * 1000;
 
 export const checkoutSchema = z.object({
   planCode: z.enum(['SOLO', 'BUSINESS']),
-  periode: z.enum(['MENSUEL', 'ANNUEL']),
+  periode: z.enum(['MENSUEL', 'TRIMESTRIEL', 'SEMESTRIEL', 'ANNUEL']),
 });
 
 export async function startCheckout(
@@ -45,7 +46,13 @@ export async function startCheckout(
   }
 
   // Le montant vient toujours de la base, jamais du navigateur.
-  const montant = input.periode === 'ANNUEL' ? plan.prixAnnuel : plan.prixMensuel;
+  const prixNormal = planPriceForPeriod(plan, input.periode);
+  // TEST TEMPORAIRE — 300 F à la place de Business 1 mois (19 900 F), le
+  // temps d'un paiement de test en ligne. L'affichage garde 19 900 F. À retirer.
+  const montant = plan.code === 'BUSINESS' && input.periode === 'MENSUEL' ? 300 : prixNormal;
+  if (montant <= 0) {
+    throw new AppError('VALIDATION_ERROR', "Cette durée n'est pas disponible pour cette offre.");
+  }
   const depositId = randomUUID();
   const subscription = await createPendingSubscriptionPayment({
     businessId: business.id,
@@ -62,7 +69,7 @@ export async function startCheckout(
       amount: montant,
       currency: business.devise,
       country,
-      reason: `Abonnement MoroCash ${plan.code === 'BUSINESS' ? 'Business' : 'Solo'} ${input.periode === 'ANNUEL' ? 'annuel' : 'mensuel'}`,
+      reason: `Abonnement MoroCash ${plan.code === 'BUSINESS' ? 'Business' : 'Solo'} ${periodLabel(input.periode)}`,
       customerMessage: `MoroCash ${plan.code === 'BUSINESS' ? 'Business' : 'Solo'}`,
     });
     return { paymentId: depositId, redirectUrl };
@@ -142,7 +149,7 @@ export interface PaymentStatusView {
   paymentId: string;
   statut: 'EN_ATTENTE' | 'REUSSI' | 'ECHOUE' | 'EXPIRE';
   planCode: string | null;
-  periode: 'MENSUEL' | 'ANNUEL' | null;
+  periode: SubPeriod | null;
   montant: number;
   subscriptionEndsAt: Date | null;
 }
@@ -153,7 +160,7 @@ export interface SubscriptionOverview {
   planNom: string | null;
   /** Période en cours (ou la dernière payée si tout est échu). Null pendant l'essai. */
   current: {
-    periode: 'MENSUEL' | 'ANNUEL';
+    periode: SubPeriod;
     dateDebut: Date;
     dateFin: Date;
   } | null;
@@ -161,6 +168,8 @@ export interface SubscriptionOverview {
   subscriptionEndsAt: Date | null;
   joursRestants: number | null;
   trialEndsAt: Date | null;
+  /** Comptes actifs de la boutique (propriétaire compris), face au quota de la formule. */
+  utilisateurs: number;
   payments: {
     paymentId: string;
     date: Date;
@@ -168,7 +177,7 @@ export interface SubscriptionOverview {
     methode: PaymentMethod;
     referencePasserelle: string | null;
     planCode: string | null;
-    periode: 'MENSUEL' | 'ANNUEL' | null;
+    periode: SubPeriod | null;
     dateDebut: Date | null;
     dateFin: Date | null;
   }[];
@@ -182,7 +191,10 @@ export async function getSubscriptionOverview(businessId: string): Promise<Subsc
   if (!business) {
     throw new AppError('RESOURCE_NOT_OWNED', 'Boutique introuvable.');
   }
-  const [subscriptions, payments] = await findBusinessSubscriptionHistory(businessId);
+  const [[subscriptions, payments], utilisateurs] = await Promise.all([
+    findBusinessSubscriptionHistory(businessId),
+    countActiveUsers(businessId),
+  ]);
 
   const now = Date.now();
   // Périodes triées par fin décroissante : on cherche celle qui couvre
@@ -200,6 +212,7 @@ export async function getSubscriptionOverview(businessId: string): Promise<Subsc
     subscriptionEndsAt: endsAt,
     joursRestants: endsAt ? Math.max(0, Math.ceil((endsAt.getTime() - now) / DAY_MS)) : null,
     trialEndsAt: business.trialEndsAt,
+    utilisateurs,
     payments: payments.map((p) => ({
       paymentId: p.referenceInterne,
       date: p.createdAt,

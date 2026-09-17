@@ -3,12 +3,12 @@ import { Check, Lock } from 'lucide-react';
 import { Reveal } from './Reveal';
 
 interface PricingSectionProps {
-  onSelectPlan: (plan: 'solo' | 'business') => void;
+  onSelectPlan: (plan: 'solo' | 'business', isYearly: boolean) => void;
 }
 
 const PRICES = {
-  solo: { monthly: '15 000', yearly: '150 000' },
-  business: { monthly: '20 000', yearly: '200 000' },
+  solo: { monthly: '9 900', yearly: '99 000' },
+  business: { monthly: '19 900', yearly: '199 000' },
 };
 
 export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) => {
@@ -62,7 +62,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) 
             <ul className="space-y-3 text-xs theme-text-muted">
               <li className="flex items-center gap-2.5">
                 <Check className="accent-emerald w-4 h-4" />
-                <span className="theme-text font-semibold">1 compte administrateur</span>
+                <span className="theme-text font-semibold">2 utilisateurs · 900 commandes / mois</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Check className="accent-emerald w-4 h-4" />
@@ -80,14 +80,14 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) 
           </div>
           <button
             type="button"
-            onClick={() => onSelectPlan('solo')}
+            onClick={() => onSelectPlan('solo', isYearly)}
             className="mt-8 block w-full border theme-border theme-card-hover theme-text font-extrabold text-sm py-4 rounded-xl text-center transition-colors cursor-pointer"
           >
             Choisir Solo
           </button>
           {/* La durée ne vit plus dans le bouton : elle est ici, sous lui. */}
           <p className="mt-3 text-center text-[11px] theme-text-muted">
-            ✓ 14 jours · sans carte bancaire · sans engagement
+            ✓ 30 jours gratuits · sans carte bancaire · sans engagement
           </p>
         </Reveal>
 
@@ -114,7 +114,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) 
             <ul className="space-y-3 text-xs theme-text-muted">
               <li className="flex items-center gap-2.5">
                 <Check className="accent-emerald w-4 h-4" />
-                <span className="theme-text font-semibold">Jusqu&apos;à 5 vendeurs</span>
+                <span className="theme-text font-semibold">Jusqu&apos;à 10 utilisateurs · commandes illimitées</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Check className="accent-emerald w-4 h-4" />
@@ -132,14 +132,14 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) 
           </div>
           <button
             type="button"
-            onClick={() => onSelectPlan('business')}
+            onClick={() => onSelectPlan('business', isYearly)}
             className="mt-8 block w-full bg-accent-emerald text-[#06110B] font-extrabold text-sm py-4 rounded-xl text-center transition-transform hover:scale-[1.02] cursor-pointer"
           >
             Choisir Business
           </button>
           {/* La durée ne vit plus dans le bouton : elle est ici, sous lui. */}
           <p className="mt-3 text-center text-[11px] theme-text-muted">
-            ✓ 14 jours · sans carte bancaire · sans engagement
+            ✓ 30 jours gratuits · sans carte bancaire · sans engagement
           </p>
         </Reveal>
       </div>

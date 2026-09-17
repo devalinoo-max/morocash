@@ -2,6 +2,7 @@ import type { Business, UserRole } from '@prisma/client';
 import { prisma } from '@/server/database/client';
 import { AppError } from '@/server/shared/errors';
 import { getSessionFromCookies } from '@/server/modules/auth/session';
+import { runInTenantTransaction } from '@/server/repositories/base';
 import { isAdministrativelyLocked, isSubscriptionLapsed } from '@/server/shared/subscription';
 
 export interface AuthedContext {
@@ -56,26 +57,39 @@ export function requireOwnership<T extends { businessId: string } | null | undef
   }
 }
 
-/** 5. checkQuota() — quota du plan, sinon QUOTA_PRODUCTS_REACHED / QUOTA_USERS_REACHED. */
+/**
+ * 5. checkQuota() — quota du plan, sinon QUOTA_PRODUCTS_REACHED / QUOTA_USERS_REACHED.
+ * Pendant l'essai (aucune formule payée), ce sont les quotas de Solo qui
+ * s'appliquent. Un quota à 0 signifie illimité. Le quota mensuel de commandes
+ * n'est pas vérifié ici : une vente est d'abord enregistrée sur l'appareil puis
+ * envoyée, un refus serveur ferait perdre une vente déjà faite au comptoir —
+ * l'app bloque donc AVANT la vente (voir attemptNewSale).
+ */
 export async function checkQuota(businessId: string, type: 'products' | 'users'): Promise<void> {
   const business = await prisma.business.findUnique({
     where: { id: businessId },
     include: { plan: true },
   });
-  if (!business?.plan) return;
-
-  if (type === 'products') {
-    const count = await prisma.product.count({ where: { businessId, actif: true } });
-    if (business.plan.maxProduits > 0 && count >= business.plan.maxProduits) {
-      throw new AppError('QUOTA_PRODUCTS_REACHED', 'Limite de produits atteinte pour votre offre.');
-    }
-  }
+  if (!business) return;
+  const plan = business.plan ?? (await prisma.plan.findUnique({ where: { code: 'SOLO' } }));
+  if (!plan) return;
 
   if (type === 'users') {
     const count = await prisma.user.count({ where: { businessId, actif: true } });
-    if (business.plan.maxUsers > 0 && count >= business.plan.maxUsers) {
+    if (plan.maxUsers > 0 && count >= plan.maxUsers) {
       throw new AppError('QUOTA_USERS_REACHED', "Limite d'utilisateurs atteinte pour votre offre.");
     }
+    return;
+  }
+
+  // Les produits sont sous RLS : sans le contexte boutique, le comptage
+  // renverrait toujours 0 et le quota ne serait jamais atteint.
+  if (plan.maxProduits <= 0) return;
+  const count = await runInTenantTransaction(businessId, (tx) =>
+    tx.product.count({ where: { businessId, actif: true } })
+  );
+  if (count >= plan.maxProduits) {
+    throw new AppError('QUOTA_PRODUCTS_REACHED', 'Limite de produits atteinte pour votre offre.');
   }
 }
 

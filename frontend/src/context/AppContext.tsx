@@ -45,7 +45,7 @@ import { countLabel } from '../utils/plural';
 import { validateBarcodeChecksum } from '../utils/barcodeEngine';
 import { findProductByCode as lookupProductByCode } from '../utils/productCodeLookup';
 import confetti from 'canvas-confetti';
-import { PLANS } from '../data/plans';
+import { PLANS, QUOTA_MESSAGES } from '../data/plans';
 import * as authApi from '../api/auth';
 import * as businessApi from '../api/business';
 import * as productsApi from '../api/products';
@@ -761,7 +761,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     action();
   };
 
-  const attemptNewSale = () => gateWrite(() => setIsNewSaleOpen(true));
+  // Quota mensuel de commandes (Solo et essai : 900). Vérifié ici, AVANT la
+  // vente : une commande est enregistrée sur l'appareil puis envoyée, un refus
+  // du serveur après coup ferait perdre une vente déjà faite au comptoir.
+  const attemptNewSale = () =>
+    gateWrite(() => {
+      const max =
+        settings.planStatus === 'BUSINESS' ? PLANS.BUSINESS.maxCommandesMois : PLANS.SOLO.maxCommandesMois;
+      if (max > 0) {
+        const now = new Date();
+        const debutDuMois = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const ceMois = salesRef.current.filter((s) => new Date(s.createdAt).getTime() >= debutDuMois).length;
+        if (ceMois >= max) {
+          showToast(QUOTA_MESSAGES.ORDER_LIMIT_REACHED(max), 'warning');
+          setActiveTab('more');
+          setActiveMoreSubTab('subscription');
+          return;
+        }
+      }
+      setIsNewSaleOpen(true);
+    });
 
   /**
    * Recharge produits/clients/commandes/caisse depuis le vrai backend et

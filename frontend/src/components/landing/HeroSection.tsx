@@ -21,7 +21,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onScrollToPricing, onS
               <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-emerald" />
             </span>
             <span className="text-[10px] font-mono-data theme-text font-bold uppercase tracking-wider">
-              14 jours gratuits · sans carte bancaire
+              30 jours gratuits · sans carte bancaire
             </span>
           </Reveal>
 

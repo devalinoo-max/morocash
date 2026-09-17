@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { useLandingTheme } from './useLandingTheme';
+import { savePlanIntent } from '../../utils/planIntent';
 import { ScrollProgressBar } from './ScrollProgressBar';
 import { LandingHeader } from './LandingHeader';
 import { HeroSection } from './HeroSection';
