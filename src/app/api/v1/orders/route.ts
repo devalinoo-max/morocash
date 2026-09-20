@@ -1,4 +1,4 @@
-import { guardMutation, guardRead } from '@/server/guards';
+import { guardMutation, guardRead, marginViewRole } from '@/server/guards';
 import { createOrder, createOrderSchema } from '@/server/modules/orders/createOrder';
 import { listOrders } from '@/server/modules/orders/service';
 import { serializeOrderList } from '@/server/serializers/order';
@@ -32,7 +32,7 @@ export async function GET() {
   try {
     const ctx = await guardRead();
     const orders = await listOrders(ctx.businessId);
-    return ok({ orders: serializeOrderList(orders, ctx.role) });
+    return ok({ orders: serializeOrderList(orders, marginViewRole(ctx)) });
   } catch (error) {
     return fail(error);
   }

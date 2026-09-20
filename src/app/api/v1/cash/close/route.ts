@@ -1,4 +1,4 @@
-import { guardMutation } from '@/server/guards';
+import { guardMutation, marginViewRole } from '@/server/guards';
 import { closeRegister, closeRegisterSchema } from '@/server/modules/cash/service';
 import { serializeCashRegister } from '@/server/serializers/cash';
 import { ok, fail } from '@/server/shared/response';
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const result = await closeRegister({ businessId: ctx.businessId, userId: ctx.userId }, parsed.data);
 
     return ok({
-      register: serializeCashRegister(result.register, ctx.role),
+      register: serializeCashRegister(result.register, marginViewRole(ctx)),
       ...(ctx.role === 'SELLER' ? {} : { attenduTotal: result.attenduTotal }),
     });
   } catch (error) {

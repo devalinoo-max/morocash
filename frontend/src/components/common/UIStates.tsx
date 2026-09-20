@@ -188,6 +188,52 @@ export const ReadOnlyBanner: React.FC = () => {
 /** Fermé une fois, le bandeau d'essai ne revient pas avant le lendemain. */
 const TRIAL_BANNER_DISMISS_KEY = 'morocash_trial_banner_dismissed_on';
 
+/**
+ * L'urgence se lit à la couleur avant même le texte.
+ *
+ * Trois paliers, aux seuils de 7 et de 3 jours restants : au-delà d'une
+ * semaine le bandeau informe (indigo/violet, la couleur de la marque) ; entre
+ * 3 et 7 jours il invite (orange) ; en dessous de 3 jours il alerte (rouge).
+ * Un commerçant qui ouvre sa caisse tous les matins voit donc la bascule
+ * arriver, au lieu de découvrir l'expiration le jour même.
+ */
+type TrialTone = {
+  background: string;
+  text: string;
+  /** Couleur du bouton « Voir les offres » et de la croix. */
+  action: string;
+  actionHover: string;
+  message: string | null;
+};
+
+export function trialBannerTone(joursRestants: number): TrialTone {
+  if (joursRestants < 3) {
+    return {
+      background: '#DC2626',
+      text: '#FFFFFF',
+      action: '#FFFFFF',
+      actionHover: 'rgba(255,255,255,0.18)',
+      message: 'Choisis vite ta formule pour ne rien perdre',
+    };
+  }
+  if (joursRestants <= 7) {
+    return {
+      background: '#D97706',
+      text: '#FFFFFF',
+      action: '#FFFFFF',
+      actionHover: 'rgba(255,255,255,0.18)',
+      message: 'Pense à choisir ta formule',
+    };
+  }
+  return {
+    background: 'linear-gradient(90deg, #4F46E5 0%, #8B5CF6 100%)',
+    text: '#FFFFFF',
+    action: '#FFFFFF',
+    actionHover: 'rgba(255,255,255,0.18)',
+    message: null,
+  };
+}
+
 export const TrialBanner: React.FC = () => {
   const { settings, setActiveTab, setActiveMoreSubTab } = useApp();
   const aujourdhui = new Date().toISOString().slice(0, 10);
@@ -217,30 +263,37 @@ export const TrialBanner: React.FC = () => {
   };
 
   const jours = settings.trialDaysLeft;
+  const tone = trialBannerTone(jours);
 
   /*
    * Une ligne de 44 px, pas un bloc jaune à couronne.
    *
    * Le bandeau dit un fait — combien de jours il reste — au lieu de vendre.
    * « Premium » n'existe pas dans le produit : les offres s'appellent Solo et
-   * Business, et toute l'application tutoie.
+   * Business, et toute l'application tutoie. Seule la couleur monte le ton
+   * quand l'échéance approche (voir trialBannerTone).
    */
   return (
     <div
       id="banner-trial"
-      className="h-11 mx-3 sm:mx-4 my-2 px-3 rounded-xl flex items-center gap-2 min-w-0"
-      style={{ backgroundColor: '#EEF2FF' }}
+      className="min-h-11 mx-3 sm:mx-4 my-2 px-3 py-2 rounded-xl flex items-center gap-2 min-w-0"
+      style={{ background: tone.background }}
+      role={tone.message ? 'alert' : undefined}
     >
-      <span className="text-[12px] font-bold truncate" style={{ color: '#4F46E5' }}>
-        Essai — {jours} {jours > 1 ? 'jours restants' : 'jour restant'}
-      </span>
-      <span className="flex-1" />
+      <div className="min-w-0 flex-1" style={{ color: tone.text }}>
+        <span className="text-[12px] font-bold block truncate">
+          Essai — {jours} {jours > 1 ? 'jours restants' : 'jour restant'}
+        </span>
+        {tone.message && (
+          <span className="text-[11px] font-semibold block truncate opacity-95">{tone.message}</span>
+        )}
+      </div>
       <button
         id="btn-trial-see-offers"
         type="button"
         onClick={goToOffers}
         className="shrink-0 text-[12px] font-bold hover:underline cursor-pointer whitespace-nowrap"
-        style={{ color: '#4F46E5' }}
+        style={{ color: tone.action }}
       >
         Voir les offres ›
       </button>
@@ -249,7 +302,14 @@ export const TrialBanner: React.FC = () => {
         type="button"
         onClick={fermer}
         aria-label="Fermer"
-        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 transition-all cursor-pointer"
+        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer"
+        style={{ color: tone.action }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = tone.actionHover;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
       >
         <X className="w-3.5 h-3.5" />
       </button>

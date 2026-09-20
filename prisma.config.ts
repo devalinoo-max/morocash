@@ -12,5 +12,20 @@ export default defineConfig({
   engine: "classic",
   datasource: {
     url: env("DATABASE_URL"),
+    /*
+     * Sans cette ligne, le bloc `datasource` ci-dessus écrasait celui de
+     * schema.prisma et, avec lui, son `directUrl` : toutes les commandes
+     * Prisma partaient sur DATABASE_URL, c'est-à-dire le pooler et le rôle
+     * applicatif `morocash_app`, qui n'a pas le droit de faire un ALTER TABLE.
+     * Chaque migration échouait donc sur « must be owner of table ... », en
+     * laissant au passage un verrou consultatif pris par une session pgbouncer
+     * inactive qui bloquait les commandes suivantes pendant dix minutes (voir
+     * les deux lignes de 20260916180000_plans_durees_nouveaux_prix dans
+     * _prisma_migrations : même panne, reprise à la main).
+     *
+     * Les requêtes de l'application continuent de passer par le pooler ; seules
+     * les migrations empruntent la connexion directe du rôle propriétaire.
+     */
+    directUrl: env("DIRECT_URL"),
   },
 });

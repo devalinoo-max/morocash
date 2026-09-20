@@ -5,15 +5,33 @@ import { getSessionFromCookies } from '@/server/modules/auth/session';
 import { runInTenantTransaction } from '@/server/repositories/base';
 import { isAdministrativelyLocked, isSubscriptionLapsed } from '@/server/shared/subscription';
 
+// Droits par employé : un rôle dit ce que la personne fait, une permission ce
+// que le propriétaire l'autorise à voir ou à défaire. Réexportés ici pour que
+// les routes n'aient qu'un seul point d'entrée pour leurs contrôles d'accès.
+export {
+  hasPermission,
+  requirePermission,
+  marginViewRole,
+  EMPLOYEE_PERMISSIONS,
+  type EmployeePermission,
+} from '@/server/modules/users/permissions';
+
 export interface AuthedContext {
   userId: string;
   businessId: string;
   role: UserRole;
+  /** Droits cochés par le propriétaire (voir modules/users/permissions.ts). */
+  permissions: string[];
   business: Business;
 }
 
 /** 1. requireSession() — session valide, sinon AUTH_SESSION_EXPIRED (spec §6). */
-export async function requireSession(): Promise<{ userId: string; businessId: string; role: UserRole }> {
+export async function requireSession(): Promise<{
+  userId: string;
+  businessId: string;
+  role: UserRole;
+  permissions: string[];
+}> {
   const session = await getSessionFromCookies();
   if (!session) {
     throw new AppError('AUTH_SESSION_EXPIRED', 'Session invalide ou expirée.');

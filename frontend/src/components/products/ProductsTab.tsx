@@ -17,6 +17,8 @@ import { resolveKeyboardScan } from '../../utils/hardwareScanner';
 import { playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { usePageMenu } from '../../context/PageMenuContext';
+import { useIncrementalList } from '../../hooks/useIncrementalList';
+import { ListSentinel } from '../common/ListSentinel';
 
 export const ProductsTab: React.FC = () => {
   const {
@@ -158,6 +160,15 @@ export const ProductsTab: React.FC = () => {
       );
     });
   }, [products, searchQuery, filterType]);
+
+  // Affichage par tranches. Les compteurs, la valeur du stock et la sélection
+  // continuent de porter sur filteredProducts en entier : seule la quantité de
+  // fiches DESSINÉES est limitée.
+  const {
+    visibleItems: visibleProducts,
+    hasMore: hasMoreProducts,
+    sentinelRef: productsSentinelRef,
+  } = useIncrementalList(filteredProducts);
 
   // Les compteurs portent sur tout le catalogue, pas sur la recherche en cours :
   // ils disent combien il y en a, pas combien la recherche en montre.
@@ -371,7 +382,7 @@ export const ProductsTab: React.FC = () => {
             <p className="text-xs">Ajoute un produit ou modifie tes critères de recherche.</p>
           </div>
         ) : (
-          filteredProducts.map((prod) => (
+          visibleProducts.map((prod) => (
             <ProductCard
               key={prod.id}
               product={prod}
@@ -392,6 +403,16 @@ export const ProductsTab: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* Le catalogue s'affiche par tranches : sur un téléphone d'entrée de
+          gamme, dessiner 900 fiches d'un coup fige l'écran plusieurs secondes. */}
+      <ListSentinel
+        sentinelRef={productsSentinelRef}
+        hasMore={hasMoreProducts}
+        shown={visibleProducts.length}
+        total={filteredProducts.length}
+        label="articles"
+      />
 
       <BulkEditBar selectedIds={selectedIds} onDone={() => setSelectedIds([])} />
 

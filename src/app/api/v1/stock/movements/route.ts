@@ -1,4 +1,4 @@
-import { guardRead } from '@/server/guards';
+import { guardRead, marginViewRole } from '@/server/guards';
 import { listMovements } from '@/server/modules/stock/movements';
 import { serializeStockMovementList } from '@/server/serializers/stockMovement';
 import { ok, fail } from '@/server/shared/response';
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const productId = url.searchParams.get('productId') ?? undefined;
     const movements = await listMovements(ctx.businessId, { productId });
-    return ok({ movements: serializeStockMovementList(movements, ctx.role) });
+    return ok({ movements: serializeStockMovementList(movements, marginViewRole(ctx)) });
   } catch (error) {
     return fail(error);
   }

@@ -2,9 +2,10 @@ import { randomInt } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/server/database/client';
 import { AppError } from '@/server/shared/errors';
-import { sendSms } from '@/server/integrations/sms';
+import { sendWhatsApp } from '@/server/integrations/whatsapp';
 
-// OTP par SMS, 6 chiffres, hashé, valable 10 minutes, 3 tentatives,
+// OTP par WhatsApp (repli SMS si l'API WhatsApp n'est pas configurée),
+// 6 chiffres, hashé, valable 10 minutes, 3 tentatives,
 // 3 demandes par numéro et par heure (spec §5).
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 3;
@@ -29,10 +30,34 @@ export async function requestOtp(telephone: string): Promise<void> {
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
   await prisma.otpCode.create({ data: { telephone, codeHash, expiresAt } });
-  await sendSms(telephone, `Votre code MoroCash : ${code} (valable ${OTP_TTL_MINUTES} min)`);
+  await sendWhatsApp(
+    telephone,
+    `Votre code MoroCash : ${code} (valable ${OTP_TTL_MINUTES} min). Ne le communiquez à personne.`
+  );
+}
+
+/**
+ * Vérifie un code sans le marquer comme utilisé.
+ *
+ * Le parcours « PIN oublié » se fait en deux écrans : on valide d'abord le code
+ * reçu, on demande ensuite le nouveau PIN. Sans cette vérification à blanc, un
+ * code correct serait consommé à l'écran 2 et le choix du PIN à l'écran 3
+ * échouerait. Les tentatives ratées comptent malgré tout : la vérification à
+ * blanc n'est pas un oracle gratuit.
+ */
+export async function verifyOtp(telephone: string, code: string): Promise<void> {
+  await checkOtp(telephone, code, { consume: false });
 }
 
 export async function confirmOtp(telephone: string, code: string): Promise<void> {
+  await checkOtp(telephone, code, { consume: true });
+}
+
+async function checkOtp(
+  telephone: string,
+  code: string,
+  { consume }: { consume: boolean }
+): Promise<void> {
   const otp = await prisma.otpCode.findFirst({
     where: { telephone, usedAt: null, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: 'desc' },
@@ -51,5 +76,7 @@ export async function confirmOtp(telephone: string, code: string): Promise<void>
     throw new AppError('AUTH_INVALID_PIN', 'Code invalide.');
   }
 
-  await prisma.otpCode.update({ where: { id: otp.id }, data: { usedAt: new Date() } });
+  if (consume) {
+    await prisma.otpCode.update({ where: { id: otp.id }, data: { usedAt: new Date() } });
+  }
 }

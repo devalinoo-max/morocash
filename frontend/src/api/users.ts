@@ -1,11 +1,14 @@
 import { api } from './client';
 import type { UserRole } from '../types';
+import type { EmployeePermission } from '../data/permissions';
 
 export interface ApiEmployee {
   id: string;
   nom: string;
   telephone: string;
   role: UserRole;
+  /** Droits accordés à cette personne — vide pour le propriétaire, qui a tout. */
+  permissions: EmployeePermission[];
   actif: boolean;
   lastLoginAt: string | null;
   createdAt: string;
@@ -20,6 +23,7 @@ export function createEmployee(input: {
   telephone: string;
   pin: string;
   role: 'SELLER' | 'ACCOUNTANT';
+  permissions: EmployeePermission[];
 }) {
   return api.post<{ user: ApiEmployee }>('/users', input).then((d) => d.user);
 }

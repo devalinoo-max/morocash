@@ -17,7 +17,15 @@ export async function GET() {
       : null;
 
     return ok({
-      user: { id: user.id, nom: user.nom, telephone: user.telephone, role: user.role },
+      user: {
+        id: user.id,
+        nom: user.nom,
+        telephone: user.telephone,
+        role: user.role,
+        // L'app masque les écrans auxquels la personne n'a pas droit ; le
+        // serveur refuse de toute façon les appels correspondants (guards).
+        permissions: user.permissions,
+      },
       business: {
         id: ctx.business.id,
         nom: ctx.business.nom,

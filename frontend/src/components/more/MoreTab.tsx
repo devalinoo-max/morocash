@@ -37,6 +37,7 @@ import {
 import { formatMoney, formatDate, getTerminology } from '../../utils/formatters';
 import { ActivityType, Expense, PaymentMethod, UserRole } from '../../types';
 import { PLANS } from '../../data/plans';
+import { PERMISSION_OPTIONS, type EmployeePermission } from '../../data/permissions';
 import { MoneyInput } from '../common/UIStates';
 import { SubscriptionView } from '../subscription/SubscriptionView';
 import { ReportsTab } from '../reports/ReportsTab';
@@ -78,6 +79,14 @@ export const MoreTab: React.FC = () => {
   const [empPhone, setEmpPhone] = useState('');
   const [empPin, setEmpPin] = useState('');
   const [empRole, setEmpRole] = useState<'SELLER' | 'ACCOUNTANT'>('SELLER');
+  // Toutes décochées : un employé ne reçoit que ce que le propriétaire coche
+  // lui-même. Rien n'est accordé « pour faire gagner du temps ».
+  const [empPermissions, setEmpPermissions] = useState<EmployeePermission[]>([]);
+
+  const toggleEmpPermission = (code: EmployeePermission) =>
+    setEmpPermissions((current) =>
+      current.includes(code) ? current.filter((c) => c !== code) : [...current, code]
+    );
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
 
   React.useEffect(() => {
@@ -103,12 +112,14 @@ export const MoreTab: React.FC = () => {
       telephone: empPhone.replace(/\D/g, ''),
       pin: empPin,
       role: empRole,
+      permissions: empPermissions,
     });
     setIsSavingEmployee(false);
     if (!success) return;
     setEmpName('');
     setEmpPhone('');
     setEmpPin('');
+    setEmpPermissions([]);
     setIsAddEmployeeOpen(false);
   };
 
@@ -235,6 +246,16 @@ export const MoreTab: React.FC = () => {
                       <span>•</span>
                       <span className="text-slate-400">PIN : ••••</span>
                     </p>
+                    {/* Ce que cette personne a le droit de faire, lisible sans ouvrir de fiche. */}
+                    {emp.role !== 'OWNER' && (
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {emp.permissions.length === 0
+                          ? 'Aucun droit particulier'
+                          : PERMISSION_OPTIONS.filter((o) => emp.permissions.includes(o.code))
+                              .map((o) => o.label)
+                              .join(' · ')}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -311,6 +332,45 @@ export const MoreTab: React.FC = () => {
                     <option value="ACCOUNTANT">Gestionnaire (Ajout produits, validation)</option>
                   </select>
                 </div>
+
+                {/*
+                  Une case par droit, cochée une par une. Aucune n'est pré-cochée :
+                  c'est au propriétaire de dire ce que la personne peut voir, pas
+                  au logiciel de le supposer. Le serveur refuse de toute façon les
+                  appels correspondants (voir requirePermission).
+                */}
+                <fieldset className="space-y-1.5">
+                  <legend className="text-xs font-bold text-slate-700 mb-1">
+                    Ce que cette personne peut faire
+                  </legend>
+                  {PERMISSION_OPTIONS.map((option) => {
+                    const checked = empPermissions.includes(option.code);
+                    return (
+                      <label
+                        key={option.code}
+                        className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-colors ${
+                          checked ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleEmpPermission(option.code)}
+                          className="mt-0.5 w-4 h-4 shrink-0 accent-[#4F46E5] cursor-pointer"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-900">{option.label}</span>
+                          <span className="block text-[10px] text-slate-500 leading-snug">{option.aide}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                  <p className="text-[10px] text-slate-400 pt-0.5">
+                    {empPermissions.length === 0
+                      ? 'Aucun droit coché : cette personne pourra seulement vendre et encaisser.'
+                      : `${empPermissions.length} droit${empPermissions.length > 1 ? 's' : ''} accordé${empPermissions.length > 1 ? 's' : ''}.`}
+                  </p>
+                </fieldset>
 
                 <div className="pt-2 flex gap-2">
                   <button

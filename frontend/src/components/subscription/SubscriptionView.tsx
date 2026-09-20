@@ -10,6 +10,10 @@ import {
   CheckCircle2,
   XCircle,
   Gift,
+  CalendarClock,
+  Eye,
+  Ban,
+  ShieldCheck,
 } from 'lucide-react';
 import { formatMoney, formatPaymentMethod } from '../../utils/formatters';
 import {
@@ -491,6 +495,9 @@ const DurationPicker: React.FC<{
 const formatLongDate = (iso: string) =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
+const formatShortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+
 const periodeLabel = (periode: BillingPeriod | null) =>
   BILLING_PERIODS.find((p) => p.id === periode)?.label ?? '—';
 
@@ -564,6 +571,9 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
   const elapsed = end > start ? Math.min(1, Math.max(0, (Date.now() - start) / (end - start))) : 1;
   // Des périodes déjà payées d'avance prolongent au-delà de la période en cours.
   const hasPrepaid = !!subscriptionEndsAt && new Date(subscriptionEndsAt).getTime() > end;
+  // Ce qui compte pour le commerçant : jusqu'à quand il peut travailler, donc la
+  // fin d'accès réelle — périodes déjà payées d'avance comprises.
+  const endIso = subscriptionEndsAt ?? current.dateFin;
 
   return (
     <section className="max-w-5xl mx-auto bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
@@ -585,6 +595,38 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
       </div>
 
       <div className="p-5 sm:p-6 space-y-5">
+        {/*
+          Une date seule oblige à compter dans sa tête. Le compte à rebours dit
+          d'abord le nombre de jours — ce qui décide d'agir — et la date ensuite,
+          pour qui veut la noter.
+        */}
+        <div
+          className={`p-4 rounded-2xl border flex items-center gap-3 ${
+            expired
+              ? 'bg-rose-50 border-rose-200'
+              : joursRestants !== null && joursRestants <= 7
+              ? 'bg-amber-50 border-amber-200'
+              : 'bg-indigo-50/70 border-indigo-100'
+          }`}
+        >
+          <div
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white ${
+              expired
+                ? 'bg-rose-600'
+                : joursRestants !== null && joursRestants <= 7
+                ? 'bg-amber-600'
+                : 'bg-[#4F46E5]'
+            }`}
+          >
+            <CalendarClock className="w-5 h-5" />
+          </div>
+          <p className="text-sm font-black text-slate-900 leading-snug">
+            {expired || joursRestants === null
+              ? `Terminé le ${formatShortDate(endIso)}`
+              : `Expire dans ${joursRestants} jour${joursRestants > 1 ? 's' : ''} — le ${formatShortDate(endIso)}`}
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <InfoTile label="Début de la période" value={formatLongDate(current.dateDebut)} />
           <InfoTile
@@ -655,10 +697,43 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
             </div>
           </div>
         )}
+
+        <NonRenewalNotice />
       </div>
     </section>
   );
 };
+
+/**
+ * Ce qui se passe si l'abonnement n'est pas renouvelé, dit avant l'échéance et
+ * sans détour : deux pertes réelles, et la garantie qui ne bouge jamais. Mieux
+ * vaut l'annoncer ici que le laisser découvrir le jour où le bouton ne répond plus.
+ */
+const NonRenewalNotice: React.FC = () => (
+  <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+    <h4 className="text-xs font-extrabold text-slate-900">Si tu n’es pas renouvelé</h4>
+    <ul className="space-y-2 text-xs text-slate-700">
+      <li className="flex items-start gap-2.5">
+        <Eye className="w-4 h-4 text-slate-500 shrink-0 mt-px" />
+        <span>
+          Ton compte passe en <strong>lecture seule</strong> : tu vois tout, tu ne modifies plus rien.
+        </span>
+      </li>
+      <li className="flex items-start gap-2.5">
+        <Ban className="w-4 h-4 text-rose-500 shrink-0 mt-px" />
+        <span>
+          Impossible d’<strong>ajouter une commande</strong> ou un <strong>produit</strong> tant que tu n’as pas repris une formule.
+        </span>
+      </li>
+      <li className="flex items-start gap-2.5">
+        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-px" />
+        <span>
+          Ton <strong>historique est garanti à vie</strong> et reste <strong>exportable</strong> — il ne t’est jamais retiré.
+        </span>
+      </li>
+    </ul>
+  </div>
+);
 
 const InfoTile: React.FC<{ label: string; value: string; sub?: string; highlight?: boolean }> = ({
   label,

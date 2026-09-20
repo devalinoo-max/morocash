@@ -46,6 +46,7 @@ import { validateBarcodeChecksum } from '../utils/barcodeEngine';
 import { findProductByCode as lookupProductByCode } from '../utils/productCodeLookup';
 import confetti from 'canvas-confetti';
 import { PLANS, QUOTA_MESSAGES } from '../data/plans';
+import type { EmployeePermission } from '../data/permissions';
 import * as authApi from '../api/auth';
 import * as businessApi from '../api/business';
 import * as productsApi from '../api/products';
@@ -124,6 +125,13 @@ interface AppContextType {
   registerBusinessAccount: (
     input: authApi.RegisterInput
   ) => Promise<{ success: boolean; message?: string }>;
+  /**
+   * Nom de la boutique tout juste créée, tant que l'écran de bienvenue n'a pas
+   * été fermé. Null le reste du temps — une session retrouvée au démarrage ne
+   * rejoue jamais cet écran.
+   */
+  justRegisteredShop: string | null;
+  dismissWelcome: () => void;
   loginUser: (
     input: authApi.LoginInput
   ) => Promise<{ success: boolean; requiresBusinessSelection?: boolean; businesses?: { businessId: string; businessNom: string }[]; message?: string }>;
@@ -245,7 +253,13 @@ interface AppContextType {
   // Employees (BLOC 8) — écrit réellement sur le backend (étape 13).
   employees: usersApi.ApiEmployee[];
   fetchEmployees: () => Promise<void>;
-  addEmployee: (input: { nom: string; telephone: string; pin: string; role: 'SELLER' | 'ACCOUNTANT' }) => Promise<boolean>;
+  addEmployee: (input: {
+    nom: string;
+    telephone: string;
+    pin: string;
+    role: 'SELLER' | 'ACCOUNTANT';
+    permissions: EmployeePermission[];
+  }) => Promise<boolean>;
   setEmployeeActive: (id: string, actif: boolean) => Promise<boolean>;
 
   // "Mes appareils connectés" (réglages > Mon compte) — sessions réelles de l'utilisateur.
@@ -375,6 +389,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // 1b. Auth réel (étape 13) — session cookie vérifiée auprès du vrai backend
   // au montage ; tant que 'loading', on n'affiche ni l'app ni l'écran de connexion.
   const [authStatus, setAuthStatus] = useState<'loading' | 'anonymous' | 'authenticated'>('loading');
+  // Écran de bienvenue : posé par registerBusinessAccount, effacé au clic sur
+  // « Aller à mon tableau de bord ». Jamais persisté — rouvrir l'app ne le
+  // rejoue pas.
+  const [justRegisteredShop, setJustRegisteredShop] = useState<string | null>(null);
   // Lu par les ecouteurs poses une seule fois au montage (retour au premier
   // plan), qui captureraient sinon la valeur du premier rendu.
   const authStatusRef = useRef(authStatus);
@@ -1615,6 +1633,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const registerBusinessAccount = async (input: authApi.RegisterInput) => {
     try {
       const result = await authApi.registerBusiness(input);
+      // L'écran de bienvenue s'intercale avant le tableau de bord : il annonce
+      // le départ de l'essai et montre ce que coûteront Solo et Business, une
+      // seule fois, au seul moment où l'information ne dérange personne.
+      setJustRegisteredShop(result.business.nom);
       // Avant l'ouverture de session : le tableau de bord s'affiche d'emblée
       // avec les mots du métier choisi (produit, prestation ou les deux).
       updateSettings({ activityType: input.typeActivite });
@@ -2405,6 +2427,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     telephone: string;
     pin: string;
     role: 'SELLER' | 'ACCOUNTANT';
+    permissions: EmployeePermission[];
   }): Promise<boolean> => {
     try {
       await usersApi.createEmployee(input);
@@ -2753,6 +2776,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         currentUser,
         currentBusiness,
         registerBusinessAccount,
+        justRegisteredShop,
+        dismissWelcome: () => setJustRegisteredShop(null),
         loginUser,
         logoutUser,
         closeAccount,

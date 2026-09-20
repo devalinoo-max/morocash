@@ -1,4 +1,4 @@
-import { guardRead, guardMutation, requireRole, auditable } from '@/server/guards';
+import { guardRead, guardMutation, requireRole, auditable, requirePermission } from '@/server/guards';
 import { createStockCount, listCounts, stockCountSchema } from '@/server/modules/stock/counts';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -20,6 +20,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    requirePermission(ctx, 'GERER_STOCK');
 
     const body = await request.json().catch(() => null);
     const parsed = stockCountSchema.safeParse(body);

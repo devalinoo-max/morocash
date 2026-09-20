@@ -1,4 +1,4 @@
-import { guardRead, guardMutation, requireRole, auditable } from '@/server/guards';
+import { guardRead, guardMutation, requireRole, auditable, requirePermission } from '@/server/guards';
 import { createReception, listReceptions, receptionSchema } from '@/server/modules/stock/movements';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -19,6 +19,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    requirePermission(ctx, 'GERER_STOCK');
 
     const body = await request.json().catch(() => null);
     const parsed = receptionSchema.safeParse(body);

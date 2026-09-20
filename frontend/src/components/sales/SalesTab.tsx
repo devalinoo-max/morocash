@@ -20,6 +20,8 @@ import {
 import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
 import { Sale } from '../../types';
 import { countLabel } from '../../utils/plural';
+import { useIncrementalList } from '../../hooks/useIncrementalList';
+import { ListSentinel } from '../common/ListSentinel';
 import { avatarColor, avatarInitials } from '../../utils/avatar';
 import { saleStatusStyle } from '../../utils/saleStatus';
 import { usePageMenu } from '../../context/PageMenuContext';
@@ -171,6 +173,16 @@ export const SalesTab: React.FC = () => {
 
     return Array.from(groups.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
   }, [filteredSales]);
+
+  // L'historique s'affiche par journées, une poignée à la fois : un an de
+  // commandes, ce sont des milliers de lignes de tableau construites d'un coup
+  // si on ne borne rien. Les totaux et l'export continuent de porter sur
+  // filteredSales en entier.
+  const {
+    visibleItems: visibleDays,
+    hasMore: hasMoreDays,
+    sentinelRef: daysSentinelRef,
+  } = useIncrementalList(groupedByDay, 7);
 
   const resetAllFilters = () => {
     setSearchQuery('');
@@ -476,7 +488,7 @@ export const SalesTab: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {groupedByDay.map((dayGroup) => {
+          {visibleDays.map((dayGroup) => {
             const dayTotal = dayGroup.sales
               .filter((s) => !s.isCancelled)
               .reduce((sum, s) => sum + s.totalAmount, 0);
@@ -671,6 +683,14 @@ export const SalesTab: React.FC = () => {
               </div>
             );
           })}
+
+          <ListSentinel
+            sentinelRef={daysSentinelRef}
+            hasMore={hasMoreDays}
+            shown={visibleDays.length}
+            total={groupedByDay.length}
+            label="journées"
+          />
         </div>
       )}
 

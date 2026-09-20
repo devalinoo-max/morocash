@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { guardRead, requireRole, requireExportExcelAllowed } from '@/server/guards';
+import { guardRead, requireRole, requireExportExcelAllowed, requirePermission } from '@/server/guards';
 import {
   getDailyReport,
   getRangeReport,
@@ -87,6 +87,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await guardRead();
     requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
+    requirePermission(ctx, 'EXPORTER_DONNEES');
 
     const body = await request.json().catch(() => null);
     const parsed = exportSchema.safeParse(body);

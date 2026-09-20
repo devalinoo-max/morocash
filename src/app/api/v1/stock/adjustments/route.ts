@@ -1,4 +1,4 @@
-import { guardMutation, auditable } from '@/server/guards';
+import { guardMutation, auditable, requirePermission } from '@/server/guards';
 import { createAdjustment, adjustmentSchema } from '@/server/modules/stock/movements';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -6,6 +6,7 @@ import { AppError } from '@/server/shared/errors';
 export async function POST(request: Request) {
   try {
     const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT', 'SELLER'] });
+    requirePermission(ctx, 'GERER_STOCK');
 
     const body = await request.json().catch(() => null);
     const parsed = adjustmentSchema.safeParse(body);

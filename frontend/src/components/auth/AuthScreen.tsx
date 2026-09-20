@@ -22,6 +22,7 @@ import {
 import type { ActivityType } from '../../types';
 import { Logo, LogoMark } from '../common/Logo';
 import { PinInput } from '../common/PinInput';
+import { ForgotPinFlow } from './ForgotPinFlow';
 import { COUNTRIES, DEFAULT_COUNTRY, CountryOption } from '../../data/countries';
 
 
@@ -56,7 +57,7 @@ interface AuthScreenProps {
  * le premier produit s'ajoute ensuite, depuis une carte du tableau de bord.
  */
 export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER', onModeChange }) => {
-  const { registerBusinessAccount, loginUser } = useApp();
+  const { registerBusinessAccount, loginUser, showToast } = useApp();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,6 +81,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   // Connexion multi-boutiques (même numéro dans plusieurs boutiques)
   const [businessChoices, setBusinessChoices] = useState<{ businessId: string; businessNom: string }[] | null>(null);
 
+  // « PIN oublié ? » : parcours à part, dans la même carte (voir ForgotPinFlow).
+  const [isForgotPinOpen, setIsForgotPinOpen] = useState(false);
+
   const resetBusinessChoices = () => setBusinessChoices(null);
 
   const switchMode = (next: Mode) => {
@@ -87,6 +91,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
     onModeChange?.(next);
     setRegisterStep(1);
     setErrorMessage(null);
+    setIsForgotPinOpen(false);
     resetBusinessChoices();
   };
 
@@ -275,7 +280,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                 </div>
               )}
 
-              {businessChoices ? (
+              {isForgotPinOpen ? (
+                <ForgotPinFlow
+                  initialPhone={telephone}
+                  onCancel={() => setIsForgotPinOpen(false)}
+                  onDone={(numero) => {
+                    setIsForgotPinOpen(false);
+                    setTelephone(numero);
+                    setPin('');
+                    setErrorMessage(null);
+                    showToast('Nouveau code enregistré. Connecte-toi avec.', 'success');
+                  }}
+                />
+              ) : businessChoices ? (
                 <div className="space-y-3">
                   <button
                     type="button"
@@ -541,6 +558,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                   >
                     <Lock className="w-4 h-4" />
                     <span>{isSubmitting ? 'Connexion en cours...' : 'Se connecter à ma boutique'}</span>
+                  </button>
+                  {/* Un code oublié ne doit jamais fermer la porte : le compte se
+                      rouvre par un code WhatsApp, sans passer par le support. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMessage(null);
+                      setIsForgotPinOpen(true);
+                    }}
+                    className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer pt-1"
+                  >
+                    PIN oublié ?
                   </button>
                 </form>
               )}

@@ -4,12 +4,16 @@ import { scoped } from '@/server/repositories/base';
 import { checkQuota } from '@/server/guards';
 import { AppError } from '@/server/shared/errors';
 import { hashPin } from '@/server/modules/auth/pin';
+import { EMPLOYEE_PERMISSIONS } from './permissions';
 
 export const createEmployeeSchema = z.object({
   nom: z.string().trim().min(2).max(120),
   telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide'),
   pin: z.string().regex(/^\d{6}$/, 'Le code doit comporter exactement 6 chiffres'),
   role: z.enum(['SELLER', 'ACCOUNTANT']),
+  // Chaque droit est coché individuellement par le propriétaire. Liste absente
+  // ou vide = aucun droit : on n'en accorde jamais un par défaut.
+  permissions: z.array(z.enum(EMPLOYEE_PERMISSIONS)).default([]),
 });
 
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
@@ -30,6 +34,7 @@ export async function createEmployee(businessId: string, input: CreateEmployeeIn
       telephone: input.telephone,
       codeHash,
       role: input.role,
+      permissions: input.permissions,
     });
   } catch (error) {
     // Contrainte unique [businessId, telephone] — aucun code dédié dans la liste

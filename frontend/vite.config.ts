@@ -40,9 +40,18 @@ export default defineConfig(() => {
           // Coquille de l'app mise en cache à l'installation : HTML, JS, CSS,
           // icônes, polices locales. C'est ce qui permet d'OUVRIR l'app en
           // mode avion au lieu de tomber sur la page d'erreur du navigateur.
-          // .wasm : le lecteur de codes-barres des iPhone et ordinateurs
-          // (zxing-cpp, ~1 Mo). En cache, le scan marche aussi sans réseau.
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2,wasm}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+          // Ce que la PREMIÈRE ouverture ne doit PAS télécharger. Précharger
+          // ces trois-là faisait passer l'installation de ~1 Mo à plus de 5 Mo,
+          // payés d'avance sur une connexion mobile ivoirienne avant même que
+          // le commerçant ait vu son tableau de bord :
+          //   - zxing (~950 Ko) : le lecteur de codes-barres, inutile tant que
+          //     personne ne scanne ;
+          //   - heic2any (~1,35 Mo) : la conversion des photos iPhone ;
+          //   - catalogPdf (~1,25 Mo) : le générateur de catalogue PDF.
+          // Ils restent disponibles hors ligne : la règle runtimeCaching
+          // « lazy-chunks » ci-dessous les garde dès la première utilisation.
+          globIgnores: ['**/catalogPdf-*.js', '**/heic2any-*.js'],
           maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
 
           // Toute navigation hors-ligne (/accueil, /produits, /caisse...)
@@ -61,6 +70,19 @@ export default defineConfig(() => {
               // est daté et affiché comme tel.
               urlPattern: /\/api\/.*/,
               handler: 'NetworkOnly',
+            },
+            {
+              // Morceaux chargés à la demande et volontairement absents du
+              // préchargement (voir globIgnores) : mis en cache dès qu'ils
+              // servent, pour qu'un second scan ou un second export marche
+              // aussi sans réseau.
+              urlPattern: /\/assets\/.*\.(?:js|wasm)$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'lazy-chunks',
+                expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 90 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
             {
               // Les polices Google sont chargées par index.html : sans cache,

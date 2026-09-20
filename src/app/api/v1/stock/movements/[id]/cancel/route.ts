@@ -1,4 +1,4 @@
-import { guardMutation, auditable } from '@/server/guards';
+import { guardMutation, auditable, requirePermission } from '@/server/guards';
 import { cancelMovement } from '@/server/modules/stock/movements';
 import { ok, fail } from '@/server/shared/response';
 
@@ -10,6 +10,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    requirePermission(ctx, 'GERER_STOCK');
 
     const inverse = await cancelMovement(ctx.businessId, ctx.userId, id);
 

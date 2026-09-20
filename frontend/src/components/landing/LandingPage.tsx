@@ -79,7 +79,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
         <TestimonialsSection />
         <ComparisonSection />
         <BentoPersonasSection />
-        <PricingSection onSelectPlan={handleSelectPlan} />
+        <PricingSection onSelectPlan={handleSelectPlan} onStartTrial={handleStartTrial} />
         <FinalCtaSection
           onStartTrial={handleStartTrial}
           isAuthenticated={isAuthenticated}

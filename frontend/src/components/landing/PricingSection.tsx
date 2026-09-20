@@ -4,6 +4,8 @@ import { Reveal } from './Reveal';
 
 interface PricingSectionProps {
   onSelectPlan: (plan: 'solo' | 'business', isYearly: boolean) => void;
+  /** Carte « Essai » : même geste que le bouton d'en-tête, création de boutique. */
+  onStartTrial: () => void;
 }
 
 const PRICES = {
@@ -11,7 +13,7 @@ const PRICES = {
   business: { monthly: '19 900', yearly: '199 000' },
 };
 
-export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) => {
+export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan, onStartTrial }) => {
   const [isYearly, setIsYearly] = useState(false);
   const period = isYearly ? '/ an' : '/ mois';
 
@@ -43,7 +45,58 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onSelectPlan }) 
         </Reveal>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+        {/*
+          L'essai est une formule à part entière, pas une note de bas de page :
+          même carte, même prix affiché en grand, même bouton que Solo et
+          Business. C'est la première chose qu'un commerçant peut faire.
+        */}
+        <Reveal
+          variant="zoom"
+          className="theme-card border theme-border rounded-[2rem] p-8 flex flex-col justify-between hover-border-violet-30 transition-colors duration-300"
+        >
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-bold theme-text">Essai</h3>
+              <p className="theme-text-muted text-xs">Pour essayer MoroCash sur ta vraie caisse.</p>
+            </div>
+            <div className="flex items-baseline gap-1 font-mono-data">
+              <span className="text-4xl font-extrabold theme-text">0</span>
+              <span className="accent-emerald font-bold text-lg">FCFA</span>
+              <span className="theme-text-muted text-xs ml-1">/ 30 jours</span>
+            </div>
+            <div className="h-px" style={{ background: 'var(--border)' }} />
+            <ul className="space-y-3 text-xs theme-text-muted">
+              <li className="flex items-center gap-2.5">
+                <Check className="accent-emerald w-4 h-4" />
+                <span className="theme-text font-semibold">30 jours</span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check className="accent-emerald w-4 h-4" />
+                <span className="theme-text font-semibold">Sans carte requise</span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check className="accent-emerald w-4 h-4" />
+                Tout ce que fait la formule Solo
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check className="accent-emerald w-4 h-4" />
+                Tes données restent à toi à la fin
+              </li>
+            </ul>
+          </div>
+          <button
+            type="button"
+            onClick={onStartTrial}
+            className="mt-8 block w-full border theme-border theme-card-hover theme-text font-extrabold text-sm py-4 rounded-xl text-center transition-colors cursor-pointer"
+          >
+            Commencer l&apos;essai
+          </button>
+          <p className="mt-3 text-center text-[11px] theme-text-muted">
+            ✓ Aucun paiement · aucun engagement
+          </p>
+        </Reveal>
+
         <Reveal
           variant="zoom"
           className="theme-card border theme-border rounded-[2rem] p-8 flex flex-col justify-between hover-border-violet-30 transition-colors duration-300"

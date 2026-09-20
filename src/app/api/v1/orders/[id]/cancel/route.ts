@@ -1,4 +1,4 @@
-import { guardMutation } from '@/server/guards';
+import { guardMutation, requirePermission } from '@/server/guards';
 import { cancelOrder, cancelOrderSchema } from '@/server/modules/orders/cancelOrder';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -11,6 +11,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    requirePermission(ctx, 'ANNULER_COMMANDE');
 
     const body = await request.json().catch(() => null);
     const parsed = cancelOrderSchema.safeParse(body);

@@ -1,4 +1,4 @@
-import { guardRead, guardMutation, auditable } from '@/server/guards';
+import { guardRead, guardMutation, auditable, marginViewRole } from '@/server/guards';
 import { createProduct, createProductSchema, listProducts } from '@/server/modules/products/service';
 import { serializeProductList } from '@/server/serializers/product';
 import { ok, fail } from '@/server/shared/response';
@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const ctx = await guardRead();
     const products = await listProducts(ctx.businessId);
-    return ok({ products: serializeProductList(products, ctx.role) });
+    return ok({ products: serializeProductList(products, marginViewRole(ctx)) });
   } catch (error) {
     return fail(error);
   }
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       nouvellesValeurs: parsed.data,
     });
 
-    return ok({ product: serializeProductList([product], ctx.role)[0] }, { status: 201 });
+    return ok({ product: serializeProductList([product], marginViewRole(ctx))[0] }, { status: 201 });
   } catch (error) {
     return fail(error);
   }

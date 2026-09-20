@@ -11,6 +11,8 @@ export interface SessionInfo {
   userId: string;
   businessId: string;
   role: UserRole;
+  /** Droits cochés par le propriétaire (voir modules/users/permissions.ts). */
+  permissions: string[];
 }
 
 function hashToken(token: string): string {
@@ -71,6 +73,7 @@ export async function validateSessionToken(token: string): Promise<SessionInfo |
     userId: session.user.id,
     businessId: session.user.businessId,
     role: session.user.role,
+    permissions: session.user.permissions,
   };
 }
 

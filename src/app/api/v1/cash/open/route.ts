@@ -1,4 +1,4 @@
-import { guardMutation, auditable } from '@/server/guards';
+import { guardMutation, auditable, marginViewRole } from '@/server/guards';
 import { openRegister, openRegisterSchema } from '@/server/modules/cash/service';
 import { serializeCashRegister } from '@/server/serializers/cash';
 import { ok, fail } from '@/server/shared/response';
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
     await auditable(ctx, { action: 'CASH_REGISTER_OPENED', entite: 'CashRegister', entiteId: register.id });
 
-    return ok({ register: serializeCashRegister(register, ctx.role) }, { status: 201 });
+    return ok({ register: serializeCashRegister(register, marginViewRole(ctx)) }, { status: 201 });
   } catch (error) {
     return fail(error);
   }

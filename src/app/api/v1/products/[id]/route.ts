@@ -1,4 +1,4 @@
-import { guardMutation, auditable } from '@/server/guards';
+import { guardMutation, auditable, marginViewRole } from '@/server/guards';
 import { updateProduct, updateProductSchema, deleteProduct } from '@/server/modules/products/service';
 import { serializeProductList } from '@/server/serializers/product';
 import { ok, fail } from '@/server/shared/response';
@@ -28,7 +28,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       nouvellesValeurs: parsed.data,
     });
 
-    return ok({ product: before ? serializeProductList([before], ctx.role)[0] : null });
+    return ok({ product: before ? serializeProductList([before], marginViewRole(ctx))[0] : null });
   } catch (error) {
     return fail(error);
   }

@@ -1,4 +1,4 @@
-import { guardMutation, auditable } from '@/server/guards';
+import { guardMutation, auditable, requirePermission } from '@/server/guards';
 import { updateExpense, updateExpenseSchema } from '@/server/modules/expenses/service';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -11,6 +11,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    requirePermission(ctx, 'VOIR_DEPENSES');
 
     const body = await request.json().catch(() => null);
     const parsed = updateExpenseSchema.safeParse(body);

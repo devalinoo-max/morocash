@@ -1,4 +1,4 @@
-import { guardRead } from '@/server/guards';
+import { guardRead, marginViewRole } from '@/server/guards';
 import { pullSince } from '@/server/modules/sync/pull';
 import { serializeProductList } from '@/server/serializers/product';
 import { ok, fail } from '@/server/shared/response';
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     }
 
     const data = await pullSince(ctx.businessId, since);
-    return ok(filterForRole(data, ctx.role));
+    return ok(filterForRole(data, marginViewRole(ctx)));
   } catch (error) {
     return fail(error);
   }

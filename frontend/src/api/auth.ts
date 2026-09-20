@@ -1,11 +1,17 @@
 import { api, ApiError } from './client';
 import type { ActivityType, UserRole } from '../types';
+import type { EmployeePermission } from '../data/permissions';
 
 export interface ApiUser {
   id: string;
   nom: string;
   telephone: string;
   role: UserRole;
+  /**
+   * Droits accordés à cette personne (vide pour le propriétaire, qui a tout).
+   * Absent des réponses d'inscription, où le compte créé est forcément OWNER.
+   */
+  permissions?: EmployeePermission[];
 }
 
 export type CountryCode = 'CI' | 'SN' | 'BJ' | 'TG' | 'ML' | 'BF';
@@ -101,4 +107,38 @@ export function revokeSession(sessionId: string) {
 /** "Me déconnecter partout" : coupe toutes les autres sessions. */
 export function revokeOtherSessions() {
   return api.delete<{ revoked: number }>('/auth/sessions').then((d) => d.revoked);
+}
+
+// ─── PIN oublié ────────────────────────────────────────────────────────────
+// Parcours en 3 temps : demander le code, le vérifier (sans le consommer, pour
+// que l'écran suivant puisse encore s'en servir), puis choisir le nouveau PIN.
+
+export interface ResetBusinessChoice {
+  businessId: string;
+  businessNom: string;
+}
+
+/** Envoie un code à 6 chiffres sur le WhatsApp du compte. */
+export function requestPinReset(telephone: string) {
+  return api.post<{ sent: true }>('/auth/reset-code/request', { telephone });
+}
+
+/** Vérifie le code reçu et renvoie les boutiques rattachées à ce numéro. */
+export function verifyPinReset(telephone: string, code: string) {
+  return api
+    .post<{ verified: true; businesses: ResetBusinessChoice[] }>('/auth/reset-code/verify', {
+      telephone,
+      code,
+    })
+    .then((d) => d.businesses);
+}
+
+/** Enregistre le nouveau PIN. `businessId` n'est utile qu'en multi-boutiques. */
+export function confirmPinReset(input: {
+  telephone: string;
+  code: string;
+  newPin: string;
+  businessId?: string;
+}) {
+  return api.post<{ reset: true }>('/auth/reset-code/confirm', input);
 }

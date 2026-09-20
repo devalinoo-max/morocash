@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { PageMenuProvider } from './context/PageMenuContext';
 import {
@@ -15,16 +15,28 @@ import { BottomNav } from './components/navigation/BottomNav';
 import { DesktopSidebar } from './components/navigation/DesktopSidebar';
 import { DashboardTab } from './components/dashboard/DashboardTab';
 import { SalesTab } from './components/sales/SalesTab';
-import { ReceiptsTab } from './components/receipts/ReceiptsTab';
+// Écrans lourds sortis du paquet de démarrage : la page de présentation (et
+// ses animations) n'intéresse pas celui qui se connecte, et les reçus, le menu
+// « Plus » (réglages, rapports, abonnement) ou les mouvements de stock ne sont
+// ouverts que plus tard. Les charger à la demande raccourcit d'autant la
+// première ouverture, qui est le moment où l'attente se paie le plus cher.
+const ReceiptsTab = lazy(() =>
+  import('./components/receipts/ReceiptsTab').then((m) => ({ default: m.ReceiptsTab }))
+);
+const MovementsTab = lazy(() =>
+  import('./components/movements/MovementsTab').then((m) => ({ default: m.MovementsTab }))
+);
+const MoreTab = lazy(() => import('./components/more/MoreTab').then((m) => ({ default: m.MoreTab })));
+const LandingPage = lazy(() =>
+  import('./components/landing/LandingPage').then((m) => ({ default: m.LandingPage }))
+);
 import { ProductsTab } from './components/products/ProductsTab';
-import { MovementsTab } from './components/movements/MovementsTab';
 import { CustomersTab } from './components/customers/CustomersTab';
 import { CashRegisterTab } from './components/cash/CashRegisterTab';
-import { MoreTab } from './components/more/MoreTab';
 import { NewSaleModal } from './components/pos/NewSaleModal';
 import { ReceiptModal } from './components/pos/ReceiptModal';
 import { AuthScreen } from './components/auth/AuthScreen';
-import { LandingPage } from './components/landing/LandingPage';
+import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
 import { InstallAppButton } from './components/pwa/InstallAppButton';
 import { PwaUpdateToast } from './components/pwa/PwaUpdateToast';
 import {
@@ -46,6 +58,17 @@ import {
  * sait deja (indice local) que l'utilisateur est connecte : ni landing, ni
  * ecran de connexion, donc aucun clignotement avant le tableau de bord.
  */
+/**
+ * Attente d'un écran chargé à la demande (voir les lazy() ci-dessus). Discret
+ * et de la hauteur d'un contenu : le passage d'un onglet à l'autre ne doit pas
+ * faire sauter la mise en page.
+ */
+const ViewFallback: React.FC = () => (
+  <div className="p-12 flex items-center justify-center min-h-[50vh]">
+    <RefreshCw className="w-5 h-5 text-[#4F46E5] animate-spin" />
+  </div>
+);
+
 const AppSplash: React.FC = () => (
   <div className="min-h-screen bg-[#F4F4F8] flex flex-col items-center justify-center gap-4">
     <Logo size={44} />
@@ -70,6 +93,8 @@ const MainLayout: React.FC = () => {
     setIsNewProductOpen,
     customersDebtorsFilter,
     setCustomersDebtorsFilter,
+    justRegisteredShop,
+    dismissWelcome,
   } = useApp();
 
   // ── Ecran affiche au tout premier rendu ─────────────────────────────────
@@ -224,16 +249,18 @@ const MainLayout: React.FC = () => {
   if (viewMode === 'landing') {
     return (
       <div className="relative">
-        <LandingPage
-          onOpenApp={(mode) => {
-            setAuthInitialMode(mode ?? 'register');
-            setViewMode('app');
-            if (authStatus === 'authenticated') {
-              setActiveTab('home');
-              setActiveMoreSubTab(null);
-            }
-          }}
-        />
+        <Suspense fallback={<AppSplash />}>
+          <LandingPage
+            onOpenApp={(mode) => {
+              setAuthInitialMode(mode ?? 'register');
+              setViewMode('app');
+              if (authStatus === 'authenticated') {
+                setActiveTab('home');
+                setActiveMoreSubTab(null);
+              }
+            }}
+          />
+        </Suspense>
         <NewSaleModal />
         <InstallAppButton variant="floating" />
         <PwaUpdateToast />
@@ -243,6 +270,13 @@ const MainLayout: React.FC = () => {
 
   if (authStatus === 'loading') {
     return <AppSplash />;
+  }
+
+  // Compte tout juste créé : un écran de confirmation s'intercale avant le
+  // tableau de bord (voir WelcomeScreen). Il ne se rejoue pas à la connexion
+  // suivante — justRegisteredShop n'est posé que par l'inscription.
+  if (justRegisteredShop) {
+    return <WelcomeScreen shopName={justRegisteredShop} onContinue={dismissWelcome} />;
   }
 
   if (authStatus === 'anonymous') {
@@ -311,25 +345,34 @@ const MainLayout: React.FC = () => {
       );
     }
 
-    switch (activeTab) {
-      case 'receipts':
-        return <ReceiptsTab />;
-      case 'sales':
-        return <SalesTab />;
-      case 'products':
-        return <ProductsTab />;
-      case 'movements':
-        return <MovementsTab />;
-      case 'customers':
-        return <CustomersTab />;
-      case 'cash':
-        return <CashRegisterTab />;
-      case 'more':
-        return <MoreTab />;
-      case 'home':
-      default:
-        return <DashboardTab />;
-    }
+    // Une seule frontière d'attente pour tous les onglets : ceux qui sont
+    // chargés à la demande y affichent le même voyant, les autres passent au
+    // travers sans rien changer.
+    return (
+      <Suspense fallback={<ViewFallback />}>
+        {(() => {
+          switch (activeTab) {
+            case 'receipts':
+              return <ReceiptsTab />;
+            case 'sales':
+              return <SalesTab />;
+            case 'products':
+              return <ProductsTab />;
+            case 'movements':
+              return <MovementsTab />;
+            case 'customers':
+              return <CustomersTab />;
+            case 'cash':
+              return <CashRegisterTab />;
+            case 'more':
+              return <MoreTab />;
+            case 'home':
+            default:
+              return <DashboardTab />;
+          }
+        })()}
+      </Suspense>
+    );
   };
 
   const openLanding = () => {

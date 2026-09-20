@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@/server/database/client';
 import { setTenantContext } from '@/server/middleware/tenant';
+import { AppError } from '@/server/shared/errors';
 import { hashPin } from './pin';
 import { issueSessionToken } from './session';
 import {
@@ -39,14 +40,47 @@ export const registerSchema = z.object({
 // re-parse ci-dessous pour que ce défaut s'applique aussi hors du chemin HTTP.
 export type RegisterInput = z.input<typeof registerSchema>;
 
+/**
+ * Refuse la création d'un second compte sur un numéro ou un e-mail déjà pris.
+ *
+ * Le message nomme ce qui bloque : quelqu'un qui a déjà un compte doit
+ * comprendre qu'il lui faut se connecter, pas réessayer avec un autre nom de
+ * boutique. On ne dit jamais QUELLE boutique porte ce numéro.
+ */
+async function assertIdentityAvailable(telephone: string, email?: string): Promise<void> {
+  const owner = await prisma.user.findFirst({
+    where: { telephone, role: 'OWNER' },
+    select: { id: true },
+  });
+  if (owner) {
+    throw new AppError('VALIDATION_ERROR', 'Ce numéro est déjà associé à un compte MoroCash.');
+  }
+
+  if (email) {
+    const business = await prisma.business.findFirst({ where: { email }, select: { id: true } });
+    if (business) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Cette adresse e-mail est déjà associée à un compte MoroCash.'
+      );
+    }
+  }
+}
+
 export async function registerBusiness(
   rawInput: RegisterInput,
   meta: { ip?: string; userAgent?: string }
 ) {
   const input = registerSchema.parse(rawInput);
 
-  // Un même numéro peut exister dans plusieurs boutiques (spec §5) — aucune
-  // vérification d'unicité globale du téléphone n'est nécessaire ici.
+  // Un numéro WhatsApp ou une adresse e-mail n'ouvre qu'un seul compte MoroCash.
+  // Le contrôle est ici, pas dans le formulaire : l'appel HTTP direct doit se
+  // heurter au même refus. Le numéro reste en revanche réutilisable POUR UN
+  // EMPLOYÉ d'une autre boutique — c'est la création de compte qui est unique,
+  // pas la présence du numéro en base.
+  const email = input.email || undefined;
+  await assertIdentityAvailable(input.telephone, email);
+
   // Timeout généreux comme dans withTenant() (repositories/base.ts) — le pilote
   // Neon serverless fait un aller-retour réseau par requête et peut dépasser le
   // timeout interactif par défaut de Prisma (5000 ms) sur un cold start.
@@ -58,7 +92,7 @@ export async function registerBusiness(
           ville: input.ville,
           pays: input.pays,
           typeActivite: input.typeActivite,
-          email: input.email || undefined,
+          email,
           statut: 'ESSAI',
           trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
         },

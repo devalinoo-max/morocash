@@ -270,6 +270,11 @@ model User {
   telephone   String
   codeHash    String
   role        UserRole  @default(OWNER)
+  // Droits cochés un par un à l'ajout d'un employé (voir
+  // modules/users/permissions.ts). Vide par défaut : un employé ne reçoit que
+  // ce que le propriétaire lui accorde explicitement. Le OWNER a tout, quelle
+  // que soit cette liste.
+  permissions String[]  @default([])
   actif       Boolean   @default(true)
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())

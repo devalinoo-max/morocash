@@ -1362,7 +1362,7 @@ export const SettingsPage: React.FC = () => {
                     type="password"
                     maxLength={6}
                     value={pinCurrent}
-                    onChange={(e) => setPinCurrent(e.target.value)}
+                    onChange={(e) => setPinCurrent(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••"
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-center font-mono font-bold tracking-widest"
                   />
@@ -1373,7 +1373,7 @@ export const SettingsPage: React.FC = () => {
                     type="password"
                     maxLength={6}
                     value={pinNew}
-                    onChange={(e) => setPinNew(e.target.value)}
+                    onChange={(e) => setPinNew(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••"
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-center font-mono font-bold tracking-widest"
                   />
@@ -1385,7 +1385,7 @@ export const SettingsPage: React.FC = () => {
                       type="password"
                       maxLength={6}
                       value={pinConfirm}
-                      onChange={(e) => setPinConfirm(e.target.value)}
+                      onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••"
                       className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm text-center font-mono font-bold tracking-widest"
                     />

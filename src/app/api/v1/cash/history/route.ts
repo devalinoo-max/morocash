@@ -1,4 +1,4 @@
-import { guardRead, requireRole } from '@/server/guards';
+import { guardRead, requireRole, marginViewRole } from '@/server/guards';
 import { getHistory } from '@/server/modules/cash/service';
 import { serializeCashRegister } from '@/server/serializers/cash';
 import { ok, fail } from '@/server/shared/response';
@@ -10,7 +10,7 @@ export async function GET() {
     const ctx = await guardRead();
     requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
     const registers = await getHistory(ctx.businessId);
-    return ok({ registers: registers.map((r) => serializeCashRegister(r, ctx.role)) });
+    return ok({ registers: registers.map((r) => serializeCashRegister(r, marginViewRole(ctx))) });
   } catch (error) {
     return fail(error);
   }
