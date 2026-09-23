@@ -15,7 +15,6 @@ import {
   Download,
   ShieldAlert,
   Smartphone,
-  LogOut,
   KeyRound,
   Printer,
   ChevronRight,

@@ -611,27 +611,33 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
         </div>
       </div>
 
-      {/* 5. Ligne identité utilisateur / rôle */}
-      <div className="p-2.5 lg:p-3 border-t border-[#2F2C50] flex items-center gap-2.5 shrink-0">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#4F46E5] to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-[#2F2C50]">
-          {avatarInitials(settings.ownerName)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-white truncate leading-tight">
-            {settings.ownerName}
-          </p>
-          <p className="text-[10px] text-slate-400 truncate">
-            {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'} • {settings.city}
-          </p>
+      {/* 5. Ligne identité utilisateur / rôle + déconnexion.
+          La déconnexion n'était qu'une icône grise de 32 px sans libellé, dans
+          le coin : elle marchait, mais on ne la trouvait pas — sur téléphone,
+          l'onglet « Plus » a toujours eu un vrai bouton écrit. */}
+      <div className="p-2.5 lg:p-3 border-t border-[#2F2C50] shrink-0 space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#4F46E5] to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-[#2F2C50]">
+            {avatarInitials(settings.ownerName)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-white truncate leading-tight">
+              {settings.ownerName}
+            </p>
+            <p className="text-[10px] text-slate-400 truncate">
+              {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'} • {settings.city}
+            </p>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => logoutUser()}
           title="Déconnexion"
           aria-label="Déconnexion"
-          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-slate-400 hover:text-white hover:bg-rose-600/80 transition-colors cursor-pointer"
+          className="w-full py-2 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-300 bg-[#232141] border border-[#2F2C50] hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-colors cursor-pointer"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Déconnexion</span>
         </button>
       </div>
     </aside>
