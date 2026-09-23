@@ -22,7 +22,6 @@ import {
   PRICING_JUSTIFICATION,
   TRIAL_DAYS,
   getFullPrice,
-  getSavings,
   type BillingPeriod,
 } from '../../data/plans';
 import { ApiError } from '../../api/client';
@@ -50,6 +49,16 @@ type ReturnState =
   | { phase: 'error'; message: string };
 
 type PlanId = 'SOLO' | 'BUSINESS';
+
+/**
+ * Prix affiché pour une durée. C'est la grille publique (data/plans.ts), sauf
+ * tarif annuel négocié sur la formule Business : le serveur facture alors ce
+ * montant (voir businessPriceForPeriod), l'écran doit annoncer le même.
+ */
+const priceForPeriod = (planId: PlanId, periode: BillingPeriod, tarifAnnuelBusiness: number | null): number =>
+  periode === 'ANNUEL' && planId === 'BUSINESS' && tarifAnnuelBusiness !== null
+    ? tarifAnnuelBusiness
+    : PLANS[planId].prix[periode];
 
 export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
   const { settings, showToast, refreshPlanStatus } = useApp();
@@ -147,10 +156,15 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
     }
   };
 
+  // Tarif annuel négocié : le serveur facture ce montant à la place des
+  // 199 000 F publics, l'écran doit donc annoncer le même.
+  const tarifAnnuelBusiness = overview?.tarifAnnuelBusiness ?? null;
+
   if (durationPlan) {
     return (
       <DurationPicker
         planId={durationPlan}
+        tarifAnnuelBusiness={tarifAnnuelBusiness}
         pendingPeriod={checkoutPeriod}
         onBack={() => setDurationPlan(null)}
         onPay={(periode) => void startPayment(periode)}
@@ -243,6 +257,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
             )}
             <PlanCard
               planId="BUSINESS"
+              tarifAnnuelBusiness={tarifAnnuelBusiness}
               highlighted
               ctaLabel={currentPlan === 'SOLO' ? 'Passer en Business' : 'Choisir la formule Business'}
               onSelect={() => openDurationPicker('BUSINESS')}
@@ -311,10 +326,13 @@ const PlanCard: React.FC<{
   planId: PlanId;
   highlighted?: boolean;
   ctaLabel: string;
+  tarifAnnuelBusiness?: number | null;
   onSelect: () => void;
-}> = ({ planId, highlighted = false, ctaLabel, onSelect }) => {
+}> = ({ planId, highlighted = false, ctaLabel, tarifAnnuelBusiness = null, onSelect }) => {
   const plan = PLANS[planId];
   const isBusiness = planId === 'BUSINESS';
+  const prixAnnuel = priceForPeriod(planId, 'ANNUEL', tarifAnnuelBusiness);
+  const tarifNegocie = prixAnnuel !== plan.prix.ANNUEL;
 
   return (
     <div
@@ -345,7 +363,8 @@ const PlanCard: React.FC<{
           <p className="text-[11px] text-slate-600">
             Paiement pour 1, 3, 6 ou 12 mois ·{' '}
             <strong className="text-emerald-700">
-              {formatMoney(plan.prix.ANNUEL)} l’année, 2 mois offerts
+              {formatMoney(prixAnnuel)} l’année
+              {tarifNegocie ? ', tarif réservé à ta boutique' : ', 2 mois offerts'}
             </strong>
           </p>
         </div>
@@ -381,14 +400,16 @@ const PlanCard: React.FC<{
  */
 const DurationPicker: React.FC<{
   planId: PlanId;
+  tarifAnnuelBusiness: number | null;
   pendingPeriod: BillingPeriod | null;
   onBack: () => void;
   onPay: (periode: BillingPeriod) => void;
-}> = ({ planId, pendingPeriod, onBack, onPay }) => {
+}> = ({ planId, tarifAnnuelBusiness, pendingPeriod, onBack, onPay }) => {
   const plan = PLANS[planId];
   const [selected, setSelected] = useState<BillingPeriod>('ANNUEL');
   const selectedPeriod = BILLING_PERIODS.find((p) => p.id === selected) ?? BILLING_PERIODS[0];
   const isPending = pendingPeriod !== null;
+  const prixDe = (periode: BillingPeriod) => priceForPeriod(planId, periode, tarifAnnuelBusiness);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-20 animate-in fade-in duration-200">
@@ -411,8 +432,8 @@ const DurationPicker: React.FC<{
 
       <div role="radiogroup" aria-label="Durée de l'abonnement" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {BILLING_PERIODS.map((period) => {
-          const total = plan.prix[period.id];
-          const savings = getSavings(planId, period.id);
+          const total = prixDe(period.id);
+          const savings = Math.max(0, getFullPrice(planId, period.id) - total);
           const isSelected = selected === period.id;
           const isYear = period.id === 'ANNUEL';
 
@@ -466,7 +487,7 @@ const DurationPicker: React.FC<{
           <span className="text-slate-600">
             {plan.nom} · {selectedPeriod.label}
           </span>
-          <span className="font-black text-slate-900">{formatMoney(plan.prix[selected])}</span>
+          <span className="font-black text-slate-900">{formatMoney(prixDe(selected))}</span>
         </div>
         <button
           onClick={() => onPay(selected)}
@@ -480,7 +501,7 @@ const DurationPicker: React.FC<{
             </>
           ) : (
             <>
-              <span>Payer {formatMoney(plan.prix[selected])}</span>
+              <span>Payer {formatMoney(prixDe(selected))}</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}

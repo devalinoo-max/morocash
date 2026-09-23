@@ -188,6 +188,10 @@ model Business {
   remiseMaxVendeur   Int            @default(0)   // en %, 0 = interdit
   seuilEcartComptage Int            @default(5)   // en unités
   cashRegisterMode   CashRegisterMode @default(LIBRE)
+  // Tarif annuel négocié pour la formule Business, propre à cette boutique.
+  // null = prix public du plan. Le serveur l'applique au paiement et le
+  // renvoie à l'écran d'abonnement, pour que le prix affiché soit celui payé.
+  tarifAnnuelBusiness Int?
   createdAt          DateTime       @default(now())
   deletedAt          DateTime?
 

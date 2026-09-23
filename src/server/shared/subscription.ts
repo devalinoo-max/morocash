@@ -26,6 +26,23 @@ export function planPriceForPeriod(
   }
 }
 
+/**
+ * Prix réellement dû par une boutique : le prix public du plan, sauf tarif
+ * annuel négocié pour la formule Business (Business.tarifAnnuelBusiness), posé
+ * à la main au cas par cas. Sert au paiement comme à l'affichage, pour que la
+ * boutique ne voie jamais un montant différent de celui qui lui sera demandé.
+ */
+export function businessPriceForPeriod(
+  business: Pick<Business, 'tarifAnnuelBusiness'>,
+  plan: Pick<Plan, 'code' | 'prixMensuel' | 'prixTrimestriel' | 'prixSemestriel' | 'prixAnnuel'>,
+  periode: SubPeriod
+): number {
+  if (periode === 'ANNUEL' && plan.code === 'BUSINESS' && business.tarifAnnuelBusiness !== null) {
+    return business.tarifAnnuelBusiness;
+  }
+  return planPriceForPeriod(plan, periode);
+}
+
 /** Libellé court d'une durée : « 1 mois », « 3 mois »… */
 export function periodLabel(periode: SubPeriod): string {
   return `${PERIOD_MONTHS[periode]} mois`;

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 import type { Business, PaymentMethod, SubPeriod } from '@prisma/client';
 import { AppError } from '@/server/shared/errors';
-import { isAdministrativelyLocked, periodLabel, planPriceForPeriod } from '@/server/shared/subscription';
+import { businessPriceForPeriod, isAdministrativelyLocked, periodLabel } from '@/server/shared/subscription';
 import { PAWAPAY_COUNTRY, createPaymentPage, getDeposit, type PawapayDeposit } from '@/server/integrations/pawapay';
 import {
   activatePaidSubscription,
@@ -46,10 +46,7 @@ export async function startCheckout(
   }
 
   // Le montant vient toujours de la base, jamais du navigateur.
-  const prixNormal = planPriceForPeriod(plan, input.periode);
-  // TEST TEMPORAIRE — 300 F à la place de Business 1 mois (19 900 F), le
-  // temps d'un paiement de test en ligne. L'affichage garde 19 900 F. À retirer.
-  const montant = plan.code === 'BUSINESS' && input.periode === 'MENSUEL' ? 300 : prixNormal;
+  const montant = businessPriceForPeriod(business, plan, input.periode);
   if (montant <= 0) {
     throw new AppError('VALIDATION_ERROR', "Cette durée n'est pas disponible pour cette offre.");
   }
@@ -170,6 +167,12 @@ export interface SubscriptionOverview {
   trialEndsAt: Date | null;
   /** Comptes actifs de la boutique (propriétaire compris), face au quota de la formule. */
   utilisateurs: number;
+  /**
+   * Tarif annuel négocié pour la formule Business, propre à cette boutique.
+   * null = prix public. L'écran d'abonnement affiche ce montant à la place des
+   * 199 000 F, pour que le prix annoncé soit celui réellement demandé.
+   */
+  tarifAnnuelBusiness: number | null;
   payments: {
     paymentId: string;
     date: Date;
@@ -213,6 +216,7 @@ export async function getSubscriptionOverview(businessId: string): Promise<Subsc
     joursRestants: endsAt ? Math.max(0, Math.ceil((endsAt.getTime() - now) / DAY_MS)) : null,
     trialEndsAt: business.trialEndsAt,
     utilisateurs,
+    tarifAnnuelBusiness: business.tarifAnnuelBusiness,
     payments: payments.map((p) => ({
       paymentId: p.referenceInterne,
       date: p.createdAt,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Gift } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
 import { PLANS, TRIAL_DAYS } from '../../data/plans';
 
@@ -33,8 +33,29 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ shopName, onContin
         </p>
       </div>
 
-      <div className="space-y-2 text-left">
+      <div className="space-y-2.5 text-left">
         <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block">
+          Ta formule en ce moment
+        </span>
+
+        {/* L'essai est déjà en cours : il se lit comme une formule à part
+            entière, avant les deux payantes, pour qu'on voie tout de suite ce
+            dont on dispose sans rien payer. */}
+        <div className="p-3.5 rounded-2xl border-2 border-emerald-300 bg-emerald-50/70 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+            <Gift className="w-4 h-4" strokeWidth={2.4} />
+          </div>
+          <div className="min-w-0">
+            <span className="text-sm font-black text-slate-900 block">
+              Essai gratuit — {TRIAL_DAYS} jours
+            </span>
+            <span className="text-[11px] font-semibold text-emerald-800 block mt-0.5">
+              En cours · 0 F · tout ce que propose la formule Solo
+            </span>
+          </div>
+        </div>
+
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block pt-1">
           Ensuite, à toi de choisir
         </span>
         <div className="grid grid-cols-2 gap-2.5">

@@ -20,6 +20,8 @@ export interface SubscriptionOverview {
   joursRestants: number | null;
   trialEndsAt: string | null;
   utilisateurs: number;
+  /** Tarif annuel négocié pour la formule Business (null = prix public de la grille). */
+  tarifAnnuelBusiness: number | null;
   payments: {
     paymentId: string;
     date: string;
