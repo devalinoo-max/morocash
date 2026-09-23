@@ -167,7 +167,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
       </div>
 
       {/* 3. Navigation groupée par DOMAINE avec défilement interne */}
-      <nav className="flex-1 overflow-y-auto px-2 lg:px-2.5 py-1.5 space-y-1 scrollbar-thin scrollbar-thumb-[#2F2C50] scrollbar-track-transparent">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-2 lg:px-2.5 py-1.5 space-y-1 scrollbar-thin scrollbar-thumb-[#2F2C50] scrollbar-track-transparent">
         {/* GROUPE 1 : TABLEAU DE BORD */}
         <div>
           <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
@@ -532,6 +532,19 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
                 <span className="truncate font-semibold">Site / Landing Page</span>
               </button>
             )}
+
+            {/* Déconnexion aussi dans la liste, et pas seulement tout en bas :
+                c'est ici, sous « Mon compte », qu'on vient la chercher — et
+                cette liste défile, donc elle reste atteignable même sur un
+                écran court où le bas de la barre est coupé. */}
+            <button
+              onClick={() => logoutUser()}
+              title="Déconnexion"
+              className="w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] text-[#C6C2E4] hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
+            >
+              <LogOut className="w-[17px] h-[17px] shrink-0" />
+              <span className="truncate">Déconnexion</span>
+            </button>
           </div>
         </div>
       </nav>
