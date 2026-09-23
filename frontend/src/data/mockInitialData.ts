@@ -34,6 +34,7 @@ export const initialSettings: ShopSettings = {
   pinCode: '',
   currency: 'FCFA',
   receiptMessage: 'Merci pour votre confiance ! À bientôt chez {boutique}.',
+  receiptNotes: [],
   showLogo: true,
   compactReceipt: false,
   showPhone: true,

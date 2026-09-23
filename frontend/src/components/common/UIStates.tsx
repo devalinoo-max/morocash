@@ -317,6 +317,83 @@ export const TrialBanner: React.FC = () => {
   );
 };
 
+/** Fermé une fois, le préavis de renouvellement ne revient pas avant le lendemain. */
+const RENEWAL_BANNER_DISMISS_KEY = 'morocash_renewal_banner_dismissed_on';
+
+/**
+ * Préavis d'expiration pour un abonné qui paie.
+ *
+ * L'essai était annoncé tous les jours, l'abonnement payé ne l'était nulle
+ * part : le client découvrait la coupure le matin où sa caisse passait en
+ * lecture seule. Mêmes seuils que l'essai — orange sous 7 jours, rouge sous
+ * 3 — pour que la bascule se voie venir.
+ */
+export const RenewalBanner: React.FC = () => {
+  const { settings, setActiveTab, setActiveMoreSubTab } = useApp();
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(RENEWAL_BANNER_DISMISS_KEY) === aujourdhui;
+    } catch {
+      return false;
+    }
+  });
+
+  const jours = settings.subscriptionDaysLeft;
+  const abonnePayant = settings.planStatus === 'SOLO' || settings.planStatus === 'BUSINESS';
+  if (!abonnePayant || jours == null || jours > 7 || dismissed) return null;
+
+  const urgent = jours < 3;
+  const fermer = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(RENEWAL_BANNER_DISMISS_KEY, aujourdhui);
+    } catch {
+      // Stockage indisponible : le bandeau reviendra au prochain chargement.
+    }
+  };
+
+  return (
+    <div
+      id="banner-renewal"
+      className="min-h-11 mx-3 sm:mx-4 my-2 px-3 py-2 rounded-xl flex items-center gap-2 min-w-0"
+      style={{ background: urgent ? '#DC2626' : '#D97706' }}
+      role="alert"
+    >
+      <div className="min-w-0 flex-1 text-white">
+        <span className="text-[12px] font-bold block truncate">
+          {jours === 0
+            ? 'Ton abonnement expire aujourd’hui'
+            : `Abonnement — ${jours} ${jours > 1 ? 'jours restants' : 'jour restant'}`}
+        </span>
+        <span className="text-[11px] font-semibold block truncate opacity-95">
+          {urgent ? 'Renouvelle pour ne pas passer en lecture seule' : 'Pense à renouveler ton abonnement'}
+        </span>
+      </div>
+      <button
+        id="btn-renewal-renew"
+        type="button"
+        onClick={() => {
+          setActiveTab('more');
+          setActiveMoreSubTab('subscription');
+        }}
+        className="shrink-0 text-[12px] font-bold text-white hover:underline cursor-pointer whitespace-nowrap"
+      >
+        Renouveler ›
+      </button>
+      <button
+        id="btn-renewal-dismiss"
+        type="button"
+        onClick={fermer}
+        aria-label="Fermer"
+        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white transition-all cursor-pointer hover:bg-white/20"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+};
+
 export const ToastNotification: React.FC = () => {
   const { toastMessage } = useApp();
 

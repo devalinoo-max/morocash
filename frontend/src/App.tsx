@@ -43,6 +43,7 @@ import {
   OfflineBanner,
   ReadOnlyBanner,
   TrialBanner,
+  RenewalBanner,
   ToastNotification,
 } from './components/common/UIStates';
 import { PendingSyncBar } from './components/common/PendingSyncBar';
@@ -404,6 +405,7 @@ const MainLayout: React.FC = () => {
               />
               <OfflineBanner />
               <TrialBanner />
+              <RenewalBanner />
               <ReadOnlyBanner />
             </div>
 
@@ -436,6 +438,7 @@ const MainLayout: React.FC = () => {
             />
             <OfflineBanner />
             <TrialBanner />
+            <RenewalBanner />
             <ReadOnlyBanner />
 
             {/* Sur téléphone, 24 px de vide sous la barre haute repoussaient le

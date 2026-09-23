@@ -270,37 +270,22 @@ export const DashboardTab: React.FC = () => {
 
   return (
     <div id="dashboard-tab-content" className="space-y-6 pb-20 max-w-[1460px] mx-auto animate-in fade-in duration-200">
-      {/* Catalogue vide : le premier produit ne fait plus partie de
-          l'inscription, on le propose ici — une invitation, jamais un blocage. */}
-      {products.length === 0 && (
-        <div
-          id="dashboard-first-product-card"
-          className="flex flex-col sm:flex-row sm:items-center gap-4 bg-white p-5 rounded-2xl border border-dashed border-indigo-200 shadow-xs"
-        >
-          <div className="w-11 h-11 rounded-xl bg-[#EEF2FF] text-[#4F46E5] flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-extrabold text-slate-900">
-              {settings.activityType === 'SERVICES' ? 'Ajoute ta première prestation' : 'Ajoute ton premier produit'}
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Il apparaîtra ensuite dans tes commandes, en un clic.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('products');
-              setIsNewProductOpen(true);
-            }}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-sm cursor-pointer transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            {settings.activityType === 'SERVICES' ? 'Ajouter une prestation' : 'Ajouter un produit'}
-          </button>
-        </div>
-      )}
+      {/* Premiers pas : la carte « premier produit » seule laissait le
+          commerçant devant un tableau de bord vide dès le produit créé, sans
+          rien indiquer ensuite. La liste se retire d'elle-même une fois les
+          trois étapes faites — c'est une invitation, jamais un blocage. */}
+      <StartupChecklist
+        hasProduct={products.length > 0}
+        hasSale={sales.length > 0}
+        hasCustomer={customers.length > 0}
+        isServices={settings.activityType === 'SERVICES'}
+        onAddProduct={() => {
+          setActiveTab('products');
+          setIsNewProductOpen(true);
+        }}
+        onNewSale={() => attemptNewSale()}
+        onAddCustomer={() => setActiveTab('customers')}
+      />
 
       {/* ========================================================================= */}
       {/* 1. FILTRES (BLOC 4: Segment [Aujourd'hui | Cette semaine | Ce mois] + Date + Switch) */}
@@ -1230,6 +1215,127 @@ export const DashboardTab: React.FC = () => {
       </div>
         </div>
       )}
+    </div>
+  );
+};
+
+/** Une étape de la liste de démarrage. */
+interface StartupStep {
+  titre: string;
+  aide: string;
+  fait: boolean;
+  action: () => void;
+  cta: string;
+}
+
+/**
+ * Liste de démarrage — les trois gestes qui rendent l'application utile.
+ *
+ * Elle ne s'affiche que tant qu'il reste une étape à faire, et disparaît
+ * définitivement une fois les trois cochées : un commerçant qui vend depuis
+ * six mois n'a pas à revoir « Enregistre ta première vente ». Chaque étape
+ * reste cliquable même déjà faite — on peut ajouter un deuxième produit sans
+ * chercher l'onglet.
+ */
+const StartupChecklist: React.FC<{
+  hasProduct: boolean;
+  hasSale: boolean;
+  hasCustomer: boolean;
+  isServices: boolean;
+  onAddProduct: () => void;
+  onNewSale: () => void;
+  onAddCustomer: () => void;
+}> = ({ hasProduct, hasSale, hasCustomer, isServices, onAddProduct, onNewSale, onAddCustomer }) => {
+  const steps: StartupStep[] = [
+    {
+      titre: isServices ? 'Ajoute ta première prestation' : 'Ajoute ton premier produit',
+      aide: 'Il apparaîtra ensuite dans tes commandes, en un clic.',
+      fait: hasProduct,
+      action: onAddProduct,
+      cta: isServices ? 'Ajouter une prestation' : 'Ajouter un produit',
+    },
+    {
+      titre: 'Enregistre ta première vente',
+      aide: 'Le reçu se crée tout seul : texte, image ou PDF à envoyer au client.',
+      fait: hasSale,
+      action: onNewSale,
+      cta: 'Faire une vente',
+    },
+    {
+      titre: 'Ajoute un client',
+      aide: 'Pour suivre ses achats, ses dettes et le relancer sur WhatsApp.',
+      fait: hasCustomer,
+      action: onAddCustomer,
+      cta: 'Ajouter un client',
+    },
+  ];
+
+  const faits = steps.filter((s) => s.fait).length;
+  if (faits === steps.length) return null;
+
+  return (
+    <div
+      id="dashboard-startup-checklist"
+      className="bg-white p-5 rounded-2xl border border-dashed border-indigo-200 shadow-xs space-y-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-extrabold text-slate-900">Tes premiers pas</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Trois gestes pour être opérationnel. Tu peux les faire dans l’ordre que tu veux.
+          </p>
+        </div>
+        <span className="shrink-0 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-[#EEF2FF] text-[#4F46E5]">
+          {faits} / {steps.length}
+        </span>
+      </div>
+
+      {/* Progression : la barre se remplit à chaque étape franchie. */}
+      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden" aria-hidden="true">
+        <div
+          className="bg-[#4F46E5] h-full rounded-full transition-all duration-500"
+          style={{ width: `${(faits / steps.length) * 100}%` }}
+        />
+      </div>
+
+      <ol className="space-y-2.5">
+        {steps.map((step, index) => (
+          <li
+            key={step.titre}
+            className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border ${
+              step.fait ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50/70 border-slate-200'
+            }`}
+          >
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-black ${
+                step.fait ? 'bg-emerald-500 text-white' : 'bg-white text-[#4F46E5] border-2 border-indigo-200'
+              }`}
+            >
+              {step.fait ? <CheckCircle2 className="w-4 h-4" /> : index + 1}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span
+                className={`text-xs font-extrabold block ${
+                  step.fait ? 'text-emerald-900 line-through decoration-emerald-400' : 'text-slate-900'
+                }`}
+              >
+                {step.titre}
+              </span>
+              <span className="text-[11px] text-slate-500 block mt-0.5">{step.aide}</span>
+            </div>
+            {!step.fait && (
+              <button
+                type="button"
+                onClick={step.action}
+                className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm cursor-pointer transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {step.cta}
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 };

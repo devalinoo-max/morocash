@@ -38,6 +38,19 @@ export function resolveReceiptMessage(settings: Pick<ShopSettings, 'receiptMessa
 }
 
 /**
+ * Notes libres du bas de reçu, prêtes à l'affichage : vides retirées, nom de
+ * la boutique injecté, dans l'ordre saisi. Le commerçant en met autant qu'il
+ * veut (nota bene, conditions d'échange, mentions légales).
+ */
+export function resolveReceiptNotes(
+  settings: Pick<ShopSettings, 'receiptNotes' | 'shopName'>
+): string[] {
+  return (settings.receiptNotes ?? [])
+    .map((note) => resolveReceiptMessage({ receiptMessage: note, shopName: settings.shopName }))
+    .filter((note) => note.length > 0);
+}
+
+/**
  * Forme enregistrée du message : le nom actuel de la boutique, s'il y est
  * écrit en toutes lettres, redevient le jeton — il suivra un changement de nom.
  */
@@ -132,9 +145,13 @@ export function generateReceiptWhatsAppText(
   }
 
   const message = resolveReceiptMessage(settings);
-  if (message) {
+  const notes = resolveReceiptNotes(settings);
+  if (message || notes.length) {
     text += `${line}\n`;
-    text += `${i(message)}\n`;
+    if (message) text += `${i(message)}\n`;
+    notes.forEach((note) => {
+      text += `${i(note)}\n`;
+    });
   }
   const verifyUrl = receiptVerifyUrl(sale, settings);
   if (verifyUrl) text += `${e('🔎')}Vérifier ce reçu : ${verifyUrl}\n`;
@@ -304,6 +321,7 @@ export async function fetchReceiptsPdfBlob(
       showPhone: settings.showPhone,
       showLogo: settings.showLogo,
       receiptMessage: resolveReceiptMessage(settings),
+      receiptNotes: resolveReceiptNotes(settings),
       receiptSettings: settings.receiptSettings,
       logoMonochrome,
     },

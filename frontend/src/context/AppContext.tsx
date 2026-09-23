@@ -94,6 +94,7 @@ const SHOP_PROFILE_KEYS = [
   'whatsapp',
   'adresse',
   'receiptMessage',
+  'receiptNotes',
   'logoUrl',
   'logoTransparentUrl',
   'receiptSettings',
@@ -1488,17 +1489,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * l'enum local ShopSettings.planStatus consommé par le reste de l'app
    * (bannières, paywall du tableau de bord, écran Abonnement).
    */
-  const computePlanStatus = (business: authApi.ApiBusiness): { planStatus: ShopSettings['planStatus']; trialDaysLeft: number; quotaMaxProducts: number } => {
+  const computePlanStatus = (business: authApi.ApiBusiness): { planStatus: ShopSettings['planStatus']; trialDaysLeft: number; subscriptionDaysLeft: number | null; quotaMaxProducts: number } => {
+    // Jours restants d'un abonnement payé : même calcul que joursRestants côté
+    // serveur (getSubscriptionOverview), pour que la barre latérale et la page
+    // « Mon abonnement » ne se contredisent jamais d'un jour.
+    const subscriptionDaysLeft = business.subscriptionEndsAt
+      ? Math.max(0, Math.ceil((new Date(business.subscriptionEndsAt).getTime() - Date.now()) / 86_400_000))
+      : null;
+
     if (business.locked) {
-      return { planStatus: 'EXPIRED', trialDaysLeft: 0, quotaMaxProducts: PLANS.SOLO.maxProduits };
+      return { planStatus: 'EXPIRED', trialDaysLeft: 0, subscriptionDaysLeft: null, quotaMaxProducts: PLANS.SOLO.maxProduits };
     }
     if (business.statut === 'ESSAI') {
-      return { planStatus: 'TRIAL', trialDaysLeft: business.trialDaysLeft ?? 0, quotaMaxProducts: PLANS.SOLO.maxProduits };
+      return { planStatus: 'TRIAL', trialDaysLeft: business.trialDaysLeft ?? 0, subscriptionDaysLeft: null, quotaMaxProducts: PLANS.SOLO.maxProduits };
     }
     if (business.planCode === 'BUSINESS') {
-      return { planStatus: 'BUSINESS', trialDaysLeft: 0, quotaMaxProducts: PLANS.BUSINESS.maxProduits };
+      return { planStatus: 'BUSINESS', trialDaysLeft: 0, subscriptionDaysLeft, quotaMaxProducts: PLANS.BUSINESS.maxProduits };
     }
-    return { planStatus: 'SOLO', trialDaysLeft: 0, quotaMaxProducts: PLANS.SOLO.maxProduits };
+    return { planStatus: 'SOLO', trialDaysLeft: 0, subscriptionDaysLeft, quotaMaxProducts: PLANS.SOLO.maxProduits };
   };
 
   const refreshPlanStatus = async () => {
@@ -1511,7 +1519,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const bootstrapSession = async (session: authApi.MeResponse) => {
     setCurrentUser(session.user);
     setCurrentBusiness(session.business);
-    const { planStatus, trialDaysLeft, quotaMaxProducts } = computePlanStatus(session.business);
+    const { planStatus, trialDaysLeft, subscriptionDaysLeft, quotaMaxProducts } = computePlanStatus(session.business);
 
     // Les réglages de boutique (téléphone, message du reçu, logo…) sont gardés
     // sur l'appareil, pas en base. Sans ce rattachement, se connecter à une
@@ -1544,6 +1552,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       city: session.business.ville || '',
       planStatus,
       trialDaysLeft,
+      subscriptionDaysLeft,
       quotaMaxProducts,
       cashRegisterMode: session.business.cashRegisterMode ?? 'LIBRE',
     });

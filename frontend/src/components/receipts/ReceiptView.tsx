@@ -3,7 +3,7 @@ import { Store, Phone } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Sale, ShopSettings } from '../../types';
 import { formatMoneyCompact, formatDate, formatPaymentMethod } from '../../utils/formatters';
-import { receiptPhone, receiptVerifyUrl, resolveReceiptMessage } from '../../utils/receiptHelpers';
+import { receiptPhone, receiptVerifyUrl, resolveReceiptMessage, resolveReceiptNotes } from '../../utils/receiptHelpers';
 
 export interface ReceiptViewProps {
   sale: Sale;
@@ -96,6 +96,7 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
 
   const phoneToDisplay = receiptPhone(settings);
   const message = resolveReceiptMessage(settings);
+  const notes = resolveReceiptNotes(settings);
   const addressToDisplay = settings.adresse || settings.city;
   // Nom de boutique et vendeur : ceux de la base, ou rien. Un nom de secours
   // (« MoroCash Store », « Vendeur ») ressemble à une vraie valeur et passe
@@ -271,10 +272,15 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
           </p>
         )}
 
-      {/* 5. Custom Footer Message */}
-      {showMessage && message && (
-        <div className="text-center pt-2 text-[10px] text-slate-500 italic border-t border-dashed border-slate-300">
-          "{message}"
+      {/* 5. Custom Footer Message + notes libres (nota bene, conditions…) */}
+      {showMessage && (message || notes.length > 0) && (
+        <div className="pt-2 text-[10px] text-slate-500 border-t border-dashed border-slate-300 space-y-1">
+          {message && <div className="text-center italic">"{message}"</div>}
+          {notes.map((note, index) => (
+            <div key={`${index}-${note}`} className="text-center leading-snug">
+              {note}
+            </div>
+          ))}
         </div>
       )}
 

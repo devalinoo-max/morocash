@@ -1034,8 +1034,19 @@ export const MoreTab: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900">Mon abonnement</h3>
+                {/* Sur téléphone il n'y a pas de barre latérale : c'est ici que
+                    se lit l'échéance. La ligne annonçait « Essai … • Formule
+                    Pro » à tout le monde, abonnés payants compris. */}
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Essai {settings.trialDaysLeft} jours restants • Formule Pro
+                  {settings.planStatus === 'EXPIRED'
+                    ? 'Abonnement expiré • Réactive ton compte'
+                    : settings.planStatus === 'TRIAL'
+                    ? `Essai — ${settings.trialDaysLeft} ${settings.trialDaysLeft > 1 ? 'jours restants' : 'jour restant'}`
+                    : `Formule ${settings.planStatus === 'BUSINESS' ? 'Business' : 'Solo'}${
+                        settings.subscriptionDaysLeft != null
+                          ? ` — ${settings.subscriptionDaysLeft} ${settings.subscriptionDaysLeft > 1 ? 'jours restants' : 'jour restant'}`
+                          : ' • Active'
+                      }`}
                 </p>
               </div>
             </div>

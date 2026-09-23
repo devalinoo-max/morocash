@@ -623,6 +623,16 @@ export const SettingsPage: React.FC = () => {
                 />
               </div>
 
+              {/* Notes libres : autant de lignes que le commerçant veut, sous le
+                  message. Nota bene, conditions d'échange, garantie, mentions
+                  légales — chacune s'imprime sur sa propre ligne. */}
+              <ReceiptNotesEditor
+                notes={settings.receiptNotes ?? []}
+                shopName={settings.shopName}
+                onChange={(notes) => handleFieldSave('receiptNotes', notes, 'receiptNotes')}
+                saved={<SavedBadge fieldKey="receiptNotes" />}
+              />
+
               {/* Ce qui apparaît sur le reçu + Aperçu en direct */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
                 {/* Left: Toggles */}
@@ -1636,6 +1646,84 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Notes libres du bas de reçu — autant que le commerçant en veut.
+ *
+ * Chaque note est une ligne indépendante qu'on ajoute, modifie ou supprime :
+ * « Aucun échange après 7 jours », « RCCM CI-ABJ-2024-B-12345 », « Garantie
+ * 6 mois sur les appareils ». Le nom de la boutique y est enregistré comme
+ * jeton, comme dans le message, pour survivre à un changement de nom.
+ */
+const ReceiptNotesEditor: React.FC<{
+  notes: string[];
+  shopName: string;
+  onChange: (notes: string[]) => void;
+  saved: React.ReactNode;
+}> = ({ notes, shopName, onChange, saved }) => {
+  const affichees = notes.map((note) => editableReceiptMessage({ receiptMessage: note, shopName }));
+
+  const remplacer = (index: number, valeur: string) => {
+    const suivantes = [...notes];
+    suivantes[index] = toStoredReceiptMessage(valeur, shopName);
+    onChange(suivantes);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-bold text-slate-700">
+          Notes et mentions{' '}
+          <span className="text-[10px] text-slate-400 font-normal">
+            (sous le message — nota bene, conditions, garantie…)
+          </span>
+        </label>
+        {saved}
+      </div>
+
+      {affichees.length > 0 && (
+        <div className="space-y-2">
+          {affichees.map((note, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-400 w-4 shrink-0 text-right">{index + 1}.</span>
+              <input
+                type="text"
+                defaultValue={note}
+                key={`note-${index}-${note}`}
+                onBlur={(e) => remplacer(index, e.target.value)}
+                placeholder="Ex: Aucun échange après 7 jours."
+                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+              />
+              <button
+                type="button"
+                onClick={() => onChange(notes.filter((_, i) => i !== index))}
+                aria-label={`Supprimer la note ${index + 1}`}
+                className="shrink-0 w-9 h-9 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => onChange([...notes, ''])}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-indigo-200 text-[#4F46E5] hover:bg-indigo-50 text-xs font-bold cursor-pointer transition-colors"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        Ajouter une note
+      </button>
+
+      {affichees.length === 0 && (
+        <p className="text-[11px] text-slate-400">
+          Aucune note : le bas du reçu ne montre que ton message.
+        </p>
       )}
     </div>
   );

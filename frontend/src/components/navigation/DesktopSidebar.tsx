@@ -565,15 +565,40 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Formule {settings.planStatus === 'BUSINESS' ? 'Business' : 'Solo'}</span>
-              </span>
-              <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
-                Active
-              </span>
-            </div>
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Formule {settings.planStatus === 'BUSINESS' ? 'Business' : 'Solo'}</span>
+                </span>
+                {/* Un abonné payant voyait « Active » sans aucune échéance : il
+                    découvrait la coupure le matin même. Le compte à rebours se
+                    lit maintenant ici, comme pendant l'essai. */}
+                <span
+                  className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded ${
+                    settings.subscriptionDaysLeft != null && settings.subscriptionDaysLeft <= 7
+                      ? 'bg-amber-500/20 text-amber-300'
+                      : 'bg-emerald-500/20 text-emerald-300'
+                  }`}
+                >
+                  {settings.subscriptionDaysLeft == null
+                    ? 'Active'
+                    : `${settings.subscriptionDaysLeft} j restants`}
+                </span>
+              </div>
+              {settings.subscriptionDaysLeft != null && settings.subscriptionDaysLeft <= 30 && (
+                <div className="w-full bg-[#17162B] h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      settings.subscriptionDaysLeft <= 7
+                        ? 'bg-gradient-to-r from-rose-500 to-amber-400'
+                        : 'bg-gradient-to-r from-emerald-400 to-[#4F46E5]'
+                    }`}
+                    style={{ width: `${Math.min(100, (settings.subscriptionDaysLeft / 30) * 100)}%` }}
+                  />
+                </div>
+              )}
+            </>
           )}
           <button
             onClick={() => navigateTo('more', 'subscription')}

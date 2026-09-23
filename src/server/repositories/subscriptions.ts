@@ -110,8 +110,11 @@ export async function closePendingPayment(
  * le même callback, et la page de retour interroge le statut en parallèle :
  * seul le premier passage INITIE → REUSSI prolonge l'abonnement.
  *
- * Les jours déjà payés ne sont pas perdus : la nouvelle période démarre à la
- * fin de l'abonnement en cours s'il court encore, sinon maintenant.
+ * Rien de ce qui est déjà acquis n'est perdu : la nouvelle période démarre à la
+ * fin de l'abonnement en cours s'il court encore, ou à la fin de l'essai si
+ * l'essai n'est pas terminé, sinon maintenant. Payer en avance ne coûte donc
+ * jamais un jour — c'est pourtant ce que les bandeaux d'alerte encouragent à
+ * faire dès la première semaine.
  */
 export function activatePaidSubscription(input: {
   payment: SubscriptionPaymentWithPlan;
@@ -134,10 +137,17 @@ export function activatePaidSubscription(input: {
 
     const business = await tx.business.findUniqueOrThrow({ where: { id: payment.businessId } });
     const now = new Date();
-    const dateDebut =
+    // Report du temps restant, qu'il soit payé (abonnement en cours) ou offert
+    // (essai non terminé) : on démarre à la plus lointaine de ces échéances.
+    const enCours =
       business.statut === 'ACTIF' && business.subscriptionEndsAt && business.subscriptionEndsAt > now
         ? business.subscriptionEndsAt
-        : now;
+        : null;
+    const essaiRestant =
+      business.statut === 'ESSAI' && business.trialEndsAt && business.trialEndsAt > now
+        ? business.trialEndsAt
+        : null;
+    const dateDebut = enCours ?? essaiRestant ?? now;
     const dateFin = addMonths(dateDebut, PERIOD_MONTHS[payment.subscription.periode]);
 
     await tx.subscription.update({

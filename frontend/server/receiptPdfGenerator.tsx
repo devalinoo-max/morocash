@@ -135,6 +135,8 @@ export interface ReceiptPdfSettings {
   showPhone?: boolean;
   showLogo?: boolean;
   receiptMessage?: string;
+  /** Notes libres du bas de reçu (nota bene, conditions…), une par ligne. */
+  receiptNotes?: string[];
   /** Logo déjà converti en noir et blanc par l'application (data URL PNG). */
   logoMonochrome?: string;
   receiptSettings?: {
@@ -199,7 +201,8 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
   const showSeller = show(cfg.showSellerName, true) && Boolean(sale.sellerName);
   const showCustomer = show(cfg.showCustomerName, true);
   const showQr = show(cfg.showQrCode, true) && Boolean(qrDataUrl);
-  const showMessage = show(cfg.showMessage, true) && Boolean(settings.receiptMessage);
+  const notes = (settings.receiptNotes ?? []).map((n) => n.trim()).filter(Boolean);
+  const showMessage = show(cfg.showMessage, true) && (Boolean(settings.receiptMessage) || notes.length > 0);
   const showWatermark = show(cfg.showWatermark, true);
 
   const st = StyleSheet.create({
@@ -228,6 +231,9 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
     total: { fontFamily: L.fontBold, fontSize: wide ? s + 4 : s + 2 },
     stamp: { fontFamily: L.fontBold, textAlign: 'center', marginTop: sp(3) },
     message: { fontFamily: L.fontItalic, fontSize: s - 1, textAlign: 'center', marginTop: sp(4) },
+    // Notes libres : même corps que le message, sans italique — ce sont des
+    // mentions à lire (conditions, garantie), pas une formule de politesse.
+    note: { fontFamily: L.font, fontSize: s - 1, textAlign: 'center', marginTop: sp(2) },
     watermark: { fontSize: s - 2, color: MUTED, textAlign: 'center', marginTop: sp(3) },
     th: { fontFamily: L.fontBold, fontSize: s - 1, paddingVertical: sp(4) },
     td: { paddingVertical: sp(4) },
@@ -375,7 +381,13 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
 
       {/* 5. Message, QR, mention */}
       {(showMessage || showQr || showWatermark) && <Separator />}
-      {showMessage && <Text style={st.message}>{settings.receiptMessage}</Text>}
+      {showMessage && settings.receiptMessage && <Text style={st.message}>{settings.receiptMessage}</Text>}
+      {showMessage &&
+        notes.map((note, index) => (
+          <Text key={`${index}-${note}`} style={st.note}>
+            {note}
+          </Text>
+        ))}
       {showQr && (
         <View style={{ alignItems: 'center', marginTop: sp(4) }} wrap={false}>
           <Image src={qrDataUrl} style={{ width: mm((narrow ? 18 : 22) * Math.max(k, 0.8)), height: mm((narrow ? 18 : 22) * Math.max(k, 0.8)) }} />

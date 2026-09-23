@@ -223,11 +223,24 @@ export interface ShopSettings {
   pinCode: string;
   currency: string;
   receiptMessage: string;
+  /**
+   * Notes libres ajoutées sous le message, autant qu'on veut : nota bene,
+   * conditions d'échange, mentions légales, numéro de registre… Chacune tient
+   * sur sa ligne, dans l'ordre saisi. Le nom de la boutique y est stocké comme
+   * jeton, comme dans receiptMessage, pour suivre un changement de nom.
+   */
+  receiptNotes?: string[];
   showLogo: boolean;
   compactReceipt: boolean;
   showPhone: boolean;
   planStatus: 'TRIAL' | 'SOLO' | 'BUSINESS' | 'EXPIRED';
   trialDaysLeft: number;
+  /**
+   * Jours restants sur un abonnement payé (null pendant l'essai ou une fois
+   * expiré). Se lit sans ouvrir « Mon abonnement » : barre latérale, tableau
+   * de bord et bandeau de préavis.
+   */
+  subscriptionDaysLeft?: number | null;
   role: UserRole;
   isOfflineMode: boolean;
   quotaMaxProducts: number;
