@@ -11,9 +11,8 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         // 'prompt' : le nouveau Service Worker est téléchargé en arrière-plan
-        // dès qu'il est disponible, mais n'active la nouvelle version qu'après
-        // un clic explicite de l'utilisateur (cf. UpdateToast) — on évite de
-        // recharger l'app en pleine vente en caisse.
+        // dès qu'il est disponible, puis PwaUpdateToast l'active tout seul
+        // (sans rien demander) à un moment sûr — jamais en pleine vente.
         registerType: 'prompt',
         includeAssets: ['favicon.svg'],
         manifest: {

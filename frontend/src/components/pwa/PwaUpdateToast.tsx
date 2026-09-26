@@ -22,7 +22,23 @@ export const PwaUpdateToast: React.FC = () => {
     needRefresh: [needRefresh],
     offlineReady: [offlineReady, setOfflineReady],
     updateServiceWorker,
-  } = useRegisterSW();
+  } = useRegisterSW({
+    // Le navigateur ne cherche une nouvelle version qu'à l'ouverture de la
+    // page : une app laissée ouverte toute la journée en caisse ne verrait
+    // jamais le nouveau déploiement Vercel. On revérifie donc toutes les
+    // 5 minutes et à chaque retour sur l'onglet/l'app.
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+      const checkForUpdate = () => {
+        if (!navigator.onLine) return;
+        registration.update().catch(() => {});
+      };
+      setInterval(checkForUpdate, 5 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkForUpdate();
+      });
+    },
+  });
   const { authStatus, cart, isNewSaleOpen, selectedSaleForReceipt, saleSuccessReceipt } = useApp();
 
   const [showOfflineReady, setShowOfflineReady] = useState(false);
