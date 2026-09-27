@@ -8,6 +8,7 @@ import { LogoMark } from '../../_components/Logo';
 const NAV_ITEMS = [
   { href: '/admin', label: 'Vue d’ensemble' },
   { href: '/admin/businesses', label: 'Boutiques' },
+  { href: '/admin/payments', label: 'Paiements' },
   { href: '/admin/audit-logs', label: 'Journal d’audit' },
 ];
 

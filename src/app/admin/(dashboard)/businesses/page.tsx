@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi, adminErrorMessage } from '../../_lib/adminApi';
 import type { AdminBusiness, AdminPlan, BusinessStatus } from '../../_lib/types';
+import { COUNTRY_LABELS, countryLabel, formatOffer } from '../../_lib/format';
 import { BusinessActionsModal, type ActionMode } from './_components/BusinessActionsModal';
 
 const STATUT_FILTERS: { value: BusinessStatus | 'ALL'; label: string }[] = [
@@ -31,6 +32,7 @@ export default function AdminBusinessesPage() {
   const [businesses, setBusinesses] = useState<AdminBusiness[]>([]);
   const [plans, setPlans] = useState<AdminPlan[]>([]);
   const [statutFilter, setStatutFilter] = useState<BusinessStatus | 'ALL'>('ALL');
+  const [paysFilter, setPaysFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -40,7 +42,10 @@ export default function AdminBusinessesPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const query = statutFilter === 'ALL' ? '' : `?statut=${statutFilter}`;
+      const params = new URLSearchParams();
+      if (statutFilter !== 'ALL') params.set('statut', statutFilter);
+      if (paysFilter) params.set('pays', paysFilter);
+      const query = params.size > 0 ? `?${params.toString()}` : '';
       const data = await adminApi.get<{ businesses: AdminBusiness[] }>(`/businesses${query}`);
       setBusinesses(data.businesses);
     } catch (err) {
@@ -48,7 +53,7 @@ export default function AdminBusinessesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statutFilter]);
+  }, [statutFilter, paysFilter]);
 
   useEffect(() => {
     loadBusinesses();
@@ -95,6 +100,18 @@ export default function AdminBusinessesPage() {
             {f.label}
           </button>
         ))}
+        <select
+          value={paysFilter}
+          onChange={(e) => setPaysFilter(e.target.value)}
+          className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600"
+        >
+          <option value="">Tous les pays</option>
+          {Object.entries(COUNTRY_LABELS).map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -102,10 +119,11 @@ export default function AdminBusinessesPage() {
       )}
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[860px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <th className="px-4 py-3">Boutique</th>
+              <th className="px-4 py-3">Pays</th>
               <th className="px-4 py-3">Offre</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">Essai jusqu&apos;au</th>
@@ -116,14 +134,14 @@ export default function AdminBusinessesPage() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                   Chargement…
                 </td>
               </tr>
             )}
             {!isLoading && businesses.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                   Aucune boutique pour ce filtre.
                 </td>
               </tr>
@@ -134,13 +152,26 @@ export default function AdminBusinessesPage() {
                   {b.nom}
                   <div className="text-xs font-normal text-slate-400">{b.ville ?? '—'}</div>
                 </td>
-                <td className="px-4 py-3 text-slate-600">{b.plan?.nom ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-600">{countryLabel(b.pays)}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {b.abonnement ? (
+                    formatOffer(b.abonnement.formule, b.abonnement.montant, b.abonnement.periode)
+                  ) : b.plan ? (
+                    <>
+                      {b.plan.nom.replace(/^Formule\s+/i, '')}
+                      <div className="text-xs text-slate-400">Aucun paiement enregistré</div>
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUT_BADGE[b.statut]}`}>
                     {b.statut}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-slate-600">{formatDate(b.trialEndsAt)}</td>
+                {/* L'essai n'a plus de sens une fois la boutique passée ACTIF, même si la date reste en base. */}
+                <td className="px-4 py-3 text-slate-600">{b.statut === 'ACTIF' ? '—' : formatDate(b.trialEndsAt)}</td>
                 <td className="px-4 py-3 text-slate-600">{formatDate(b.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1.5">

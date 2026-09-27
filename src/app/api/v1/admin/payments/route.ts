@@ -1,5 +1,5 @@
 import { requireAdminSession } from '@/server/guards/admin';
-import { listBusinesses } from '@/server/modules/admin/service';
+import { listSubscriptionPayments } from '@/server/modules/admin/service';
 import { ok, fail } from '@/server/shared/response';
 
 export async function GET(request: Request) {
@@ -7,16 +7,16 @@ export async function GET(request: Request) {
     await requireAdminSession();
     const url = new URL(request.url);
     const statut = url.searchParams.get('statut') ?? undefined;
-    const pays = url.searchParams.get('pays') ?? undefined;
+    const businessId = url.searchParams.get('businessId') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
     const limitParam = url.searchParams.get('limit');
-    const businesses = await listBusinesses({
+    const payments = await listSubscriptionPayments({
       statut,
-      pays,
+      businessId,
       cursor,
       limit: limitParam ? Number(limitParam) : undefined,
     });
-    return ok({ businesses });
+    return ok({ payments });
   } catch (error) {
     return fail(error);
   }

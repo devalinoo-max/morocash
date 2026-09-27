@@ -10,7 +10,7 @@ export async function POST() {
 
     await closeAccount(ctx.businessId);
     await auditable(ctx, {
-      action: 'BUSINESS_CLOSED',
+      action: 'SUBSCRIPTION_CANCELLED',
       entite: 'Business',
       entiteId: ctx.businessId,
     });

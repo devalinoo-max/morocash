@@ -92,15 +92,34 @@ export function findBusinessById(businessId: string) {
   return prisma.business.findUnique({ where: { id: businessId } });
 }
 
-/** Clôture un paiement encore INITIE (échec, expiration). Sans effet s'il a déjà été traité. */
+/**
+ * Clôture un paiement encore INITIE (échec, expiration). Sans effet s'il a déjà été traité.
+ * Seul le passage effectif écrit PAYMENT_FAILED au journal d'audit (pas d'auteur :
+ * c'est pawaPay, pas un utilisateur, qui tranche).
+ */
 export async function closePendingPayment(
   paymentId: string,
   statut: Exclude<SubPayState, 'INITIE' | 'REUSSI'>,
   payload?: unknown
 ): Promise<void> {
-  await prisma.subscriptionPayment.updateMany({
-    where: { id: paymentId, statut: 'INITIE' },
-    data: { statut, ...(payload !== undefined ? { payloadWebhook: payload as Prisma.InputJsonValue } : {}) },
+  await prisma.$transaction(async (tx) => {
+    const closed = await tx.subscriptionPayment.updateMany({
+      where: { id: paymentId, statut: 'INITIE' },
+      data: { statut, ...(payload !== undefined ? { payloadWebhook: payload as Prisma.InputJsonValue } : {}) },
+    });
+    if (closed.count === 0) return;
+
+    const payment = await tx.subscriptionPayment.findUniqueOrThrow({ where: { id: paymentId } });
+    await tx.auditLog.create({
+      data: {
+        businessId: payment.businessId,
+        action: 'PAYMENT_FAILED',
+        entite: 'SubscriptionPayment',
+        entiteId: payment.id,
+        nouvellesValeurs: { statut, montant: payment.montant, depositId: payment.referenceInterne },
+        motif: statut === 'EXPIRE' ? 'Page de paiement expirée sans paiement' : 'Paiement refusé par pawaPay',
+      },
+    });
   });
 }
 
@@ -164,6 +183,27 @@ export function activatePaidSubscription(input: {
         planId: payment.subscription.planId,
         subscriptionEndsAt: dateFin,
         ...(administrativelyLocked ? {} : { statut: 'ACTIF' }),
+      },
+    });
+
+    // Premier abonnement payé de la boutique, ou prolongation d'un précédent.
+    const previousPaid = await tx.subscription.count({
+      where: { businessId: business.id, actif: true, id: { not: payment.subscription.id } },
+    });
+    await tx.auditLog.create({
+      data: {
+        businessId: business.id,
+        action: previousPaid > 0 ? 'SUBSCRIPTION_RENEWED' : 'SUBSCRIPTION_PAID',
+        entite: 'SubscriptionPayment',
+        entiteId: payment.id,
+        nouvellesValeurs: {
+          montant: payment.montant,
+          periode: payment.subscription.periode,
+          planCode: payment.subscription.plan.code,
+          methode: input.methode,
+          dateDebut,
+          dateFin,
+        },
       },
     });
     return true;

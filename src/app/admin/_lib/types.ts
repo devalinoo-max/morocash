@@ -1,3 +1,7 @@
+export type SubPeriod = 'MENSUEL' | 'TRIMESTRIEL' | 'SEMESTRIEL' | 'ANNUEL';
+
+export type SubPayState = 'INITIE' | 'REUSSI' | 'ECHOUE' | 'EXPIRE';
+
 export type BusinessStatus = 'ESSAI' | 'ACTIF' | 'IMPAYE' | 'SUSPENDU' | 'RESILIE';
 
 export interface AdminPlan {
@@ -26,6 +30,8 @@ export interface AdminBusiness {
   trialEndsAt: string | null;
   subscriptionEndsAt: string | null;
   createdAt: string;
+  /** Abonnement payé en cours (ou le dernier), null si la boutique n'a jamais payé. */
+  abonnement: { formule: string; montant: number; periode: SubPeriod; dateFin: string } | null;
 }
 
 export interface AdminBusinessUser {
@@ -49,8 +55,16 @@ export interface AdminAuditLog {
   createdAt: string;
 }
 
-export interface AdminMetrics {
-  businessesParStatut: Record<string, number>;
-  totalUsersActifs: number;
-  mrrEstime: number;
+export interface AdminSubscriptionPayment {
+  id: string;
+  businessId: string;
+  businessNom: string;
+  montant: number;
+  formule: string | null;
+  periode: SubPeriod | null;
+  methode: string;
+  statut: SubPayState;
+  referenceInterne: string;
+  referencePasserelle: string | null;
+  createdAt: string;
 }

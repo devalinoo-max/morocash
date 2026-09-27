@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { adminApi, adminErrorMessage } from '../../_lib/adminApi';
 import type { AdminAuditLog, AdminBusiness } from '../../_lib/types';
 
@@ -8,10 +9,20 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('fr-FR');
 }
 
+// Suspense : useSearchParams (filtre ?businessId= posé par les liens de la Vue d'ensemble).
 export default function AdminAuditLogsPage() {
+  return (
+    <Suspense>
+      <AuditLogs />
+    </Suspense>
+  );
+}
+
+function AuditLogs() {
+  const searchParams = useSearchParams();
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
   const [businesses, setBusinesses] = useState<AdminBusiness[]>([]);
-  const [businessId, setBusinessId] = useState('');
+  const [businessId, setBusinessId] = useState(() => searchParams.get('businessId') ?? '');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
