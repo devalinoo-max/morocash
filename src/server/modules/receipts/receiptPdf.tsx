@@ -47,6 +47,12 @@ export async function generateReceiptPdf({ order, business, customer }: ReceiptD
             <Text>-{order.remiseMontant} FCFA</Text>
           </View>
         )}
+        {order.fraisLivraison > 0 && (
+          <View style={styles.row}>
+            <Text>Livraison</Text>
+            <Text>+{order.fraisLivraison} FCFA</Text>
+          </View>
+        )}
         <View style={styles.row}>
           <Text style={styles.total}>TOTAL</Text>
           <Text style={styles.total}>{order.total} FCFA</Text>

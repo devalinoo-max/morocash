@@ -298,6 +298,12 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                   <span className="tabular-nums">− {formatMoney(sale.discount)}</span>
                 </div>
               )}
+              {(sale.deliveryFee ?? 0) > 0 && (
+                <div className="flex items-center justify-between text-[12px] text-slate-700 font-bold">
+                  <span>Livraison</span>
+                  <span className="tabular-nums">+ {formatMoney(sale.deliveryFee ?? 0)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                 <span className="text-[12px] font-bold text-slate-600">Total</span>
                 <span

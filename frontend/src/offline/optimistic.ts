@@ -58,6 +58,7 @@ export function buildOptimisticSale(params: {
   paymentMethod: PaymentMethod;
   discountMode?: 'PERCENTAGE' | 'AMOUNT';
   discountValue?: number;
+  deliveryFee?: number;
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
@@ -75,7 +76,9 @@ export function buildOptimisticSale(params: {
 
   const subtotal = items.reduce((sum, it) => sum + it.total, 0);
   const discount = computeDiscount(subtotal, params.discountMode, params.discountValue);
-  const totalAmount = Math.max(0, subtotal - discount);
+  // Même calcul que le serveur : la livraison s'ajoute après la remise.
+  const deliveryFee = Math.max(0, Math.round(params.deliveryFee ?? 0));
+  const totalAmount = Math.max(0, subtotal - discount) + deliveryFee;
   const paidAmount = Math.max(0, Math.min(Math.round(params.paidAmount), totalAmount));
 
   return {
@@ -87,6 +90,7 @@ export function buildOptimisticSale(params: {
     discount,
     discountMode: params.discountMode,
     discountValue: params.discountValue,
+    deliveryFee,
     totalAmount,
     paidAmount,
     remainingAmount: Math.max(0, totalAmount - paidAmount),

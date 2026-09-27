@@ -77,7 +77,9 @@ function renderReceipt(r: VerifiedReceipt): string {
     <div class="sep"></div>
     ${items}
     <div class="sep"></div>
-    ${r.remiseMontant > 0 ? `<div class="row"><span class="muted">Sous-total</span><span>${money(r.sousTotal)}</span></div><div class="row"><span class="muted">Remise</span><span>− ${money(r.remiseMontant)}</span></div>` : ''}
+    ${r.remiseMontant > 0 || r.fraisLivraison > 0 ? `<div class="row"><span class="muted">Sous-total</span><span>${money(r.sousTotal)}</span></div>` : ''}
+    ${r.remiseMontant > 0 ? `<div class="row"><span class="muted">Remise</span><span>− ${money(r.remiseMontant)}</span></div>` : ''}
+    ${r.fraisLivraison > 0 ? `<div class="row"><span class="muted">Livraison</span><span>+ ${money(r.fraisLivraison)}</span></div>` : ''}
     <div class="row total"><span>TOTAL</span><span>${money(r.total)}</span></div>
     <div class="row"><span class="muted">Payé</span><span>${money(r.paye)}</span></div>
     ${status}

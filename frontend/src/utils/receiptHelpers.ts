@@ -129,11 +129,17 @@ export function generateReceiptWhatsAppText(
   });
   text += `${line}\n`;
 
-  const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0);
+  const deliveryFee = sale.deliveryFee || 0;
+  const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0) - deliveryFee;
+  if (sale.discount > 0 || deliveryFee > 0) {
+    text += `Sous-total : ${formatMoneyFull(subtotal)}\n`;
+  }
   if (sale.discount > 0) {
     const pct = sale.discountMode === 'PERCENTAGE' && sale.discountValue ? ` (${sale.discountValue} %)` : '';
-    text += `Sous-total : ${formatMoneyFull(subtotal)}\n`;
     text += `Remise${pct} : − ${formatMoneyFull(sale.discount)}\n`;
+  }
+  if (deliveryFee > 0) {
+    text += `Livraison : + ${formatMoneyFull(deliveryFee)}\n`;
   }
   text += `${b(`TOTAL : ${formatMoneyFull(sale.totalAmount)}`)}\n`;
   text += `Payé : ${formatMoneyFull(sale.paidAmount)} (${formatPaymentMethod(sale.paymentMethod)})\n`;
@@ -301,6 +307,7 @@ export async function fetchReceiptsPdfBlob(
       discount: s.discount,
       discountMode: s.discountMode,
       discountValue: s.discountValue,
+      deliveryFee: s.deliveryFee,
       totalAmount: s.totalAmount,
       paidAmount: s.paidAmount,
       remainingAmount: s.remainingAmount,

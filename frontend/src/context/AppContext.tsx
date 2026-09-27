@@ -224,6 +224,7 @@ interface AppContextType {
     discount?: number;
     discountMode?: 'PERCENTAGE' | 'AMOUNT';
     discountValue?: number;
+    deliveryFee?: number;
     customerId?: string;
     customerName?: string;
     customerPhone?: string;
@@ -1771,6 +1772,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     discount?: number;
     discountMode?: 'PERCENTAGE' | 'AMOUNT';
     discountValue?: number;
+    deliveryFee?: number;
     customerId?: string;
     customerName?: string;
     customerPhone?: string;
@@ -1821,6 +1823,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       paymentMethod: params.paymentMethod,
       discountMode: params.discountMode,
       discountValue: params.discountValue,
+      deliveryFee: params.deliveryFee,
       customerId: params.customerId,
       customerName: params.customerName,
       customerPhone: params.customerPhone,
@@ -1853,6 +1856,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         items: cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
         remiseMode: params.discountMode,
         remiseValeur: params.discountValue,
+        fraisLivraison: params.deliveryFee,
         montantRecu: Math.max(0, Math.round(params.paidAmount)),
         methode: params.paymentMethod,
       }),

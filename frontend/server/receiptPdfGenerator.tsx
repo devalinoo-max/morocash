@@ -115,6 +115,7 @@ export interface ReceiptSaleData {
   discount?: number;
   discountMode?: string;
   discountValue?: number;
+  deliveryFee?: number;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
@@ -190,7 +191,8 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
   // Le téléphone des Paramètres de la boutique, jamais celui de l'utilisateur.
   const phone = settings.telephone?.trim() || '';
   const clientName = sale.customerName?.trim() || 'Client de passage';
-  const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0);
+  const deliveryFee = sale.deliveryFee || 0;
+  const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0) - deliveryFee;
   const hasDiscount = (sale.discount || 0) > 0;
   const debtTotal = sale.customerTotalDebt ?? Math.max(0, sale.remainingAmount);
 
@@ -354,14 +356,13 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
       )}
       <Separator />
 
-      {/* 4. Montants — la remise s'intercale entre sous-total et total. */}
+      {/* 4. Montants — remise et livraison s'intercalent entre sous-total et total. */}
       <View style={[st.section, wide ? { width: '50%', alignSelf: 'flex-end' } : {}]} wrap={false}>
+        {(hasDiscount || deliveryFee > 0) && <Amount label="Sous-total :" value={formatMoneyFull(subtotal)} />}
         {hasDiscount && (
-          <>
-            <Amount label="Sous-total :" value={formatMoneyFull(subtotal)} />
-            <Amount label={`${remiseLabel(sale)} :`} value={`- ${formatMoneyFull(sale.discount)}`} />
-          </>
+          <Amount label={`${remiseLabel(sale)} :`} value={`- ${formatMoneyFull(sale.discount)}`} />
         )}
+        {deliveryFee > 0 && <Amount label="Livraison :" value={`+ ${formatMoneyFull(deliveryFee)}`} />}
         <Amount label="TOTAL :" value={formatMoneyFull(sale.totalAmount)} big />
         <Amount label={`Payé (${getPaymentMethodLabel(sale.paymentMethod)}) :`} value={formatMoneyFull(sale.paidAmount)} />
         {sale.remainingAmount > 0 ? (

@@ -130,6 +130,8 @@ export interface Sale {
   discount: number;
   discountMode?: 'PERCENTAGE' | 'AMOUNT';
   discountValue?: number;
+  /** Frais de livraison facturés au client, déjà compris dans totalAmount. */
+  deliveryFee?: number;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;

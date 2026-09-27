@@ -27,6 +27,9 @@ export function generateTextReceipt({ order, business, customer }: ReceiptData):
   if (order.remiseMontant > 0) {
     lines.push(`Remise           : -${order.remiseMontant} FCFA`);
   }
+  if (order.fraisLivraison > 0) {
+    lines.push(`Livraison        : +${order.fraisLivraison} FCFA`);
+  }
   lines.push(`TOTAL            : ${order.total} FCFA`);
   lines.push(`Statut paiement  : ${order.statutPaiement}`);
   lines.push('--------------------------------');

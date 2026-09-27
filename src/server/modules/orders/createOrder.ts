@@ -16,6 +16,8 @@ export const createOrderSchema = z.object({
   items: z.array(orderItemInputSchema).min(1),
   remiseMode: z.enum(['POURCENTAGE', 'MONTANT']).optional(),
   remiseValeur: z.number().int().nonnegative().optional(),
+  // Absent sur les commandes mises en file par une version précédente de l'app.
+  fraisLivraison: z.number().int().nonnegative().max(10_000_000).default(0),
   montantRecu: z.number().int().nonnegative().default(0),
   methode: z
     .enum(['ESPECES', 'WAVE', 'ORANGE_MONEY', 'MTN', 'MOOV', 'VIREMENT', 'AUTRE'])
@@ -128,7 +130,10 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
         }
       }
 
-      const total = sousTotal - remiseMontant;
+      // La livraison s'ajoute après la remise : une remise en % ne porte que
+      // sur les articles, jamais sur le prix de la course.
+      const fraisLivraison = input.fraisLivraison;
+      const total = sousTotal - remiseMontant + fraisLivraison;
       const coutTotal = lines.reduce((acc, l) => acc + l.coutUnitaire * l.qte, 0);
 
       if (input.montantRecu > total) {
@@ -168,6 +173,7 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
           remiseMode: input.remiseMode,
           remiseValeur: input.remiseValeur,
           remiseMontant,
+          fraisLivraison,
           total,
           coutTotal,
           statutPaiement,

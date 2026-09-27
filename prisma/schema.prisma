@@ -443,6 +443,7 @@ model Order {
   remiseMode     DiscountMode?
   remiseValeur   Int?
   remiseMontant  Int           @default(0)
+  fraisLivraison Int           @default(0)    // facturés au client, ajoutés après la remise
   total          Int
   coutTotal      Int
   statutPaiement PaymentStatus

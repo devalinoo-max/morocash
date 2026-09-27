@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Receipt,
   Tag,
+  Truck,
   Wrench,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/currency';
@@ -36,6 +37,7 @@ import { resolveKeyboardScan } from '../../utils/hardwareScanner';
 import { playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { ProductFormModal } from '../products/ProductFormModal';
 import { DiscountModal } from './DiscountModal';
+import { DeliveryModal } from './DeliveryModal';
 import { ServiceModal } from './ServiceModal';
 import { CustomerPickerModal } from './CustomerPickerModal';
 
@@ -167,6 +169,9 @@ export const NewSaleModal: React.FC = () => {
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [scannerPreBarcode, setScannerPreBarcode] = useState<string>('');
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  // Frais de livraison payés par le client, ajoutés après la remise.
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
 
@@ -296,7 +301,9 @@ export const NewSaleModal: React.FC = () => {
     discountMode === 'PERCENTAGE' && discountValue > 0
       ? Math.min(cartTotal, Math.round((cartTotal * discountValue) / 100))
       : Math.min(cartTotal, discountAmount);
-  const finalTotal = Math.max(0, cartTotal - appliedDiscount);
+  // Même calcul que le serveur : la livraison s'ajoute après la remise.
+  const totalBeforeDelivery = Math.max(0, cartTotal - appliedDiscount);
+  const finalTotal = totalBeforeDelivery + deliveryFee;
 
   // Calculate remaining debt
   const actualPaid =
@@ -420,6 +427,7 @@ export const NewSaleModal: React.FC = () => {
       // Remise fixe : la valeur envoyée est le montant réellement accordé,
       // plafonné si le panier a rétréci depuis.
       discountValue: discountMode === 'AMOUNT' ? appliedDiscount : discountValue,
+      deliveryFee,
       customerId: selectedCustomerId,
       customerName: selectedCustomerObj?.name,
       customerPhone: selectedCustomerObj?.phone,
@@ -433,6 +441,7 @@ export const NewSaleModal: React.FC = () => {
       // Reset modal state
       setStep('PRODUCTS');
       clearDiscount();
+      setDeliveryFee(0);
       setSelectedCustomerId('');
       setPaymentType('FULL');
       setCustomPaidAmount(0);
@@ -843,6 +852,48 @@ export const NewSaleModal: React.FC = () => {
           </div>
         )}
 
+        {/* c bis) La ligne Livraison — juste sous la remise, même présentation */}
+        {deliveryFee > 0 ? (
+          <div className="h-12 pr-3 rounded-[11px] bg-[#EEF2FF] flex items-center gap-2">
+            <button
+              id="btn-review-edit-delivery"
+              type="button"
+              onClick={() => setIsDeliveryModalOpen(true)}
+              className="flex-1 min-w-0 h-full pl-3 flex items-center justify-between gap-2 text-left cursor-pointer"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Truck className="w-4 h-4 text-[#4F46E5] shrink-0" />
+                <span className="text-[13px] font-bold text-indigo-950 truncate">Livraison</span>
+              </span>
+              <span className="text-[14px] font-[800] text-[#4F46E5] tabular-nums whitespace-nowrap">
+                + {formatMoney(deliveryFee)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeliveryFee(0)}
+              className="shrink-0 text-[12px] font-semibold text-slate-500 underline cursor-pointer py-2"
+            >
+              Retirer
+            </button>
+          </div>
+        ) : (
+          <div className="h-12 px-3 rounded-[11px] bg-[#F8FAFC] flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-[#4F46E5]" />
+              <span className="text-[13px] font-bold text-slate-800">Livraison</span>
+            </span>
+            <button
+              id="btn-review-add-delivery"
+              type="button"
+              onClick={() => setIsDeliveryModalOpen(true)}
+              className="h-8 px-3.5 rounded-lg bg-[#EEF2FF] text-[#4F46E5] text-xs font-bold cursor-pointer"
+            >
+              Ajouter
+            </button>
+          </div>
+        )}
+
         {/* d) Le récapitulatif */}
         <div className="rounded-2xl border border-slate-200 p-3.5 space-y-2">
           <div className="flex justify-between items-center text-[13px] text-slate-600">
@@ -853,6 +904,12 @@ export const NewSaleModal: React.FC = () => {
             <div className="flex justify-between items-center text-[13px] text-[#DC2626]">
               <span>Remise</span>
               <span className="font-bold tabular-nums">− {formatMoney(appliedDiscount)}</span>
+            </div>
+          )}
+          {deliveryFee > 0 && (
+            <div className="flex justify-between items-center text-[13px] text-slate-600">
+              <span>Livraison</span>
+              <span className="font-semibold text-slate-900 tabular-nums">+ {formatMoney(deliveryFee)}</span>
             </div>
           )}
           <div className="pt-2.5 border-t border-slate-200 flex items-baseline justify-between gap-2">
@@ -1754,6 +1811,23 @@ export const NewSaleModal: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Livraison récap */}
+                <div className="flex justify-between items-center text-xs">
+                  <span className={deliveryFee > 0 ? 'font-bold text-slate-800' : 'text-slate-500'}>Livraison</span>
+                  <div className="flex items-center gap-2">
+                    {deliveryFee > 0 && (
+                      <span className="font-bold text-slate-800">+ {formatMoney(deliveryFee)}</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsDeliveryModalOpen(true)}
+                      className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
+                    >
+                      {deliveryFee > 0 ? 'Modifier' : '+ Ajouter'}
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-sm font-black text-slate-900">
                   <span>Total final</span>
                   <span className="text-base text-[#4F46E5]">{formatMoney(finalTotal)}</span>
@@ -1899,6 +1973,16 @@ export const NewSaleModal: React.FC = () => {
           setDiscountValue(value);
           setDiscountReason(reason || '');
         }}
+      />
+
+      <DeliveryModal
+        isOpen={isDeliveryModalOpen}
+        // Remonté à chaque ouverture, comme la remise : repart du montant en cours.
+        key={isDeliveryModalOpen ? 'delivery-open' : 'delivery-closed'}
+        totalBeforeDelivery={totalBeforeDelivery}
+        currentFee={deliveryFee}
+        onClose={() => setIsDeliveryModalOpen(false)}
+        onApply={setDeliveryFee}
       />
 
       {/* 5. Service Modal */}

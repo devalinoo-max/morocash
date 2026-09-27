@@ -12,6 +12,7 @@ export interface VerifiedReceipt {
   items: { libelle: string; qte: number; totalLigne: number }[];
   sousTotal: number;
   remiseMontant: number;
+  fraisLivraison: number;
   total: number;
   paye: number;
   cancelled: boolean;
@@ -51,6 +52,7 @@ export async function findVerifiedReceipt(
       items: order.items.map((it) => ({ libelle: it.libelle, qte: it.qte, totalLigne: it.totalLigne })),
       sousTotal: order.sousTotal,
       remiseMontant: order.remiseMontant,
+      fraisLivraison: order.fraisLivraison,
       total: order.total,
       paye,
       cancelled: order.statut === 'ANNULEE',

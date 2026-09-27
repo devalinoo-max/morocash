@@ -69,8 +69,10 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   // Nouvelle commande affichée dans la même fenêtre : la liste repart repliée.
   useEffect(() => setExpanded(false), [sale.id]);
 
-  const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0);
+  const deliveryFee = sale.deliveryFee || 0;
+  const subtotal = sale.subtotal || sale.totalAmount + (sale.discount || 0) - deliveryFee;
   const hasDiscount = (sale.discount || 0) > 0;
+  const hasAdjustments = hasDiscount || deliveryFee > 0;
   const clientName = sale.customerName?.trim() || 'Client de passage';
   const clientFirstName = clientName.split(/\s+/)[0];
 
@@ -208,20 +210,28 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
         )}
       </div>
 
-      {/* 4. Montants — la remise s'intercale entre le sous-total et le total. */}
-      {hasDiscount && (
+      {/* 4. Montants — remise et livraison s'intercalent entre le sous-total et le total. */}
+      {hasAdjustments && (
         <div className="space-y-1.5 text-[11px] pt-1">
           <div className="flex justify-between gap-3 text-slate-600">
             <span>Sous-total :</span>
             <span className="font-medium tabular-nums whitespace-nowrap">{money(subtotal)}</span>
           </div>
-          <div className="flex justify-between gap-3 text-slate-700 font-medium">
-            <span>
-              Remise
-              {sale.discountMode === 'PERCENTAGE' && sale.discountValue ? ` (${sale.discountValue} %)` : ''} :
-            </span>
-            <span className="tabular-nums whitespace-nowrap">− {money(sale.discount)}</span>
-          </div>
+          {hasDiscount && (
+            <div className="flex justify-between gap-3 text-slate-700 font-medium">
+              <span>
+                Remise
+                {sale.discountMode === 'PERCENTAGE' && sale.discountValue ? ` (${sale.discountValue} %)` : ''} :
+              </span>
+              <span className="tabular-nums whitespace-nowrap">− {money(sale.discount)}</span>
+            </div>
+          )}
+          {deliveryFee > 0 && (
+            <div className="flex justify-between gap-3 text-slate-700 font-medium">
+              <span>Livraison :</span>
+              <span className="tabular-nums whitespace-nowrap">+ {money(deliveryFee)}</span>
+            </div>
+          )}
         </div>
       )}
 

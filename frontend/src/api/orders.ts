@@ -33,6 +33,8 @@ export interface ApiOrder {
   remiseMode?: 'POURCENTAGE' | 'MONTANT' | null;
   remiseValeur?: number | null;
   remiseMontant: number;
+  /** Absent sur un serveur plus ancien. */
+  fraisLivraison?: number;
   total: number;
   statutPaiement: 'CREDIT' | 'PARTIELLE' | 'PAYEE';
   statut: 'VALIDEE' | 'ANNULEE';
@@ -52,6 +54,7 @@ export interface CreateOrderInput {
   items: { productId: string; qte: number }[];
   remiseMode?: 'POURCENTAGE' | 'MONTANT';
   remiseValeur?: number;
+  fraisLivraison?: number;
   montantRecu: number;
   methode: string;
 }
@@ -127,6 +130,7 @@ export function toFrontendSale(
     discount: order.remiseMontant,
     discountMode: order.remiseMode === 'POURCENTAGE' ? 'PERCENTAGE' : order.remiseMode === 'MONTANT' ? 'AMOUNT' : undefined,
     discountValue: order.remiseValeur ?? undefined,
+    deliveryFee: order.fraisLivraison ?? 0,
     totalAmount: order.total,
     paidAmount,
     remainingAmount: Math.max(0, order.total - paidAmount),
@@ -149,6 +153,7 @@ export function toCreateOrderInput(params: {
   items: { productId: string; quantity: number }[];
   remiseMode?: 'PERCENTAGE' | 'AMOUNT';
   remiseValeur?: number;
+  fraisLivraison?: number;
   montantRecu: number;
   methode: PaymentMethod;
 }): CreateOrderInput {
@@ -162,6 +167,9 @@ export function toCreateOrderInput(params: {
         : 'MONTANT'
       : undefined,
     remiseValeur: params.remiseValeur,
+    // Envoyé seulement s'il y en a : un serveur pas encore à jour ne voit
+    // alors aucune différence.
+    fraisLivraison: params.fraisLivraison ? params.fraisLivraison : undefined,
     montantRecu: params.montantRecu,
     methode: toApiPaymentMethode(params.methode),
   };
