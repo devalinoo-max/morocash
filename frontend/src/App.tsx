@@ -47,6 +47,7 @@ import {
   ToastNotification,
 } from './components/common/UIStates';
 import { PendingSyncBar } from './components/common/PendingSyncBar';
+import { HelpAssistant } from './components/assistant/HelpAssistant';
 import { Logo } from './components/common/Logo';
 import {
   AlertCircle,
@@ -466,6 +467,8 @@ const MainLayout: React.FC = () => {
       <PwaUpdateToast />
       {/* Bande basse : envois en cours, echecs a reessayer (point 1). */}
       <PendingSyncBar />
+      {/* Assistant d'aide : bulle flottante, par mots-clés, sans réseau. */}
+      <HelpAssistant />
     </div>
   );
 };
