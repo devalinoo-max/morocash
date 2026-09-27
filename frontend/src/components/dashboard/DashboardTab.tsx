@@ -24,7 +24,10 @@ import {
   Send,
   Package,
 } from 'lucide-react';
-import { formatMoney, formatMoneyCompact, formatDate, getTerminology } from '../../utils/formatters';
+import { formatMoney, formatMoneyCompact, formatDate, formatPaymentMethod, getTerminology } from '../../utils/formatters';
+import type { CashMovement, Expense, Sale } from '../../types';
+import { DashboardDetailSheet, type DashboardDetail, type DetailRow } from './DashboardDetailSheet';
+import { CustomerDetailPanel } from '../customers/CustomerDetailPanel';
 import {
   getCustomRange,
   getPeriodRange,
@@ -40,12 +43,23 @@ import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 /** Les quatre raccourcis, plus une plage choisie à la main (date de début → date de fin). */
 type DashboardPeriod = SimplePeriod | 'RANGE';
 import { PaywallOverlay } from '../common/PaywallOverlay';
+import { saleStatusStyle } from '../../utils/saleStatus';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 
 const WEEKDAYS_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 const formatDayLabel = (d: Date) =>
   `${WEEKDAYS_SHORT[d.getDay()]}. ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+
+type DetailKind = 'VENDU' | 'DEPENSES' | 'GAGNE' | 'RECEVOIR' | 'CAISSE' | 'ANNULEES' | 'ANNULEES_TOUT';
+
+const CASH_ORIGIN_LABEL: Record<CashMovement['origine'], string> = {
+  COMMANDE: 'Vente encaissée',
+  REMBOURSEMENT: 'Remboursement de dette',
+  DEPENSE: 'Dépense',
+  APPORT: 'Argent ajouté',
+  RETRAIT: 'Argent sorti',
+};
 
 const HOURLY_START = 7;
 const HOURLY_END = 16;
@@ -121,8 +135,11 @@ export const DashboardTab: React.FC = () => {
     [period, customRange]
   );
 
-  const periodSales = useMemo(() => sales.filter((s) => isWithinRange(s.createdAt, periodRange)), [sales, periodRange]);
-  const previousSales = useMemo(() => sales.filter((s) => isWithinRange(s.createdAt, previousRange)), [sales, previousRange]);
+  // Une commande annulée reste dans l'historique (« Dernières ventes ») mais
+  // ne compte dans aucun chiffre : ventes, bénéfice, graphique horaire.
+  const validSales = useMemo(() => sales.filter((s) => !s.isCancelled), [sales]);
+  const periodSales = useMemo(() => validSales.filter((s) => isWithinRange(s.createdAt, periodRange)), [validSales, periodRange]);
+  const previousSales = useMemo(() => validSales.filter((s) => isWithinRange(s.createdAt, previousRange)), [validSales, previousRange]);
   const periodExpenses = useMemo(() => expenses.filter((e) => isWithinRange(e.date, periodRange)), [expenses, periodRange]);
   const previousExpenses = useMemo(() => expenses.filter((e) => isWithinRange(e.date, previousRange)), [expenses, previousRange]);
 
@@ -198,7 +215,7 @@ export const DashboardTab: React.FC = () => {
   // que pour une seule journée à la fois.
   const buildHourlyTotals = (range: ReturnType<typeof getPeriodRange>) => {
     const totals = Array.from({ length: HOURLY_END - HOURLY_START + 1 }, () => 0);
-    sales
+    validSales
       .filter((s) => isWithinRange(s.createdAt, range))
       .forEach((s) => {
         const hour = new Date(s.createdAt).getHours();
@@ -208,8 +225,8 @@ export const DashboardTab: React.FC = () => {
       });
     return totals;
   };
-  const todayHourlyTotals = useMemo(() => buildHourlyTotals(getPeriodRange('TODAY')), [sales]);
-  const yesterdayHourlyTotals = useMemo(() => buildHourlyTotals(getPeriodRange('YESTERDAY')), [sales]);
+  const todayHourlyTotals = useMemo(() => buildHourlyTotals(getPeriodRange('TODAY')), [validSales]);
+  const yesterdayHourlyTotals = useMemo(() => buildHourlyTotals(getPeriodRange('YESTERDAY')), [validSales]);
   const hasTodaySales = todayHourlyTotals.some((v) => v > 0);
   const peakHourIndex = hasTodaySales
     ? todayHourlyTotals.reduce((bestIdx, v, idx, arr) => (v > arr[bestIdx] ? idx : bestIdx), 0)
@@ -250,6 +267,183 @@ export const DashboardTab: React.FC = () => {
       : period === 'MONTH'
       ? 'ce mois'
       : 'sur cette période';
+
+  // ========================================================================
+  // DÉTAIL DES CARTES — chaque chiffre de l'Accueil s'ouvre sur les lignes
+  // qui le composent (voir DashboardDetailSheet).
+  // ========================================================================
+  const [detailKind, setDetailKind] = useState<DetailKind | null>(null);
+  const [detailCustomerId, setDetailCustomerId] = useState<string | null>(null);
+  const detailCustomer = customers.find((c) => c.id === detailCustomerId) ?? null;
+
+  // Une vente annulée est rangée dans la période où elle a été faite : c'est
+  // de ce total-là qu'elle a été retirée.
+  const cancelledPeriodSales = useMemo(
+    () => sales.filter((s) => s.isCancelled && isWithinRange(s.createdAt, periodRange)),
+    [sales, periodRange]
+  );
+  const cancelledPeriodTotal = cancelledPeriodSales.reduce((acc, s) => acc + s.totalAmount, 0);
+
+  const openReceipt = (sale: Sale) => {
+    setDetailKind(null);
+    setSelectedSaleForReceipt(sale);
+  };
+
+  const saleRow = (sale: Sale): DetailRow => {
+    const statut = saleStatusStyle(sale);
+    return {
+      id: sale.id,
+      date: sale.createdAt,
+      title: sale.customerName?.trim() || 'Client de passage',
+      subtitle: sale.reference,
+      note: sale.isCancelled && sale.cancelReason ? `Motif : ${sale.cancelReason}` : undefined,
+      amount: sale.totalAmount,
+      tone: sale.isCancelled ? 'muted' : 'default',
+      badge: { label: statut.label, bg: statut.bg, fg: statut.fg },
+      onClick: () => openReceipt(sale),
+    };
+  };
+
+  const expenseRow = (e: Expense): DetailRow => ({
+    id: e.id,
+    date: e.date,
+    title: e.category,
+    subtitle: e.paymentMethod ? formatPaymentMethod(e.paymentMethod) : undefined,
+    note: e.note,
+    amount: e.amount,
+    tone: 'negative',
+  });
+
+  const byDateDesc = (a: DetailRow, b: DetailRow) => new Date(b.date).getTime() - new Date(a.date).getTime();
+  const periodLabel = periodRange.label;
+
+  const buildDetail = (kind: DetailKind): DashboardDetail => {
+    switch (kind) {
+      case 'VENDU':
+        return {
+          title: 'Total vendu',
+          subtitle: `${periodLabel} · ventes annulées non comptées`,
+          total: { label: 'Total vendu', value: totalVendu },
+          rowsTitle: 'Ventes',
+          rows: periodSales.map(saleRow).sort(byDateDesc),
+          emptyText: 'Aucune vente sur cette période.',
+          footer: { label: 'Voir toutes les commandes', onClick: () => { setDetailKind(null); setActiveTab('sales'); } },
+        };
+      case 'DEPENSES':
+        return {
+          title: 'Ce que tu as dépensé',
+          subtitle: periodLabel,
+          total: { label: 'Total des dépenses', value: totalDepenses, tone: 'negative' },
+          rowsTitle: 'Dépenses',
+          rows: periodExpenses.map(expenseRow).sort(byDateDesc),
+          emptyText: 'Aucune dépense notée sur cette période.',
+          footer: {
+            label: 'Ouvrir mes dépenses',
+            onClick: () => {
+              setDetailKind(null);
+              setActiveTab('more');
+              setActiveMoreSubTab('expenses');
+            },
+          },
+        };
+      case 'GAGNE':
+        return {
+          title: `Ce que tu as gagné ${periodWord}`,
+          subtitle: 'Ventes − coût de la marchandise vendue − frais',
+          summary: [
+            { label: 'Ventes', value: totalVendu },
+            { label: 'Coût de la marchandise vendue', value: totalCostOfGoods, sign: '-' },
+            { label: 'Frais', value: totalDepenses, sign: '-' },
+          ],
+          total: {
+            label: 'Ce que tu as gagné',
+            value: beneficeNetReel,
+            tone: beneficeNetReel >= 0 ? 'positive' : 'negative',
+          },
+          rowsTitle: 'Ventes et dépenses',
+          rows: [...periodSales.map(saleRow), ...periodExpenses.map(expenseRow)].sort(byDateDesc),
+          emptyText: 'Aucune vente ni dépense sur cette période.',
+        };
+      case 'RECEVOIR':
+        return {
+          title: 'Argent à recevoir',
+          subtitle: "Ce que tes clients te doivent aujourd'hui, toutes périodes confondues",
+          total: { label: 'Total dû', value: argentARecevoir, tone: 'negative' },
+          rowsTitle: 'Clients',
+          rows: customers
+            .filter((c) => c.totalDebt > 0)
+            .sort((a, b) => b.totalDebt - a.totalDebt)
+            .map((c) => ({
+              id: c.id,
+              date: c.lastActivity,
+              title: c.name,
+              subtitle: `dette depuis ${c.debtAgeDays} j`,
+              amount: c.totalDebt,
+              tone: 'negative' as const,
+              onClick: () => {
+                setDetailKind(null);
+                setDetailCustomerId(c.id);
+              },
+            })),
+          emptyText: 'Aucun client ne te doit d’argent.',
+          footer: {
+            label: 'Ouvrir la liste des clients',
+            onClick: () => {
+              setDetailKind(null);
+              setCustomersDebtorsFilter(true);
+              setActiveTab('customers');
+            },
+          },
+        };
+      case 'CAISSE':
+        return {
+          title: 'Argent en caisse',
+          subtitle: activeCashSession ? 'Caisse ouverte en ce moment' : 'Caisse fermée',
+          summary: [
+            { label: 'Fond de départ', value: fondDepart },
+            { label: 'Entrées en espèces', value: encaisseEspeces },
+            { label: 'Entrées en mobile money', value: encaisseMobileMoney },
+            { label: 'Sorties', value: sortiesEspeces, sign: '-' },
+          ],
+          total: { label: 'Ce que tu dois avoir', value: soldeCaisseTheorique },
+          rowsTitle: 'Mouvements',
+          rows: currentSessionMovements
+            .map((m) => ({
+              id: m.id,
+              date: m.createdAt,
+              title: CASH_ORIGIN_LABEL[m.origine],
+              subtitle: formatPaymentMethod(m.methode),
+              note: m.motif,
+              amount: m.montant,
+              tone: m.type === 'SORTIE' ? ('negative' as const) : ('positive' as const),
+            }))
+            .sort(byDateDesc),
+          emptyText: 'Aucun mouvement de caisse.',
+          footer: { label: 'Ouvrir ma caisse', onClick: () => { setDetailKind(null); setActiveTab('cash'); } },
+        };
+      case 'ANNULEES':
+        return {
+          title: 'Ventes annulées',
+          subtitle: `${periodLabel} · retirées de tous les chiffres`,
+          total: { label: 'Montant annulé', value: cancelledPeriodTotal },
+          rowsTitle: 'Ventes annulées',
+          rows: cancelledPeriodSales.map(saleRow).sort(byDateDesc),
+          emptyText: 'Aucune vente annulée sur cette période.',
+          footer: { label: 'Voir toutes les ventes annulées', onClick: () => setDetailKind('ANNULEES_TOUT') },
+        };
+      case 'ANNULEES_TOUT': {
+        const all = sales.filter((s) => s.isCancelled);
+        return {
+          title: 'Toutes les ventes annulées',
+          subtitle: 'Depuis le début',
+          total: { label: 'Montant annulé', value: all.reduce((acc, s) => acc + s.totalAmount, 0) },
+          rowsTitle: 'Ventes annulées',
+          rows: all.map(saleRow).sort(byDateDesc),
+          emptyText: 'Aucune vente annulée.',
+        };
+      }
+    }
+  };
 
   // Badge de comparaison du bénéfice — remplace le "21 300 F de moins qu'hier" fixe,
   // partagé entre la carte héros du mode simple et celle du mode détaillé.
@@ -357,7 +551,9 @@ export const DashboardTab: React.FC = () => {
           {/* Main Hero Net Profit Card */}
           <div
             id="hero-net-profit-card-simple"
-            className="bg-white rounded-3xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+            role="button"
+            onClick={() => setDetailKind('GAGNE')}
+            className="bg-white rounded-3xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer hover:border-emerald-300 transition-all"
           >
             <div className="p-6 sm:p-8">
               <div className="space-y-3">
@@ -403,8 +599,12 @@ export const DashboardTab: React.FC = () => {
           </div>
 
           {/* 3 chiffres essentiels */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              role="button"
+              onClick={() => setDetailKind('VENDU')}
+              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-indigo-300 transition-all"
+            >
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                 1. Ventes totales
               </span>
@@ -416,7 +616,11 @@ export const DashboardTab: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5">
+            <div
+              role="button"
+              onClick={() => setDetailKind('DEPENSES')}
+              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-amber-300 transition-all"
+            >
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                 2. Dépenses totales
               </span>
@@ -428,7 +632,11 @@ export const DashboardTab: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5">
+            <div
+              role="button"
+              onClick={() => setDetailKind('RECEVOIR')}
+              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-rose-300 transition-all"
+            >
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                 3. Reste à encaisser
               </span>
@@ -437,6 +645,22 @@ export const DashboardTab: React.FC = () => {
               </div>
               <p className="text-xs text-slate-400">
                 {customers.filter((c) => c.totalDebt > 0).length} clients avec crédit
+              </p>
+            </div>
+
+            <div
+              role="button"
+              onClick={() => setDetailKind('ANNULEES')}
+              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-slate-300 transition-all"
+            >
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                4. Ventes annulées
+              </span>
+              <div className="text-2xl font-black text-slate-500">
+                {formatMoneyCompact(cancelledPeriodTotal)}
+              </div>
+              <p className="text-xs text-slate-400">
+                {cancelledPeriodSales.length} vente{cancelledPeriodSales.length > 1 ? 's' : ''} annulée{cancelledPeriodSales.length > 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -531,7 +755,9 @@ export const DashboardTab: React.FC = () => {
       {/* ========================================================================= */}
       <div
         id="hero-net-profit-card"
-        className="bg-white rounded-3xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between"
+        role="button"
+        onClick={() => setDetailKind('GAGNE')}
+        className="bg-white rounded-3xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer hover:border-emerald-300 transition-all"
       >
         <div className="p-6 sm:p-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -615,10 +841,11 @@ export const DashboardTab: React.FC = () => {
       {/* ========================================================================= */}
       {/* 4. QUATRE INDICATEURS EN LIGNE (BLOC 4: Indigo, Rouge, Ambre, Vert) */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* 1. TOTAL VENDU (Barre indigo) */}
         <div
-          onClick={() => setActiveTab('sales')}
+          role="button"
+          onClick={() => setDetailKind('VENDU')}
           className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-indigo-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
         >
           <div className="p-4 space-y-2">
@@ -656,10 +883,8 @@ export const DashboardTab: React.FC = () => {
 
         {/* 2. ARGENT À RECEVOIR (Barre rouge - hausse est ROUGE) */}
         <div
-          onClick={() => {
-            setCustomersDebtorsFilter(true);
-            setActiveTab('customers');
-          }}
+          role="button"
+          onClick={() => setDetailKind('RECEVOIR')}
           className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-rose-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
         >
           <div className="p-4 space-y-2">
@@ -684,10 +909,8 @@ export const DashboardTab: React.FC = () => {
 
         {/* 3. CE QUE TU AS DÉPENSÉ (Barre ambre - hausse est ROUGE) */}
         <div
-          onClick={() => {
-            setActiveTab('more');
-            setActiveMoreSubTab('expenses');
-          }}
+          role="button"
+          onClick={() => setDetailKind('DEPENSES')}
           className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-amber-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
         >
           <div className="p-4 space-y-2">
@@ -718,9 +941,8 @@ export const DashboardTab: React.FC = () => {
 
         {/* 4. ARGENT EN CAISSE (Barre verte) */}
         <div
-          onClick={() => {
-            setActiveTab('home');
-          }}
+          role="button"
+          onClick={() => setDetailKind('CAISSE')}
           className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-emerald-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
         >
           <div className="p-4 space-y-2">
@@ -738,6 +960,26 @@ export const DashboardTab: React.FC = () => {
             </p>
           </div>
           <div className="h-1 w-full bg-[#059669]"></div>
+        </div>
+
+        {/* 5. VENTES ANNULÉES (Barre grise) — retirées de tous les chiffres ci-dessus */}
+        <div
+          role="button"
+          onClick={() => setDetailKind('ANNULEES')}
+          className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
+        >
+          <div className="p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500">Ventes annulées</span>
+            </div>
+            <div className="text-2xl font-black text-slate-500 tracking-tight">
+              {formatMoneyCompact(cancelledPeriodTotal)}
+            </div>
+            <p className="text-xs text-slate-500 font-medium">
+              {cancelledPeriodSales.length} vente{cancelledPeriodSales.length > 1 ? 's' : ''} annulée{cancelledPeriodSales.length > 1 ? 's' : ''} · non comptée{cancelledPeriodSales.length > 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="h-1 w-full bg-[#94A3B8]"></div>
         </div>
       </div>
 
@@ -1100,19 +1342,10 @@ export const DashboardTab: React.FC = () => {
                     </td>
                     <td className="py-2.5 px-4 text-center whitespace-nowrap">
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                          sale.paymentStatus === 'PAID'
-                            ? 'bg-[#ECFDF5] text-[#059669]'
-                            : sale.paymentStatus === 'PARTIAL'
-                            ? 'bg-[#FFFBEB] text-[#D97706]'
-                            : 'bg-[#FEF2F2] text-[#DC2626]'
-                        }`}
+                        className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold"
+                        style={{ backgroundColor: saleStatusStyle(sale).bg, color: saleStatusStyle(sale).fg }}
                       >
-                        {sale.paymentStatus === 'PAID'
-                          ? 'Payée'
-                          : sale.paymentStatus === 'PARTIAL'
-                          ? 'Partielle'
-                          : 'À crédit'}
+                        {saleStatusStyle(sale).label}
                       </span>
                     </td>
                     <td className="py-2.5 px-4 text-center whitespace-nowrap">
@@ -1214,6 +1447,11 @@ export const DashboardTab: React.FC = () => {
         </div>
       </div>
         </div>
+      )}
+
+      {detailKind && <DashboardDetailSheet detail={buildDetail(detailKind)} onClose={() => setDetailKind(null)} />}
+      {detailCustomer && (
+        <CustomerDetailPanel customer={detailCustomer} sales={sales} onClose={() => setDetailCustomerId(null)} />
       )}
     </div>
   );

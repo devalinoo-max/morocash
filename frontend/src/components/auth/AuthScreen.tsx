@@ -81,7 +81,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   // Connexion multi-boutiques (même numéro dans plusieurs boutiques)
   const [businessChoices, setBusinessChoices] = useState<{ businessId: string; businessNom: string }[] | null>(null);
 
-  // « PIN oublié ? » : parcours à part, dans la même carte (voir ForgotPinFlow).
+  // « Mot de passe oublié ? » : parcours à part, dans la même carte (voir ForgotPinFlow).
   const [isForgotPinOpen, setIsForgotPinOpen] = useState(false);
 
   const resetBusinessChoices = () => setBusinessChoices(null);
@@ -150,7 +150,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       return;
     }
     if (!/^\d{6}$/.test(pin)) {
-      setErrorMessage('Le code PIN doit comporter exactement 6 chiffres.');
+      setErrorMessage('Le mot de passe doit comporter exactement 6 chiffres.');
       return;
     }
 
@@ -163,7 +163,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       return;
     }
     if (!result.success) {
-      setErrorMessage(result.message ?? 'Numéro ou code incorrect.');
+      setErrorMessage(result.message ?? 'Numéro ou mot de passe incorrect.');
     }
   };
 
@@ -289,7 +289,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                     setTelephone(numero);
                     setPin('');
                     setErrorMessage(null);
-                    showToast('Nouveau code enregistré. Connecte-toi avec.', 'success');
+                    showToast('Nouveau mot de passe enregistré. Connecte-toi avec.', 'success');
                   }}
                 />
               ) : businessChoices ? (
@@ -497,18 +497,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
 
                       <div>
                         <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                          Code PIN à 6 chiffres
+                          Mot de passe à 6 chiffres
                         </label>
                         <PinInput id="register-pin" value={pin} onChange={setPin} />
                       </div>
                       <div>
                         <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                          Confirmation du code PIN
+                          Confirmation du mot de passe
                         </label>
                         <PinInput id="register-pin-confirm" value={pinConfirm} onChange={setPinConfirm} />
                         {pinConfirm.length === 6 && pin !== pinConfirm && (
                           <p className="text-[11px] font-semibold text-rose-600 mt-1.5">
-                            Les deux codes ne sont pas identiques.
+                            Les deux mots de passe ne sont pas identiques.
                           </p>
                         )}
                       </div>
@@ -534,11 +534,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">Numéro WhatsApp</label>
                     <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4338CA] focus-within:border-[#4338CA] transition-all">
-                      <span className="bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-600 border-r border-slate-200 flex items-center gap-1 shrink-0">
-                        <Phone className="w-3.5 h-3.5 text-slate-400" />
-                      </span>
+                      {/* Indicatif affiché comme à l'inscription. Il n'est pas
+                          envoyé : le numéro est enregistré sans indicatif. */}
+                      <select
+                        aria-label="Indicatif pays"
+                        value={country.code}
+                        onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
+                        className="bg-slate-50 pl-3 pr-1 py-2.5 text-xs font-bold text-slate-600 border-r border-slate-200 shrink-0 cursor-pointer outline-none"
+                      >
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code} {c.dialCode}
+                          </option>
+                        ))}
+                      </select>
                       <input
                         type="tel"
+                        inputMode="numeric"
                         value={telephone}
                         onChange={(e) => setTelephone(e.target.value.replace(/\D/g, ''))}
                         placeholder="0708091011"
@@ -547,7 +559,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Code PIN</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Mot de passe</label>
                     <PinInput value={pin} onChange={setPin} />
                   </div>
                   <button
@@ -569,7 +581,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                     }}
                     className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer pt-1"
                   >
-                    PIN oublié ?
+                    Mot de passe oublié ?
                   </button>
                 </form>
               )}

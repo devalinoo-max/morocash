@@ -127,7 +127,7 @@ export async function reactivateBusiness(businessId: string) {
 
 export const resetUserCodeSchema = z.object({
   userId: z.string().cuid(),
-  newPin: z.string().regex(/^\d{6}$/, 'Le code doit comporter exactement 6 chiffres'),
+  newPin: z.string().regex(/^\d{6}$/, 'Le mot de passe doit comporter exactement 6 chiffres'),
 });
 
 /**

@@ -21,7 +21,7 @@ type Step = 'PHONE' | 'CODE' | 'SHOP' | 'NEW_PIN';
 const ONBOARDING_INDIGO = '#4F46E5';
 
 /**
- * « PIN oublié ? » en trois temps : on demande le numéro, un code à 6 chiffres
+ * « Mot de passe oublié ? » en trois temps : on demande le numéro, un code à 6 chiffres
  * part par WhatsApp, puis on choisit un nouveau PIN.
  *
  * Le code est vérifié avant l'écran du nouveau PIN (POST reset-code/verify) :
@@ -91,11 +91,11 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
     e.preventDefault();
     setErrorMessage(null);
     if (!/^\d{6}$/.test(newPin)) {
-      setErrorMessage('Le nouveau code doit comporter exactement 6 chiffres.');
+      setErrorMessage('Le nouveau mot de passe doit comporter exactement 6 chiffres.');
       return;
     }
     if (newPin !== newPinConfirm) {
-      setErrorMessage('Les deux codes ne sont pas identiques.');
+      setErrorMessage('Les deux mots de passe ne sont pas identiques.');
       return;
     }
     setIsSubmitting(true);
@@ -103,7 +103,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
       await confirmPinReset({ telephone: telephone.trim(), code, newPin, businessId });
       onDone(telephone.trim());
     } catch (error) {
-      fail(error, 'Impossible de changer le code.');
+      fail(error, 'Impossible de changer le mot de passe.');
     } finally {
       setIsSubmitting(false);
     }
@@ -136,7 +136,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
       {step === 'PHONE' && (
         <form onSubmit={handleRequest} className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Code PIN oublié</h2>
+            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Mot de passe oublié</h2>
             <p className="text-xs text-slate-500">
               On envoie un code à 6 chiffres sur le WhatsApp de ta boutique.
             </p>
@@ -198,7 +198,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
       {step === 'SHOP' && (
         <div className="space-y-3">
           <p className="text-xs text-slate-500">
-            Ce numéro est utilisé dans plusieurs boutiques. Pour laquelle veux-tu changer le code ?
+            Ce numéro est utilisé dans plusieurs boutiques. Pour laquelle veux-tu changer le mot de passe ?
           </p>
           {businesses.map((b) => (
             <button
@@ -219,7 +219,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
       {step === 'NEW_PIN' && (
         <form onSubmit={handleConfirm} className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Choisis ton nouveau code</h2>
+            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Choisis ton nouveau mot de passe</h2>
             <p className="text-xs text-slate-500 flex items-start gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-px" />
               <span>6 chiffres, à retenir : il ouvre ta caisse à chaque connexion.</span>
@@ -227,7 +227,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1.5">Nouveau code PIN</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1.5">Nouveau mot de passe</label>
             <PinInput value={newPin} onChange={setNewPin} autoFocus />
           </div>
           <div>
@@ -235,13 +235,13 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
             <PinInput value={newPinConfirm} onChange={setNewPinConfirm} />
             {newPinConfirm.length === 6 && newPin !== newPinConfirm && (
               <p className="text-[11px] font-semibold text-rose-600 mt-1.5">
-                Les deux codes ne sont pas identiques.
+                Les deux mots de passe ne sont pas identiques.
               </p>
             )}
           </div>
 
           <SubmitButton disabled={isSubmitting || newPin.length !== 6 || newPin !== newPinConfirm}>
-            {isSubmitting ? 'Enregistrement…' : 'Enregistrer mon nouveau code'}
+            {isSubmitting ? 'Enregistrement…' : 'Enregistrer mon nouveau mot de passe'}
           </SubmitButton>
         </form>
       )}

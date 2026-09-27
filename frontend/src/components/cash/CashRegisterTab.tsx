@@ -133,7 +133,7 @@ export const CashRegisterTab: React.FC = () => {
 
   // Credit sales count today (not counted in cash register, to avoid confusion §BLOC 7)
   const creditSalesCount = sales.filter(
-    (s) => s.paymentStatus === 'CREDIT' || (s.remainingAmount > 0 && s.paidAmount === 0)
+    (s) => !s.isCancelled && (s.paymentStatus === 'CREDIT' || (s.remainingAmount > 0 && s.paidAmount === 0))
   ).length;
 
   // Breakdown by payment provider

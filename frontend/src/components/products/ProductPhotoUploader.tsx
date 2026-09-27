@@ -62,6 +62,13 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
     const files = Array.from(fileList);
     if (files.length === 0) return;
 
+    // Le glisser-déposer ignore l'attribut accept : on écarte les PDF ici,
+    // processImageFile les accepte car il sert aussi aux justificatifs.
+    if (files.some((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name))) {
+      setErrorMessage('Une photo produit doit être en JPG, PNG, WEBP ou HEIC.');
+      return;
+    }
+
     const availableSlots = maxPhotos - photos.length;
     if (availableSlots <= 0) {
       setErrorMessage(`Maximum ${maxPhotos} photos autorisées.`);
@@ -164,7 +171,7 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/pdf"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         className="hidden"
         onChange={(e) => e.target.files && handleFilesSelected(e.target.files)}
       />
@@ -317,7 +324,7 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
           </button>
 
           <span className="text-[11px] text-slate-400 hidden sm:inline ml-auto">
-            JPG, PNG, WEBP, HEIC, PDF • Max 15 Mo (compressé &lt;100Ko) • Ou glisse / colle (Ctrl+V)
+            JPG, PNG, WEBP, HEIC • Max 15 Mo (compressé &lt;100Ko) • Ou glisse / colle (Ctrl+V)
           </span>
         </div>
       )}

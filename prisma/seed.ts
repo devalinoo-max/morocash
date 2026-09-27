@@ -100,14 +100,14 @@ async function main() {
     nom: 'Boutique Alpha',
     ville: 'Abidjan',
     telephoneOwner: '2250700000001',
-    pinOwner: '1234',
+    pinOwner: '123456',
   });
 
   const b = await seedBusiness({
     nom: 'Boutique Beta',
     ville: 'Bouaké',
     telephoneOwner: '2250700000002',
-    pinOwner: '5678',
+    pinOwner: '567890',
   });
 
   // AdminUser de développement (spec §2 + étape 12) — email/mot de passe/TOTP

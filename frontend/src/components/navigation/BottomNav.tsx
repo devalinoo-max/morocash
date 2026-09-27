@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Home,
@@ -7,6 +7,8 @@ import {
   MoreHorizontal,
   Plus,
   Scissors,
+  ShoppingCart,
+  Wallet,
 } from 'lucide-react';
 import { getTerminology } from '../../utils/formatters';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
@@ -23,7 +25,9 @@ export const BottomNav: React.FC = () => {
     customers,
     products,
     settings,
+    openNewExpense,
   } = useApp();
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
 
   const terminology = getTerminology(settings.activityType);
   // Le badge compte ce qui demande un geste — les commandes dont il reste de
@@ -33,7 +37,48 @@ export const BottomNav: React.FC = () => {
   const debtorsCount = customers.filter((c) => c.totalDebt > 0).length;
   const lowStockCount = products.filter((p) => !p.isService && p.stock <= p.alertThreshold).length;
 
+  const chooseCreate = (action: () => void) => {
+    setIsCreateMenuOpen(false);
+    action();
+  };
+
   return (
+    <>
+    {isCreateMenuOpen && (
+      <>
+        {/* Voile : un tap à côté du menu le ferme. Au-dessus de la barre (z-40)
+            pour que le « + » serve aussi à refermer. */}
+        <div className="fixed inset-0 z-[45] bg-slate-950/30 animate-in fade-in duration-150" onClick={() => setIsCreateMenuOpen(false)} />
+        <div
+          role="menu"
+          aria-label="Créer"
+          className="fixed z-50 left-1/2 -translate-x-1/2 bottom-[88px] w-[min(18rem,calc(100vw-2rem))] bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150"
+        >
+          <button
+            id="btn-create-menu-sale"
+            role="menuitem"
+            onClick={() => chooseCreate(attemptNewSale)}
+            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-indigo-50 text-left cursor-pointer transition-colors"
+          >
+            <span className="w-9 h-9 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0">
+              <ShoppingCart className="w-4.5 h-4.5" />
+            </span>
+            <span className="text-sm font-extrabold text-slate-900">Nouvelle commande</span>
+          </button>
+          <button
+            id="btn-create-menu-expense"
+            role="menuitem"
+            onClick={() => chooseCreate(openNewExpense)}
+            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-amber-50 text-left cursor-pointer transition-colors"
+          >
+            <span className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+              <Wallet className="w-4.5 h-4.5" />
+            </span>
+            <span className="text-sm font-extrabold text-slate-900">Nouvelle dépense</span>
+          </button>
+        </div>
+      </>
+    )}
     <nav
       id="bottom-navigation-bar"
       className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 shadow-[0_-8px_25px_rgba(0,0,0,0.06)]"
@@ -82,16 +127,21 @@ export const BottomNav: React.FC = () => {
           <span className="text-[10px] mt-0.5 tracking-tight">Commandes</span>
         </button>
 
-        {/* 3. [+] BOUTON CENTRAL EN DÉGRADÉ INDIGO→VIOLET, 56PX (BLOC 3) */}
-        <div className="flex-1 flex justify-center items-center -mt-6">
+        {/* 3. [+] CRÉER — bouton central en dégradé indigo→violet, 56px (BLOC 3).
+            Il ouvre un menu à deux choix : commande et dépense, les deux gestes
+            les plus fréquents de la journée, au même nombre de taps. */}
+        <div className="flex-1 flex flex-col justify-center items-center -mt-6">
           <button
             id="btn-floating-new-sale"
-            onClick={attemptNewSale}
-            aria-label="Nouvelle commande"
+            onClick={() => setIsCreateMenuOpen((open) => !open)}
+            aria-label="Créer"
+            aria-expanded={isCreateMenuOpen}
+            aria-haspopup="menu"
             className={`w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#4F46E5] via-[#6366F1] to-[#9333EA] text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer ring-4 ring-white ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
-            <Plus className="w-7 h-7 stroke-[3]" />
+            <Plus className={`w-7 h-7 stroke-[3] transition-transform duration-200 ${isCreateMenuOpen ? 'rotate-45' : ''}`} />
           </button>
+          <span className="text-[10px] mt-0.5 tracking-tight font-extrabold text-[#4F46E5]">Créer</span>
         </div>
 
         {/* 4. PRODUITS / PRESTATIONS */}
@@ -146,5 +196,6 @@ export const BottomNav: React.FC = () => {
         </button>
       </div>
     </nav>
+    </>
   );
 };

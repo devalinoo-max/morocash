@@ -169,7 +169,12 @@ interface AppContextType {
   customerToFocus: string | null;
   focusCustomer: (customerId: string) => void;
   clearCustomerFocus: () => void;
-  
+  // Ouvre directement le formulaire « Saisir une dépense » (bouton Créer de la
+  // barre du bas). L'écran Dépenses consomme la demande puis la remet à false.
+  newExpenseRequested: boolean;
+  openNewExpense: () => void;
+  clearNewExpenseRequest: () => void;
+
   // Modals & Flows
   isNewSaleOpen: boolean;
   setIsNewSaleOpen: (open: boolean) => void;
@@ -575,6 +580,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     initialRoute?.debtorsOnly ?? false
   );
   const [customerToFocus, setCustomerToFocus] = useState<string | null>(null);
+  const [newExpenseRequested, setNewExpenseRequested] = useState(false);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(initialRoute?.modal === 'new-sale');
   const [isNewProductOpen, setIsNewProductOpen] = useState(initialRoute?.modal === 'new-product');
 
@@ -2336,6 +2342,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const clearCustomerFocus = () => setCustomerToFocus(null);
 
+  const openNewExpense = () =>
+    gateWrite(() => {
+      setNewExpenseRequested(true);
+      setActiveTab('more');
+      setActiveMoreSubTab('expenses');
+    });
+
+  const clearNewExpenseRequest = () => setNewExpenseRequested(false);
+
   /**
    * Encaisse le reste dû sur une commande.
    *
@@ -2821,6 +2836,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         customerToFocus,
         focusCustomer,
         clearCustomerFocus,
+        newExpenseRequested,
+        openNewExpense,
+        clearNewExpenseRequest,
         isNewSaleOpen,
         setIsNewSaleOpen,
         isNewProductOpen,

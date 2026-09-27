@@ -23,7 +23,7 @@ export const registerSchema = z.object({
   pays: z.enum(SUPPORTED_COUNTRIES).default('CI'),
   email: z.string().trim().toLowerCase().email('Adresse e-mail invalide').max(180).optional().or(z.literal('')),
   telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide'),
-  pin: z.string().regex(/^\d{6}$/, 'Le code doit comporter exactement 6 chiffres'),
+  pin: z.string().regex(/^\d{6}$/, 'Le mot de passe doit comporter exactement 6 chiffres'),
   // Type d'activité (Produits / Services / Les deux), demandé une seule fois à
   // l'inscription : il fixe le vocabulaire de l'app (produit ou prestation).
   typeActivite: z.enum(['COMMERCE', 'SERVICES', 'MIXTE']).default('COMMERCE'),

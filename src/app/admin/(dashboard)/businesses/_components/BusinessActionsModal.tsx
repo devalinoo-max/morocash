@@ -9,7 +9,7 @@ export type ActionMode = 'extend-trial' | 'change-plan' | 'reset-pin';
 const MODE_TITLES: Record<ActionMode, string> = {
   'extend-trial': "Prolonger l'essai",
   'change-plan': "Changer d'offre",
-  'reset-pin': 'Réinitialiser un code PIN',
+  'reset-pin': 'Réinitialiser un mot de passe',
 };
 
 export function BusinessActionsModal({
@@ -135,16 +135,16 @@ export function BusinessActionsModal({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700">Nouveau code (4 chiffres)</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Nouveau mot de passe (6 chiffres)</label>
                 <input
                   type="text"
                   required
                   inputMode="numeric"
-                  maxLength={4}
+                  maxLength={6}
                   value={newPin}
-                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-center font-mono text-sm tracking-widest text-slate-900"
-                  placeholder="0000"
+                  placeholder="000000"
                 />
               </div>
             </>

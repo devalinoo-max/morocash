@@ -200,11 +200,11 @@ export const SettingsPage: React.FC = () => {
   const handleSavePin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pinCurrent !== settings.pinCode) {
-      showToast('Ancien code secret incorrect', 'error');
+      showToast('Ancien mot de passe incorrect', 'error');
       return;
     }
     if (pinNew.length !== 6) {
-      showToast('Le nouveau code doit comporter exactement 6 chiffres', 'error');
+      showToast('Le nouveau mot de passe doit comporter exactement 6 chiffres', 'error');
       return;
     }
     if (pinNew !== pinConfirm) {
@@ -217,7 +217,7 @@ export const SettingsPage: React.FC = () => {
     setPinConfirm('');
     setPinSuccess(true);
     setTimeout(() => setPinSuccess(false), 3000);
-    showToast('Code secret mis à jour avec succès', 'success');
+    showToast('Mot de passe mis à jour avec succès', 'success');
   };
 
   // Delete account confirmation steps
@@ -1321,7 +1321,7 @@ export const SettingsPage: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-black text-slate-900">Mon compte</h2>
-                  <p className="text-xs text-slate-400 font-medium">Profil personnel, sécurité du code secret et gestion des sessions</p>
+                  <p className="text-xs text-slate-400 font-medium">Profil personnel, sécurité du mot de passe et gestion des sessions</p>
                 </div>
               </div>
             </div>
@@ -1357,16 +1357,16 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Changer mon code secret */}
+            {/* Changer mon mot de passe */}
             <div className="pt-4 border-t border-slate-100">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-indigo-600" />
-                <span>Changer mon code secret</span>
+                <span>Changer mon mot de passe</span>
               </h3>
 
               <form onSubmit={handleSavePin} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-600">Ancien code</label>
+                  <label className="text-[11px] font-bold text-slate-600">Ancien mot de passe</label>
                   <input
                     type="password"
                     maxLength={6}
@@ -1377,7 +1377,7 @@ export const SettingsPage: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-600">Nouveau code</label>
+                  <label className="text-[11px] font-bold text-slate-600">Nouveau mot de passe</label>
                   <input
                     type="password"
                     maxLength={6}
@@ -1412,7 +1412,7 @@ export const SettingsPage: React.FC = () => {
               {pinSuccess && (
                 <p className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 mt-2">
                   <Check className="w-3.5 h-3.5" />
-                  <span>Code secret modifié avec succès !</span>
+                  <span>Mot de passe modifié avec succès !</span>
                 </p>
               )}
             </div>

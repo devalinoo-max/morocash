@@ -160,7 +160,7 @@ export default function AdminBusinessesPage() {
                       onClick={() => setModal({ mode: 'reset-pin', business: b })}
                       className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
                     >
-                      Code PIN
+                      Mot de passe
                     </button>
                     <button
                       onClick={() => handleToggleSuspend(b)}

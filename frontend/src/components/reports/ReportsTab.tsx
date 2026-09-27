@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { formatMoney, formatMoneyCompact, formatDate, formatNumber } from '../../utils/formatters';
 import { Sale, Expense, CashMovement, PaymentMethod, Customer } from '../../types';
+import { CustomerDetailPanel } from '../customers/CustomerDetailPanel';
 
 type PeriodPreset = 'today' | '7days' | '30days' | 'thisMonth' | 'thisYear' | 'custom';
 
@@ -76,6 +77,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
   // --- 1. FILTER BAR STATE ---
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('30days');
   const [comparePrevious, setComparePrevious] = useState<boolean>(true);
+  const [detailCustomer, setDetailCustomer] = useState<Customer | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState<{ dateStr: string; dateLabel: string; sales: Sale[] } | null>(null);
 
@@ -1576,13 +1578,17 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
             ) : (
               debtors.map((c) => (
                 <div key={c.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setDetailCustomer(c)}
+                    className="min-w-0 flex-1 text-left cursor-pointer hover:opacity-80"
+                  >
                     <div className="text-xs font-bold text-slate-900 truncate">{c.name}</div>
                     <div className="text-[11px] text-rose-600 font-semibold flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       <span>Dette depuis {c.debtAgeDays || 0} jours</span>
                     </div>
-                  </div>
+                  </button>
 
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-xs font-black text-[#DC2626] tabular-nums text-right">
@@ -1603,6 +1609,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
           </div>
         </div>
       </div>
+
+      {detailCustomer && (
+        <CustomerDetailPanel customer={detailCustomer} sales={sales} onClose={() => setDetailCustomer(null)} />
+      )}
 
       {/* =====================================================================
           9. OÙ PART TON ARGENT (Dépenses par catégorie)

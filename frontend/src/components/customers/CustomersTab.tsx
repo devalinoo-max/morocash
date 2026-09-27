@@ -19,6 +19,7 @@ import { countLabel } from '../../utils/plural';
 import { Customer, PaymentMethod } from '../../types';
 import { MoneyInput } from '../common/UIStates';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
+import { CustomerDetailPanel } from './CustomerDetailPanel';
 
 export const CustomersTab: React.FC = () => {
   const {
@@ -57,6 +58,10 @@ export const CustomersTab: React.FC = () => {
   const [newCustPhone, setNewCustPhone] = useState('');
   const [newCustCity, setNewCustCity] = useState(settings.city || 'Abidjan');
   const [newCustNotes, setNewCustNotes] = useState('');
+
+  // Fiche client (ses commandes) — ouverte au clic sur une ligne ou une carte
+  const [detailCustomerId, setDetailCustomerId] = useState<string | null>(null);
+  const detailCustomer = customers.find((c) => c.id === detailCustomerId) ?? null;
 
   // Payment Recording Modal
   const [repayingCustomer, setRepayingCustomer] = useState<Customer | null>(null);
@@ -233,7 +238,8 @@ export const CustomersTab: React.FC = () => {
                     return (
                       <tr
                         key={cust.id}
-                        className="h-[46px] hover:bg-slate-50/80 transition-colors"
+                        onClick={() => setDetailCustomerId(cust.id)}
+                        className="h-[46px] hover:bg-slate-50/80 transition-colors cursor-pointer"
                       >
                         <td className="py-2.5 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-2.5">
@@ -283,7 +289,10 @@ export const CustomersTab: React.FC = () => {
                           )}
                         </td>
                         <td className="py-2.5 px-4 text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div
+                            className="flex items-center justify-center gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <a
                               href={`tel:${cust.phone}`}
                               className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
@@ -329,7 +338,8 @@ export const CustomersTab: React.FC = () => {
                   <div
                     key={cust.id}
                     id={`customer-card-${cust.id}`}
-                    className={`p-4 rounded-3xl bg-white border transition-all shadow-xs ${
+                    onClick={() => setDetailCustomerId(cust.id)}
+                    className={`p-4 rounded-3xl bg-white border transition-all shadow-xs cursor-pointer ${
                       hasDebt
                         ? 'border-rose-300 bg-rose-50/10 hover:border-rose-400'
                         : 'border-slate-200/80 hover:border-slate-300'
@@ -380,7 +390,10 @@ export const CustomersTab: React.FC = () => {
                     </div>
 
                     {/* Quick Action Buttons (§11: Appeler · WhatsApp · Enregistrer un remboursement) */}
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                    <div
+                      className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center gap-1.5">
                         <a
                           id={`btn-call-${cust.id}`}
@@ -424,6 +437,14 @@ export const CustomersTab: React.FC = () => {
           </>
         )}
       </div>
+
+      {detailCustomer && (
+        <CustomerDetailPanel
+          customer={detailCustomer}
+          sales={sales}
+          onClose={() => setDetailCustomerId(null)}
+        />
+      )}
 
       {/* MODAL: CREATE CUSTOMER */}
       {isAddCustomerOpen && (

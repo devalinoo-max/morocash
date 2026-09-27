@@ -329,6 +329,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             maxPhotos={3}
           />
 
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-slate-700">Catégorie</label>
+              <SavedBadge field="category" />
+            </div>
+            <CategorySelect
+              value={values.category}
+              onChange={(category) => {
+                set('category', category);
+                autoSave('category', { category });
+              }}
+            />
+          </div>
+
           {/* Plus de détails — replié par défaut */}
           <div className="pt-1 border-t border-slate-100">
             <button
@@ -359,20 +373,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </div>
                   </div>
                 )}
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-700">Catégorie</label>
-                    <SavedBadge field="category" />
-                  </div>
-                  <CategorySelect
-                    value={values.category}
-                    onChange={(category) => {
-                      set('category', category);
-                      autoSave('category', { category });
-                    }}
-                  />
-                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -422,19 +422,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   />
                 </div>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 py-1">
-                  <input
-                    type="checkbox"
-                    checked={values.isService}
-                    onChange={(e) => {
-                      set('isService', e.target.checked);
-                      autoSave('isService', { isService: e.target.checked });
-                    }}
-                    className="w-4 h-4 text-[#4F46E5] rounded-sm focus:ring-[#4F46E5]"
-                  />
-                  <span>C’est une prestation / un service (pas de stock)</span>
-                </label>
-
                 {!target && (
                   <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-2xl flex items-start gap-2.5 text-[11px] text-indigo-950">
                     <QrCode className="w-4 h-4 text-[#4F46E5] shrink-0 mt-0.5" />
@@ -449,6 +436,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
             )}
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 py-1">
+            <input
+              type="checkbox"
+              checked={values.isService}
+              onChange={(e) => {
+                set('isService', e.target.checked);
+                autoSave('isService', { isService: e.target.checked });
+              }}
+              className="w-4 h-4 text-[#4F46E5] rounded-sm focus:ring-[#4F46E5]"
+            />
+            <span>C’est une prestation / un service (pas de stock)</span>
+          </label>
 
           {target && (
             <ProductCodeSection

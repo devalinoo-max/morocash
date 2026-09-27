@@ -7,7 +7,7 @@ import { assertNotRateLimited, recordFailedAttempt, clearRateLimit, phoneKey, ip
 
 export const loginSchema = z.object({
   telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide'),
-  pin: z.string().regex(/^\d{6}$/, 'Le code doit comporter exactement 6 chiffres'),
+  pin: z.string().regex(/^\d{6}$/, 'Le mot de passe doit comporter exactement 6 chiffres'),
   businessId: z.string().cuid().optional(),
 });
 
@@ -46,7 +46,7 @@ export async function login(
   if (candidates.length === 0) {
     await recordFailedAttempt(rlPhone);
     if (rlIp) await recordFailedAttempt(rlIp);
-    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou code incorrect.');
+    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou mot de passe incorrect.');
   }
 
   if (candidates.length > 1 && !input.businessId) {
@@ -63,14 +63,14 @@ export async function login(
   if (!target) {
     await recordFailedAttempt(rlPhone);
     if (rlIp) await recordFailedAttempt(rlIp);
-    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou code incorrect.');
+    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou mot de passe incorrect.');
   }
 
   const valid = await verifyPin(input.pin, target.codeHash);
   if (!valid) {
     await recordFailedAttempt(rlPhone);
     if (rlIp) await recordFailedAttempt(rlIp);
-    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou code incorrect.');
+    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou mot de passe incorrect.');
   }
 
   await clearRateLimit(rlPhone);

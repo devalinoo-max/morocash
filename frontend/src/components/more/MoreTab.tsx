@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Wallet,
@@ -68,6 +68,8 @@ export const MoreTab: React.FC = () => {
     setEmployeeActive,
     isWriteLocked,
     gateWrite,
+    newExpenseRequested,
+    clearNewExpenseRequest,
   } = useApp();
 
   const isOwner = settings.role === 'OWNER';
@@ -103,7 +105,7 @@ export const MoreTab: React.FC = () => {
       return;
     }
     if (empPin.length !== 6) {
-      showToast('Le code PIN doit comporter 6 chiffres', 'warning');
+      showToast('Le mot de passe doit comporter 6 chiffres', 'warning');
       return;
     }
     setIsSavingEmployee(true);
@@ -129,6 +131,14 @@ export const MoreTab: React.FC = () => {
   const [expCategory, setExpCategory] = useState('Factures & Charges');
   const [expNote, setExpNote] = useState('');
   const [expPaymentMethod, setExpPaymentMethod] = useState<PaymentMethod>('CASH');
+
+  // « Créer › Nouvelle dépense » depuis la barre du bas : le formulaire
+  // s'ouvre directement, sans passer par la liste.
+  useEffect(() => {
+    if (!newExpenseRequested) return;
+    setIsAddExpenseOpen(true);
+    clearNewExpenseRequest();
+  }, [newExpenseRequested, clearNewExpenseRequest]);
 
   const handleAddExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +215,7 @@ export const MoreTab: React.FC = () => {
           <div>
             <h3 className="text-xs font-extrabold text-indigo-950">Gestion de l’équipe</h3>
             <p className="text-[11px] text-indigo-700">
-              Chaque vendeur se connecte avec son code PIN à 6 chiffres pour enregistrer ses commandes.
+              Chaque vendeur se connecte avec son mot de passe à 6 chiffres pour enregistrer ses commandes.
             </p>
           </div>
         </div>
@@ -244,7 +254,7 @@ export const MoreTab: React.FC = () => {
                     <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
                       <span>{emp.telephone}</span>
                       <span>•</span>
-                      <span className="text-slate-400">PIN : ••••</span>
+                      <span className="text-slate-400">Mot de passe : ••••</span>
                     </p>
                     {/* Ce que cette personne a le droit de faire, lisible sans ouvrir de fiche. */}
                     {emp.role !== 'OWNER' && (
@@ -304,7 +314,7 @@ export const MoreTab: React.FC = () => {
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Code à 6 chiffres (PIN de connexion) *
+                    Mot de passe à 6 chiffres *
                   </label>
                   <input
                     type="password"
@@ -317,7 +327,7 @@ export const MoreTab: React.FC = () => {
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono tracking-widest text-slate-900"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Ce code lui permettra d'ouvrir sa caisse et d'enregistrer des commandes.
+                    Ce mot de passe lui permettra d'ouvrir sa caisse et d'enregistrer des commandes.
                   </p>
                 </div>
 
@@ -989,7 +999,7 @@ export const MoreTab: React.FC = () => {
               <div>
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900">Employés</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Ajouter une personne, code PIN et attribution des rôles
+                  Ajouter une personne, mot de passe et attribution des rôles
                 </p>
               </div>
             </div>

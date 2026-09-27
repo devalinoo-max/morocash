@@ -20,7 +20,7 @@ export const resetConfirmSchema = z.object({
   // boutiques. Le parcours à l'écran le renseigne à partir de la liste renvoyée
   // par verifyPinReset.
   businessId: z.string().cuid().optional(),
-  newPin: z.string().regex(/^\d{6}$/, 'Le nouveau code doit comporter exactement 6 chiffres'),
+  newPin: z.string().regex(/^\d{6}$/, 'Le nouveau mot de passe doit comporter exactement 6 chiffres'),
 });
 
 export interface ResetBusinessChoice {

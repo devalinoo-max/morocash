@@ -9,7 +9,7 @@ import { EMPLOYEE_PERMISSIONS } from './permissions';
 export const createEmployeeSchema = z.object({
   nom: z.string().trim().min(2).max(120),
   telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide'),
-  pin: z.string().regex(/^\d{6}$/, 'Le code doit comporter exactement 6 chiffres'),
+  pin: z.string().regex(/^\d{6}$/, 'Le mot de passe doit comporter exactement 6 chiffres'),
   role: z.enum(['SELLER', 'ACCOUNTANT']),
   // Chaque droit est coché individuellement par le propriétaire. Liste absente
   // ou vide = aucun droit : on n'en accorde jamais un par défaut.

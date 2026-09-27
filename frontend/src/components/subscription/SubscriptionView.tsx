@@ -141,7 +141,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
       return;
     }
     setDurationPlan(targetPlan);
-    window.scrollTo({ top: 0 });
+    // C'est la zone de contenu qui défile, pas la fenêtre.
+    document.querySelector('main')?.scrollTo({ top: 0 });
   };
 
   const startPayment = async (periode: BillingPeriod) => {
