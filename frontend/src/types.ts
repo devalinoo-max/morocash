@@ -1,4 +1,4 @@
-import type { ReceiptPrintPrefs } from './utils/receiptPrint';
+import type { ReceiptPrintPrefs, ReceiptTextSize } from './utils/receiptPrint';
 import type { LabelVariant } from './utils/labelTicket';
 
 export type ActivityType ='COMMERCE' | 'SERVICES' | 'MIXTE';
@@ -212,6 +212,10 @@ export interface ReceiptSettings extends Partial<ReceiptPrintPrefs> {
   showWatermark: boolean; // "Reçu généré avec MoroCash"
   defaultFormat: 'TEXT' | 'IMAGE' | 'PDF';
   prefix: string; // CMD par défaut
+  /** Taille du texte imprimé (NORMAL si absent). */
+  tailleTexte?: ReceiptTextSize;
+  /** Tout le texte du reçu imprimé en gras. */
+  texteGras?: boolean;
 }
 
 export interface ShopSettings {

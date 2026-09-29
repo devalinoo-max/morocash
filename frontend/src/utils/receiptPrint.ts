@@ -127,6 +127,21 @@ export const SIZE_SHORTCUTS: { label: string; largeurMm: number; hauteurMm: numb
   { label: 'A6', largeurMm: 105, hauteurMm: 148 },
 ];
 
+/** Taille du texte imprimé, choisie par le commerçant. */
+export type ReceiptTextSize = 'PETIT' | 'NORMAL' | 'GRAND' | 'TRES_GRAND';
+
+export const TEXT_SIZES: { id: ReceiptTextSize; label: string; facteur: number }[] = [
+  { id: 'PETIT', label: 'Petit', facteur: 0.85 },
+  { id: 'NORMAL', label: 'Normal', facteur: 1 },
+  { id: 'GRAND', label: 'Grand', facteur: 1.15 },
+  { id: 'TRES_GRAND', label: 'Très grand', facteur: 1.3 },
+];
+
+/** Facteur appliqué au corps du texte ; valeur inconnue → taille normale. */
+export function textSizeFactor(taille: string | undefined): number {
+  return TEXT_SIZES.find((t) => t.id === taille)?.facteur ?? 1;
+}
+
 /** Réglages d'impression tels que la boutique les mémorise. */
 export interface ReceiptPrintPrefs {
   formatImpression: ReceiptPrintFormat;

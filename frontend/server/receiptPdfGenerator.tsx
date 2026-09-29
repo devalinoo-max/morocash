@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import {
   layoutForWidth,
   formatMoneyFull,
+  textSizeFactor,
   MIN_WIDTH_MM,
   MAX_WIDTH_MM,
   PRINT_MARGIN_MM,
@@ -84,6 +85,7 @@ interface LayoutSpec {
   font: string;
   fontBold: string;
   fontItalic: string;
+  fontBoldItalic: string;
   size: number;
   logoMm: number;
   marginXmm: number;
@@ -93,9 +95,9 @@ interface LayoutSpec {
 const LAYOUTS: Record<ReceiptLayout, LayoutSpec> = {
   // Chasse fixe : sur 48 mm, des colonnes qui tombent juste valent mieux
   // qu'une police proportionnelle qui gagne trois caractères.
-  ETROIT: { font: 'Courier', fontBold: 'Courier-Bold', fontItalic: 'Courier-Oblique', size: 9, logoMm: 20, marginXmm: PRINT_MARGIN_MM / 2, marginYmm: 3 },
-  MOYEN: { font: 'Courier', fontBold: 'Courier-Bold', fontItalic: 'Courier-Oblique', size: 10, logoMm: 28, marginXmm: PRINT_MARGIN_MM / 2, marginYmm: 4 },
-  LARGE: { font: 'Helvetica', fontBold: 'Helvetica-Bold', fontItalic: 'Helvetica-Oblique', size: 10, logoMm: 35, marginXmm: 14, marginYmm: 14 },
+  ETROIT: { font: 'Courier', fontBold: 'Courier-Bold', fontItalic: 'Courier-Oblique', fontBoldItalic: 'Courier-BoldOblique', size: 9, logoMm: 20, marginXmm: PRINT_MARGIN_MM / 2, marginYmm: 3 },
+  MOYEN: { font: 'Courier', fontBold: 'Courier-Bold', fontItalic: 'Courier-Oblique', fontBoldItalic: 'Courier-BoldOblique', size: 10, logoMm: 28, marginXmm: PRINT_MARGIN_MM / 2, marginYmm: 4 },
+  LARGE: { font: 'Helvetica', fontBold: 'Helvetica-Bold', fontItalic: 'Helvetica-Oblique', fontBoldItalic: 'Helvetica-BoldOblique', size: 10, logoMm: 35, marginXmm: 14, marginYmm: 14 },
 };
 
 export interface ReceiptSaleItem {
@@ -150,6 +152,8 @@ export interface ReceiptPdfSettings {
     showQrCode?: boolean;
     showMessage?: boolean;
     showWatermark?: boolean;
+    tailleTexte?: string;
+    texteGras?: boolean;
   };
 }
 
@@ -176,14 +180,19 @@ interface SingleReceiptProps {
 
 const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDataUrl, isMerchantCopy, page, scale = 1 }) => {
   const layout = layoutForWidth(page.largeurMm);
-  const L = LAYOUTS[layout];
+  const cfg = settings.receiptSettings ?? {};
+  // « Texte en gras » : le corps courant prend la graisse forte et le message
+  // passe en gras-italique. Les libellés gardent leur gris.
+  const base = LAYOUTS[layout];
+  const L: LayoutSpec = cfg.texteGras ? { ...base, font: base.fontBold, fontItalic: base.fontBoldItalic } : base;
   const k = scale;
   const sp = (v: number) => v * k;
-  const s = L.size * k;
+  // La taille choisie grossit le texte, pas les marges ni le logo ; sur une
+  // feuille de hauteur fixe, la réduction « tenir sur une page » s'y ajoute.
+  const s = L.size * textSizeFactor(cfg.tailleTexte) * k;
   const narrow = layout === 'ETROIT';
   const wide = layout === 'LARGE';
 
-  const cfg = settings.receiptSettings ?? {};
   const show = (flag: boolean | undefined, fallback: boolean) => (flag === undefined ? fallback : flag);
 
   const shopName = settings.shopName?.trim() || '';

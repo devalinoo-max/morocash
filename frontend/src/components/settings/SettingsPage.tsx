@@ -34,6 +34,7 @@ import {
 } from '../../types';
 import { formatMoney, formatDate } from '../../utils/formatters';
 import { DEFAULT_LABEL_VARIANT, LABEL_PALETTES, type LabelVariant } from '../../utils/labelTicket';
+import { TEXT_SIZES, textSizeFactor } from '../../utils/receiptPrint';
 import {
   editableReceiptMessage,
   receiptPhone,
@@ -670,6 +671,46 @@ export const SettingsPage: React.FC = () => {
                       </label>
                     );
                   })}
+
+                  {/* Texte du reçu imprimé : taille et graisse */}
+                  <div className="pt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700">Taille du texte</label>
+                      <SavedBadge fieldKey="receipt_tailleTexte" />
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
+                      {TEXT_SIZES.map((t) => {
+                        const isSel = (settings.receiptSettings?.tailleTexte || 'NORMAL') === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => handleReceiptFieldSave('tailleTexte', t.id)}
+                            className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              isSel ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50/80 cursor-pointer transition-colors">
+                      <span className="text-xs font-bold text-slate-800">Texte en gras</span>
+                      <div className="flex items-center gap-2">
+                        <SavedBadge fieldKey="receipt_texteGras" />
+                        <input
+                          type="checkbox"
+                          checked={settings.receiptSettings?.texteGras === true}
+                          onChange={(e) => handleReceiptFieldSave('texteGras', e.target.checked)}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </div>
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      S'applique au reçu imprimé et au PDF. Utile si l'imprimante imprime pâle.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Right: Live mini receipt preview */}
@@ -679,7 +720,12 @@ export const SettingsPage: React.FC = () => {
                       Aperçu en direct
                     </span>
 
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono text-[11px] text-slate-800 space-y-2.5">
+                    <div
+                      className={`bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono text-[11px] text-slate-800 space-y-2.5 ${
+                        settings.receiptSettings?.texteGras ? 'font-bold' : ''
+                      }`}
+                      style={{ zoom: textSizeFactor(settings.receiptSettings?.tailleTexte) }}
+                    >
                       {/* Logo & header */}
                       <div className="text-center pb-2 border-b border-dashed border-slate-200">
                         {settings.receiptSettings?.showLogo !== false && (
