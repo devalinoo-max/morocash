@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       throw new AppError('VALIDATION_ERROR', message, parsed.error.flatten());
     }
 
-    const broadcast = await sendBroadcast(admin.adminUserId, parsed.data);
+    const { broadcast, premiereErreur } = await sendBroadcast(admin.adminUserId, parsed.data);
     await auditAdminAction({
       adminUserId: admin.adminUserId,
       businessId: broadcast.businessId ?? undefined,
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       nouvellesValeurs: { titre: broadcast.titre, cible: broadcast.cible, envoyes: broadcast.envoyes },
     });
 
-    return ok({ broadcast });
+    return ok({ broadcast, premiereErreur });
   } catch (error) {
     return fail(error);
   }

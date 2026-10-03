@@ -108,6 +108,9 @@ export async function sendBroadcast(adminUserId: string, input: z.infer<typeof b
   const delivered: string[] = [];
   const expired: string[] = [];
   let echecs = 0;
+  // Premier refus d'un service push, renvoyé à l'admin : sans lui, un échec
+  // (clés VAPID mal copiées dans Vercel...) reste incompréhensible.
+  let premiereErreur: string | null = null;
 
   for (let i = 0; i < targets.length; i += CONCURRENCY) {
     const batch = targets.slice(i, i + CONCURRENCY);
@@ -124,7 +127,12 @@ export async function sendBroadcast(adminUserId: string, input: z.infer<typeof b
         delivered.push(target.id);
         return;
       }
-      const status = (r.reason as { statusCode?: number })?.statusCode;
+      const reason = r.reason as { statusCode?: number; body?: string; message?: string };
+      const status = reason?.statusCode;
+      if (!premiereErreur) {
+        premiereErreur = [status, reason?.body || reason?.message].filter(Boolean).join(' — ').slice(0, 300);
+        console.error('Envoi push refusé:', new URL(target.endpoint).host, premiereErreur);
+      }
       // 404/410 : l'utilisateur a retiré l'autorisation ou désinstallé l'app.
       if (status === 404 || status === 410) expired.push(target.id);
       else echecs += 1;
@@ -133,7 +141,7 @@ export async function sendBroadcast(adminUserId: string, input: z.infer<typeof b
 
   await Promise.all([deletePushSubscriptions(expired), markPushSubscriptionsUsed(delivered)]);
 
-  return createPushBroadcast({
+  const broadcast = await createPushBroadcast({
     adminUserId,
     titre: input.titre,
     message: input.message,
@@ -144,4 +152,5 @@ export async function sendBroadcast(adminUserId: string, input: z.infer<typeof b
     envoyes: delivered.length,
     echecs: echecs + expired.length,
   });
+  return { broadcast, premiereErreur };
 }

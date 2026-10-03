@@ -26,6 +26,7 @@ export default function AdminNotificationsPage() {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<AdminPushBroadcast | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -64,8 +65,12 @@ export default function AdminNotificationsPage() {
     setIsSending(true);
     setSendError(null);
     setLastResult(null);
+    setLastError(null);
     try {
-      const { broadcast } = await adminApi.post<{ broadcast: AdminPushBroadcast }>('/notifications', {
+      const { broadcast, premiereErreur } = await adminApi.post<{
+        broadcast: AdminPushBroadcast;
+        premiereErreur: string | null;
+      }>('/notifications', {
         titre,
         message,
         lien,
@@ -73,6 +78,7 @@ export default function AdminNotificationsPage() {
         ...(cible === 'BOUTIQUE' ? { businessId } : {}),
       });
       setLastResult(broadcast);
+      setLastError(premiereErreur);
       setTitre('');
       setMessage('');
       setLien('');
@@ -201,6 +207,11 @@ export default function AdminNotificationsPage() {
                 ? 'Notification enregistrée, mais aucun appareil abonné pour ces destinataires.'
                 : `Notification envoyée à ${lastResult.envoyes} appareil(s) sur ${lastResult.appareils}.`}
               {lastResult.echecs > 0 && ` ${lastResult.echecs} échec(s).`}
+            </div>
+          )}
+          {lastError && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Motif du premier échec : <span className="font-mono">{lastError}</span>
             </div>
           )}
 
