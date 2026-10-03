@@ -19,11 +19,20 @@ import {
 
 let configured = false;
 
+/**
+ * Valeur d'une variable VAPID, sans espaces ni guillemets autour : collés
+ * depuis le .env dans Vercel, ils passent la validation de web-push mais
+ * faussent la signature, qu'Apple refuse alors (403 BadJwtToken).
+ */
+function vapidEnv(name: 'VAPID_PUBLIC_KEY' | 'VAPID_PRIVATE_KEY' | 'VAPID_SUBJECT'): string | undefined {
+  return process.env[name]?.trim().replace(/^["']|["']$/g, '').trim() || undefined;
+}
+
 function ensureConfigured() {
   if (configured) return;
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
+  const publicKey = vapidEnv('VAPID_PUBLIC_KEY');
+  const privateKey = vapidEnv('VAPID_PRIVATE_KEY');
+  const subject = vapidEnv('VAPID_SUBJECT');
   if (!publicKey || !privateKey || !subject) {
     throw new AppError('SERVER_ERROR', 'Notifications non configurées : clés VAPID absentes.');
   }
@@ -32,7 +41,7 @@ function ensureConfigured() {
 }
 
 export function getVapidPublicKey(): string {
-  const key = process.env.VAPID_PUBLIC_KEY;
+  const key = vapidEnv('VAPID_PUBLIC_KEY');
   if (!key) {
     throw new AppError('SERVER_ERROR', 'Notifications non configurées : clés VAPID absentes.');
   }
