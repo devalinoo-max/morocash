@@ -26,3 +26,7 @@ declare module '*.wasm?url' {
   const url: string;
   export default url;
 }
+
+// Injectés au build par vite.config.ts (version affichée dans Réglages).
+declare const __APP_COMMIT__: string;
+declare const __APP_BUILT_AT__: string;

@@ -3,9 +3,29 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
+import {execSync} from 'child_process';
+
+/**
+ * Version affichée dans Réglages > Mon compte : la date du build et le commit
+ * déployé. Deux téléphones qui n'affichent pas la même ne tournent pas sur la
+ * même version de l'app (l'un n'a pas encore pris la mise à jour).
+ */
+function gitShortSha(): string {
+  const fromVercel = process.env.VERCEL_GIT_COMMIT_SHA;
+  if (fromVercel) return fromVercel.slice(0, 7);
+  try {
+    return execSync('git rev-parse --short HEAD', {stdio: ['ignore', 'pipe', 'ignore']}).toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
 
 export default defineConfig(() => {
   return {
+    define: {
+      __APP_COMMIT__: JSON.stringify(gitShortSha()),
+      __APP_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+    },
     plugins: [
       react(),
       tailwindcss(),

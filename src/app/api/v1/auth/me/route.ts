@@ -41,6 +41,9 @@ export async function GET() {
         trialDaysLeft: getTrialDaysLeft(ctx.business),
         locked: isBusinessLocked(ctx.business),
         cashRegisterMode: ctx.business.cashRegisterMode,
+        // Réglages partagés entre les appareils de la boutique (null tant que
+        // le propriétaire n'en a envoyé aucun).
+        reglages: ctx.business.reglages ?? null,
       },
     });
   } catch (error) {

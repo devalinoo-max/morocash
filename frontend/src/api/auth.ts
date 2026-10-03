@@ -31,6 +31,12 @@ export interface ApiBusiness {
   trialDaysLeft?: number | null;
   locked?: boolean;
   cashRegisterMode?: 'LIBRE' | 'STRICT';
+  /**
+   * Réglages partagés entre les appareils de la boutique (GET /auth/me).
+   * null : le propriétaire n'en a encore envoyé aucun. Absent (réponse de
+   * connexion ou d'inscription) : inconnu, le prochain recalage le lira.
+   */
+  reglages?: Record<string, unknown> | null;
 }
 
 export interface MeResponse {

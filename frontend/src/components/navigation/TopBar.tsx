@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Bell, CheckCircle2, AlertTriangle, Clock, MoreHorizontal } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Clock, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { SyncStatusBadge } from '../common/UIStates';
 import { usePageMenuEntries } from '../../context/PageMenuContext';
 import { avatarInitials } from '../../utils/avatar';
@@ -14,7 +14,7 @@ interface TopBarProps {
 /**
  * La barre haute, 56 px, une seule ligne.
  *
- * À gauche le nom de l'écran puis celui de la boutique ; à droite trois cibles
+ * À gauche le nom de l'écran puis celui de la boutique ; à droite quatre cibles
  * de 34 px, pas une de plus. Tout ce qui s'ajoutait ici — bouton « + Nouvelle
  * commande », gros libellés d'état — repoussait le titre jusqu'à le tronquer
  * sur un téléphone de 390 px, et le nom de la boutique passait dessous.
@@ -28,6 +28,8 @@ export const TopBar: React.FC<TopBarProps> = () => {
     products,
     setActiveTab,
     setCustomersDebtorsFilter,
+    refreshNow,
+    isRefreshing,
   } = useApp();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -108,7 +110,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
         </p>
       </div>
 
-      {/* DROITE : cloche, avatar, menu de la page. Rien d'autre. */}
+      {/* DROITE : actualiser, cloche, avatar, menu de la page. Rien d'autre. */}
       <div ref={rightCluster} className="flex items-center gap-[7px] shrink-0">
         {/* L'état de synchronisation n'apparaît qu'à partir de la tablette : sur
             téléphone, la bande basse et la bannière hors-ligne le disent déjà,
@@ -116,6 +118,20 @@ export const TopBar: React.FC<TopBarProps> = () => {
         <div className="hidden sm:block">
           <SyncStatusBadge />
         </div>
+
+        {/* Actualiser : voir tout de suite ce qu'un autre appareil de la
+            boutique vient d'enregistrer, sans attendre le recalage automatique. */}
+        <button
+          id="btn-refresh"
+          type="button"
+          onClick={() => void refreshNow()}
+          disabled={isRefreshing}
+          className={`${CIBLE} border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 disabled:cursor-wait`}
+          aria-label="Actualiser"
+          title="Actualiser"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
 
         {/* Notifications : un point rouge suffit, le nombre est dans le panneau */}
         <div className="relative">

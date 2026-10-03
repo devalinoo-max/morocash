@@ -42,6 +42,22 @@ import {
   toStoredReceiptMessage,
 } from '../../utils/receiptHelpers';
 
+/**
+ * « 03/10/2026 14:20 · e88bffc » : date du build puis commit déployé. Les
+ * constantes n'existent que dans un build Vite (absentes sous Vitest).
+ */
+const APP_VERSION_LABEL = (() => {
+  if (typeof __APP_BUILT_AT__ === 'undefined' || typeof __APP_COMMIT__ === 'undefined') return 'dev';
+  const builtAt = new Date(__APP_BUILT_AT__).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${builtAt} · ${__APP_COMMIT__}`;
+})();
+
 // Timezone options
 const TIMEZONES = [
   { value: 'Africa/Abidjan', label: 'Abidjan (UTC+0) — Côte d’Ivoire / Sénégal / Mali' },
@@ -1461,6 +1477,22 @@ export const SettingsPage: React.FC = () => {
                   <span>Mot de passe modifié avec succès !</span>
                 </p>
               )}
+            </div>
+
+            {/* Version de l'app : deux téléphones qui n'affichent pas la même
+                n'ont pas pris la même mise à jour. */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                  Version de l'application
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Compare-la entre les téléphones : la plus récente est la bonne.
+                </p>
+              </div>
+              <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200 shrink-0">
+                {APP_VERSION_LABEL}
+              </span>
             </div>
 
             {/* Mes appareils connectés */}

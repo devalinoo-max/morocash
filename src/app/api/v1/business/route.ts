@@ -17,14 +17,19 @@ export async function PATCH(request: Request) {
 
     const business = await updateBusinessSettings(ctx.businessId, parsed.data);
 
+    // Le bloc `reglages` est renvoyé à chaque retouche (taille du texte d'un
+    // reçu...) : on journalise quelles clés ont été envoyées, pas tout le bloc.
+    const { reglages, ...autres } = parsed.data;
     await auditable(ctx, {
       action: 'BUSINESS_SETTINGS_UPDATED',
       entite: 'Business',
       entiteId: business.id,
-      nouvellesValeurs: parsed.data,
+      nouvellesValeurs: reglages ? { ...autres, reglages: Object.keys(reglages) } : autres,
     });
 
-    return ok({ business: { cashRegisterMode: business.cashRegisterMode } });
+    return ok({
+      business: { cashRegisterMode: business.cashRegisterMode, reglages: business.reglages },
+    });
   } catch (error) {
     return fail(error);
   }

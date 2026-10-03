@@ -112,6 +112,75 @@ const SHOP_PROFILE_KEYS = [
   'currentSellerName',
 ] as const satisfies readonly (keyof ShopSettings)[];
 
+/**
+ * Réglages communs à TOUS les appareils de la boutique : enregistrés sur le
+ * serveur (Business.reglages) et relus à chaque recalage. Avant, ils restaient
+ * sur le téléphone où ils avaient été faits — le patron changeait son reçu, le
+ * vendeur imprimait toujours l'ancien. Le reste (mode d'affichage du tableau
+ * de bord, vendeur actif, compteur de codes...) reste propre à l'appareil.
+ */
+const SHARED_SETTINGS_KEYS = [
+  'shopName',
+  'activityType',
+  'city',
+  'telephone',
+  'whatsapp',
+  'adresse',
+  'fuseauHoraire',
+  'receiptMessage',
+  'receiptNotes',
+  'showLogo',
+  'compactReceipt',
+  'showPhone',
+  'logoUrl',
+  'logoTransparentUrl',
+  'receiptSettings',
+  'labelSettings',
+  'remiseMaxVendeur',
+  'maxDiscountPercent',
+  'autoriserStockNegatif',
+  'seuilEcartComptage',
+  'depenseAutoReception',
+  'fondCaisseHabituel',
+  'rappelFermetureCaisse',
+] as const satisfies readonly (keyof ShopSettings)[];
+type SharedSettingKey = (typeof SHARED_SETTINGS_KEYS)[number];
+const isSharedSettingKey = (key: string): key is SharedSettingKey =>
+  (SHARED_SETTINGS_KEYS as readonly string[]).includes(key);
+
+/**
+ * Suivi local des réglages partagés, pour UNE boutique :
+ * - `pending` : clés modifiées ici et pas encore acceptées par le serveur
+ *   (survit à une fermeture de l'app : un réglage fait hors ligne part au
+ *   retour du réseau au lieu d'être écrasé par l'ancienne version serveur) ;
+ * - `seen` : dernière version serveur appliquée, pour ne réappliquer que ce
+ *   qui a vraiment changé depuis.
+ */
+interface SharedSettingsSync {
+  businessId: string | null;
+  pending: SharedSettingKey[];
+  seen: string | null;
+}
+const SHARED_SYNC_KEY = 'morocash_shared_settings_v1';
+
+function readSharedSync(): SharedSettingsSync {
+  try {
+    const raw = localStorage.getItem(SHARED_SYNC_KEY);
+    if (raw) return JSON.parse(raw) as SharedSettingsSync;
+  } catch {
+    // Stockage illisible : on repart de zéro, le serveur fait foi.
+  }
+  return { businessId: null, pending: [], seen: null };
+}
+
+function writeSharedSync(sync: SharedSettingsSync) {
+  try {
+    localStorage.setItem(SHARED_SYNC_KEY, JSON.stringify(sync));
+  } catch {
+    // Stockage plein ou bloqué : le prochain recalage renverra tout.
+  }
+}
+
 function apiErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return 'Impossible de joindre le serveur. Réessaie.';
@@ -147,6 +216,9 @@ interface AppContextType {
   updateCashRegisterMode: (mode: 'LIBRE' | 'STRICT') => Promise<boolean>;
   /** Relit la formule depuis le serveur (après un paiement d'abonnement). */
   refreshPlanStatus: () => Promise<void>;
+  /** Relit tout de suite le serveur (bouton « Actualiser » de la barre haute). */
+  refreshNow: () => Promise<void>;
+  isRefreshing: boolean;
   products: Product[];
   customers: Customer[];
   sales: Sale[];
@@ -614,7 +686,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     null
   );
   // Recalage périodique sur le serveur (voir resyncFromServer).
-  const resyncRef = useRef<(() => Promise<void>) | null>(null);
+  const resyncRef = useRef<(() => Promise<unknown>) | null>(null);
   const lastRealLoadAt = useRef(0);
   const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
   const [saleSuccessReceipt, setSaleSuccessReceipt] = useState<Sale | null>(null);
@@ -674,11 +746,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Les dettes, la caisse et le stock bougent aussi depuis les autres
     // appareils de la boutique (vendeur, patron) : sans ce battement, un écran
     // resté ouvert affichait des soldes figés jusqu'au prochain rechargement.
+    // 45 s : une vente faite sur un autre téléphone apparaît en moins d'une
+    // minute, sans relire le serveur en boucle (chaque recalage = une dizaine
+    // de requêtes) ; le bouton « Actualiser » sert quand on ne peut pas attendre.
     const resyncTimer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       if (authStatusRef.current !== 'authenticated') return;
       void resyncRef.current?.();
-    }, 120_000);
+    }, 45_000);
 
     // État réel du réseau au démarrage, dans les deux sens : `isOfflineMode`
     // est persisté avec les réglages, et sans cette remise à plat une app
@@ -745,8 +820,128 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, 4000);
   };
 
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const sharedFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sharedFlushRunning = useRef(false);
+
   const updateSettings = (newSettings: Partial<ShopSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
+    // Réglage commun à la boutique : noté « à envoyer », puis envoyé au
+    // serveur une fois la saisie posée (un curseur ou une frappe = une seule
+    // requête, pas une par mouvement).
+    const shared = Object.keys(newSettings).filter(isSharedSettingKey);
+    if (shared.length === 0) return;
+    const sync = readSharedSync();
+    writeSharedSync({ ...sync, pending: Array.from(new Set([...sync.pending, ...shared])) });
+    if (sharedFlushTimer.current) clearTimeout(sharedFlushTimer.current);
+    sharedFlushTimer.current = setTimeout(() => void flushSharedSettings(), 800);
+  };
+
+  /**
+   * Applique la version serveur des réglages partagés, sauf les clés modifiées
+   * ici et pas encore envoyées (elles sont plus récentes que le serveur).
+   */
+  const applyServerSettings = (reglages: Record<string, unknown>) => {
+    const pending = new Set(readSharedSync().pending);
+    setSettings((prev) => {
+      const next = { ...prev } as unknown as Record<string, unknown>;
+      for (const key of SHARED_SETTINGS_KEYS) {
+        if (pending.has(key)) continue;
+        // Clé absente côté serveur : jamais réglée par le propriétaire, la
+        // valeur de l'appareil reste.
+        if (key in reglages) next[key] = reglages[key];
+      }
+      return next as unknown as ShopSettings;
+    });
+  };
+
+  /**
+   * Envoie au serveur les réglages partagés modifiés sur cet appareil. Seul le
+   * propriétaire peut les écrire (le serveur refuse les autres rôles) : chez
+   * un vendeur, un réglage d'impression reste sur son téléphone jusqu'au
+   * prochain changement fait par le patron.
+   */
+  const flushSharedSettings = async () => {
+    if (sharedFlushTimer.current) {
+      clearTimeout(sharedFlushTimer.current);
+      sharedFlushTimer.current = null;
+    }
+    if (sharedFlushRunning.current) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    if (authStatusRef.current !== 'authenticated') return;
+    const sync = readSharedSync();
+    if (sync.pending.length === 0) return;
+    if (settingsRef.current.role !== 'OWNER') {
+      writeSharedSync({ ...sync, pending: [] });
+      return;
+    }
+
+    const sent = [...sync.pending];
+    const current = settingsRef.current as unknown as Record<string, unknown>;
+    // `null` et non `undefined` : JSON.stringify perdrait la clé, et le
+    // serveur ne saurait pas qu'un réglage (le logo...) a été effacé.
+    const patch = Object.fromEntries(sent.map((key) => [key, current[key] ?? null]));
+
+    sharedFlushRunning.current = true;
+    try {
+      const business = await businessApi.updateBusinessSettings({ reglages: patch });
+      const after = readSharedSync();
+      // Ce qui a été modifié PENDANT l'envoi reste à envoyer.
+      writeSharedSync({
+        ...after,
+        pending: after.pending.filter((key) => !sent.includes(key) || current[key] !== settingsRef.current[key]),
+        seen: JSON.stringify(business.reglages ?? {}),
+      });
+      // Le serveur remplace un logo en data URL par son lien Cloudinary :
+      // l'appareil reprend ce lien, plus léger à garder et à afficher.
+      if (business.reglages) applyServerSettings(business.reglages);
+    } catch (error) {
+      // Hors ligne ou serveur injoignable : les clés restent « à envoyer »,
+      // le prochain recalage réessaie. Un refus réel est signalé.
+      if (!isNetworkFailure(error)) showToast(apiErrorMessage(error), 'error');
+    } finally {
+      sharedFlushRunning.current = false;
+    }
+    if (readSharedSync().pending.length > 0 && sharedFlushTimer.current === null) {
+      sharedFlushTimer.current = setTimeout(() => void flushSharedSettings(), 800);
+    }
+  };
+
+  /**
+   * Réglages partagés lus dans GET /auth/me : on envoie d'abord ce qui attend
+   * ici, sinon on applique la version serveur si elle a changé. Le propriétaire
+   * d'une boutique qui n'a encore rien en base y envoie les siens : ce sont
+   * ceux que la boutique utilisait jusqu'ici.
+   */
+  const syncSharedSettings = async (session: authApi.MeResponse, opts: { force?: boolean } = {}) => {
+    let sync = readSharedSync();
+    if (sync.businessId !== session.business.id) {
+      sync = { businessId: session.business.id, pending: [], seen: null };
+      writeSharedSync(sync);
+    }
+
+    const reglages = session.business.reglages;
+    if (reglages === undefined) return; // réponse sans réglages : rien à conclure
+    if (reglages === null) {
+      if (session.user.role !== 'OWNER') return;
+      const current = settingsRef.current as unknown as Record<string, unknown>;
+      const toSeed = SHARED_SETTINGS_KEYS.filter((key) => current[key] !== undefined);
+      writeSharedSync({ ...sync, pending: Array.from(new Set([...sync.pending, ...toSeed])) });
+      await flushSharedSettings();
+      return;
+    }
+
+    if (sync.pending.length > 0 && session.user.role === 'OWNER') {
+      await flushSharedSettings();
+      return;
+    }
+    const serialized = JSON.stringify(reglages);
+    // Au démarrage (force), on réapplique même une version déjà vue : la
+    // session vient de remettre le nom de la boutique tiré de la base.
+    if (!opts.force && serialized === sync.seen) return;
+    applyServerSettings(reglages);
+    writeSharedSync({ ...readSharedSync(), seen: serialized });
   };
 
   // Contrairement au reste de updateSettings (purement local, jamais persisté
@@ -816,7 +1011,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * multiplier les allers-retours réseau par rapport à une mise à jour locale
    * optimiste.
    */
-  const loadRealData = async (userName: string) => {
+  /** Vrai si tout a été relu ; faux si le réseau ou le serveur a fait défaut. */
+  const loadRealData = async (userName: string): Promise<boolean> => {
     lastRealLoadAt.current = Date.now();
     try {
       // Toutes ces requêtes sont indépendantes les unes des autres (seul le
@@ -950,11 +1146,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         productCategories,
         session: null,
       });
+      return true;
     } catch (error) {
       // Hors ligne, l'echec est attendu : l'instantane local prend le relais,
       // aucun message d'erreur technique ne doit s'afficher (point 2).
-      if (isNetworkFailure(error)) return;
+      if (isNetworkFailure(error)) return false;
       showToast(apiErrorMessage(error), 'error');
+      return false;
     } finally {
       // Le premier chargement est passe : les ecrans peuvent arreter d'afficher
       // leurs squelettes, meme si le reseau a echoue (l'instantane local a
@@ -1449,18 +1647,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * Jamais pendant qu'une écriture attend : la version serveur n'en tient pas
    * encore compte et écraserait la dette ou le stock déjà mis à jour à l'écran.
    */
-  const resyncFromServer = async () => {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-    if (replayRunning.current) return;
-    if (Date.now() - lastRealLoadAt.current < 20_000) return;
+  const resyncFromServer = async (opts: { force?: boolean } = {}): Promise<boolean> => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+    if (replayRunning.current) return false;
+    if (!opts.force && Date.now() - lastRealLoadAt.current < 15_000) return false;
+    // Session relue à chaque recalage : réglages partagés de la boutique
+    // (reçus, étiquettes...) et état de l'abonnement changés depuis un autre
+    // appareil. Son échec n'empêche pas de relire les données.
+    void authApi
+      .fetchCurrentSession()
+      .then((session) => {
+        if (!session) return;
+        setCurrentBusiness(session.business);
+        updateSettings(computePlanStatus(session.business));
+        return syncSharedSettings(session);
+      })
+      .catch(() => undefined);
     const rows = await listPending();
     if (rows.length > 0) {
       await replayQueue({ silent: true });
-      return;
+      return false;
     }
-    await loadRealData(currentUser?.nom ?? settings.ownerName ?? 'Vendeur');
+    return loadRealData(currentUser?.nom ?? settings.ownerName ?? 'Vendeur');
   };
   resyncRef.current = resyncFromServer;
+
+  // Bouton « Actualiser » : relit tout de suite le serveur, sans attendre le
+  // prochain recalage automatique.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshNow = async () => {
+    if (isRefreshing) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      showToast('Pas de connexion : impossible d’actualiser pour le moment.', 'warning');
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      const pendingBefore = (await listPending()).length;
+      const loaded = await resyncFromServer({ force: true });
+      if (loaded) showToast('Données à jour.', 'success');
+      else if (pendingBefore > 0) showToast('Envoi de tes modifications en cours, puis mise à jour.', 'info');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const scheduleReplay = (delay: number) => {
     if (replayTimer.current) clearTimeout(replayTimer.current);
@@ -1550,7 +1780,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return next;
     });
 
-    updateSettings({
+    // setSettings et non updateSettings : ces valeurs VIENNENT du serveur, les
+    // noter « à envoyer » renverrait au serveur ce qu'il vient de dire.
+    setSettings((prev) => ({
+      ...prev,
       role: session.user.role,
       ownerName: session.user.nom,
       ownerPhone: session.user.telephone,
@@ -1562,10 +1795,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       subscriptionDaysLeft,
       quotaMaxProducts,
       cashRegisterMode: session.business.cashRegisterMode ?? 'LIBRE',
-    });
+    }));
     setAuthStatus('authenticated');
+    authStatusRef.current = 'authenticated';
     markSessionStarted(session.user.telephone);
     await loadRealData(session.user.nom);
+    // Après le chargement : l'état des réglages a eu le temps d'être rendu, et
+    // c'est lui qu'un propriétaire envoie si la boutique n'a rien en base.
+    await syncSharedSettings(session, { force: true });
 
     // Reprise de la file au demarrage. Sans ca, ce qui avait ete saisi hors
     // ligne ne repartait QUE si la connexion revenait pendant que l'app etait
@@ -2815,6 +3052,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateSettings,
         updateCashRegisterMode,
         refreshPlanStatus,
+        refreshNow,
+        isRefreshing,
         products,
         customers,
         sales,
