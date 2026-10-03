@@ -1800,8 +1800,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setAuthStatus('authenticated');
     authStatusRef.current = 'authenticated';
     markSessionStarted(session.user.telephone);
-    // Notifications activées d'office (voir setupAutoPush) : armé avant le
-    // chargement des données, pour qu'un échec de celui-ci ne l'empêche pas.
+    // Notifications : réabonne ce téléphone s'il les a déjà autorisées (voir
+    // setupAutoPush). Avant le chargement, pour qu'un échec de celui-ci ne
+    // l'empêche pas.
     setupAutoPush();
     await loadRealData(session.user.nom);
     // Après le chargement : l'état des réglages a eu le temps d'être rendu, et

@@ -39,6 +39,7 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
 import { InstallAppButton } from './components/pwa/InstallAppButton';
 import { PwaUpdateToast } from './components/pwa/PwaUpdateToast';
+import { PushReminder } from './components/pwa/PushReminder';
 import {
   OfflineBanner,
   ReadOnlyBanner,
@@ -465,6 +466,8 @@ const MainLayout: React.FC = () => {
       <ReceiptModal />
       <InstallAppButton variant="floating" />
       <PwaUpdateToast />
+      {/* Invitation à activer les notifications, tous les 3 jours. */}
+      <PushReminder />
       {/* Bande basse : envois en cours, echecs a reessayer (point 1). */}
       <PendingSyncBar />
       {/* Assistant d'aide : bulle flottante, par mots-clés, sans réseau. */}

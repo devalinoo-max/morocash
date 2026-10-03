@@ -59,27 +59,12 @@ export async function enablePush(): Promise<NotificationPermission> {
 }
 
 /**
- * Notifications activées d'office pour chaque commerçant connecté :
- * - autorisation déjà donnée : l'abonnement est (re)créé et rattaché au
- *   compte connecté (utile si un autre compte se connecte sur ce téléphone) ;
- * - pas encore demandée : la demande part au premier appui dans l'app, les
- *   navigateurs refusant de l'afficher sans geste de l'utilisateur ;
- * - refusée : rien à faire, seul le commerçant peut la débloquer dans son navigateur.
+ * À l'ouverture de session : si l'autorisation est déjà donnée, l'abonnement
+ * est (re)créé sans rien demander et rattaché au compte connecté (utile si un
+ * autre compte se connecte sur ce téléphone). Sinon, c'est PushReminder qui
+ * invite le commerçant à les activer, tous les 3 jours.
  */
-let autoPushArmed = false;
-
 export function setupAutoPush(): void {
-  if (!isPushSupported()) return;
-  if (Notification.permission === 'granted') {
-    void enablePush().catch(() => {});
-    return;
-  }
-  if (Notification.permission !== 'default' || autoPushArmed) return;
-  autoPushArmed = true;
-  const onFirstTap = () => {
-    document.removeEventListener('click', onFirstTap, true);
-    autoPushArmed = false;
-    void enablePush().catch(() => {});
-  };
-  document.addEventListener('click', onFirstTap, true);
+  if (!isPushSupported() || Notification.permission !== 'granted') return;
+  void enablePush().catch(() => {});
 }
