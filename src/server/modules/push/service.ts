@@ -2,12 +2,17 @@ import webpush from 'web-push';
 import { z } from 'zod';
 import { AppError } from '@/server/shared/errors';
 import {
+  cancelPushBroadcast,
+  claimPushBroadcast,
   createPushBroadcast,
   deletePushSubscriptionForUser,
   deletePushSubscriptions,
+  finishPushBroadcast,
   findBusinessName,
+  listDuePushBroadcasts,
   listPushTargets,
   markPushSubscriptionsUsed,
+  releasePushBroadcast,
   upsertPushSubscription,
 } from '@/server/repositories/push';
 
@@ -78,6 +83,10 @@ export function unsubscribeDevice(userId: string, endpoint: string) {
 
 // ─────────────── Envoi depuis l'admin ───────────────
 
+
+const MIN_DELAY_MS = 60 * 1000;
+const MAX_DELAY_MS = 365 * 24 * 60 * 60 * 1000;
+
 export const broadcastSchema = z
   .object({
     titre: z.string().trim().min(1, 'Le titre est obligatoire.').max(60, '60 caractères maximum pour le titre.'),
@@ -92,27 +101,34 @@ export const broadcastSchema = z
       .or(z.literal('')),
     cible: z.enum(['TOUS', 'BOUTIQUE']),
     businessId: z.string().cuid().optional(),
+    // Date d'envoi (ISO, fuseau compris). Absente : envoi immédiat.
+    programmeLe: z.string().datetime({ offset: true }).optional(),
   })
   .refine((v) => v.cible !== 'BOUTIQUE' || !!v.businessId, {
     message: 'Choisis la boutique à notifier.',
     path: ['businessId'],
-  });
+  })
+  .refine(
+    (v) => {
+      if (!v.programmeLe) return true;
+      const delay = new Date(v.programmeLe).getTime() - Date.now();
+      return delay >= MIN_DELAY_MS && delay <= MAX_DELAY_MS;
+    },
+    { message: 'Choisis une date d’envoi dans le futur (au plus dans un an).', path: ['programmeLe'] }
+  );
+
+type BroadcastContent = { titre: string; message: string; lien?: string | null; businessId?: string | null };
 
 // Envois simultanés vers les services push : assez pour aller vite, pas assez
 // pour saturer la fonction serverless.
 const CONCURRENCY = 50;
 
-export async function sendBroadcast(adminUserId: string, input: z.infer<typeof broadcastSchema>) {
+/** Envoie une notification aux appareils visés et compte le résultat. */
+async function deliver(content: BroadcastContent) {
   ensureConfigured();
 
-  const businessId = input.cible === 'BOUTIQUE' ? input.businessId : undefined;
-  if (businessId && !(await findBusinessName(businessId))) {
-    throw new AppError('RESOURCE_NOT_OWNED', 'Boutique introuvable.');
-  }
-
-  const lien = input.lien || undefined;
-  const payload = JSON.stringify({ title: input.titre, body: input.message, url: lien ?? '/accueil' });
-  const targets = await listPushTargets(businessId);
+  const payload = JSON.stringify({ title: content.titre, body: content.message, url: content.lien || '/accueil' });
+  const targets = await listPushTargets(content.businessId ?? undefined);
 
   const delivered: string[] = [];
   const expired: string[] = [];
@@ -150,16 +166,71 @@ export async function sendBroadcast(adminUserId: string, input: z.infer<typeof b
 
   await Promise.all([deletePushSubscriptions(expired), markPushSubscriptionsUsed(delivered)]);
 
-  const broadcast = await createPushBroadcast({
+  return {
+    counts: { appareils: targets.length, envoyes: delivered.length, echecs: echecs + expired.length },
+    premiereErreur,
+  };
+}
+
+/** Envoi immédiat, ou mise en attente si `programmeLe` est renseigné (le cron l'enverra). */
+export async function sendBroadcast(adminUserId: string, input: z.infer<typeof broadcastSchema>) {
+  const businessId = input.cible === 'BOUTIQUE' ? input.businessId : undefined;
+  if (businessId && !(await findBusinessName(businessId))) {
+    throw new AppError('RESOURCE_NOT_OWNED', 'Boutique introuvable.');
+  }
+
+  const content = {
     adminUserId,
     titre: input.titre,
     message: input.message,
-    lien,
+    lien: input.lien || undefined,
     cible: input.cible,
     businessId,
-    appareils: targets.length,
-    envoyes: delivered.length,
-    echecs: echecs + expired.length,
-  });
+  };
+
+  if (input.programmeLe) {
+    // Vérifie les clés dès maintenant : mieux vaut un refus à l'écran qu'un
+    // échec silencieux à l'heure dite.
+    ensureConfigured();
+    const broadcast = await createPushBroadcast({
+      ...content,
+      statut: 'PROGRAMME',
+      programmeLe: new Date(input.programmeLe),
+    });
+    return { broadcast, premiereErreur: null };
+  }
+
+  const { counts, premiereErreur } = await deliver(content);
+  const broadcast = await createPushBroadcast({ ...content, ...counts, statut: 'ENVOYE', envoyeLe: new Date() });
   return { broadcast, premiereErreur };
+}
+
+export async function cancelScheduledBroadcast(id: string) {
+  const { count } = await cancelPushBroadcast(id);
+  if (count === 0) {
+    throw new AppError('VALIDATION_ERROR', 'Cette notification n’est plus programmée : elle est déjà partie ou annulée.');
+  }
+}
+
+/**
+ * Appelé par le cron : envoie les notifications programmées dont l'heure est
+ * passée. Chacune est d'abord réservée (PROGRAMME → EN_COURS) pour qu'un
+ * second appel simultané ne l'envoie pas une deuxième fois.
+ */
+export async function sendDueBroadcasts() {
+  const due = await listDuePushBroadcasts(new Date());
+  let traitees = 0;
+  for (const b of due) {
+    if (!(await claimPushBroadcast(b.id))) continue;
+    try {
+      const { counts } = await deliver(b);
+      await finishPushBroadcast(b.id, counts);
+    } catch (error) {
+      // Clés absentes ou base indisponible : on la remet en file pour le passage suivant.
+      await releasePushBroadcast(b.id);
+      throw error;
+    }
+    traitees += 1;
+  }
+  return { traitees };
 }

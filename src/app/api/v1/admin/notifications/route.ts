@@ -31,10 +31,15 @@ export async function POST(request: Request) {
     await auditAdminAction({
       adminUserId: admin.adminUserId,
       businessId: broadcast.businessId ?? undefined,
-      action: 'ADMIN_NOTIFICATION_SENT',
+      action: broadcast.statut === 'PROGRAMME' ? 'ADMIN_NOTIFICATION_SCHEDULED' : 'ADMIN_NOTIFICATION_SENT',
       entite: 'PushBroadcast',
       entiteId: broadcast.id,
-      nouvellesValeurs: { titre: broadcast.titre, cible: broadcast.cible, envoyes: broadcast.envoyes },
+      nouvellesValeurs: {
+        titre: broadcast.titre,
+        cible: broadcast.cible,
+        envoyes: broadcast.envoyes,
+        programmeLe: broadcast.programmeLe,
+      },
     });
 
     return ok({ broadcast, premiereErreur });

@@ -69,11 +69,44 @@ export function createPushBroadcast(input: {
   lien?: string;
   cible: string;
   businessId?: string;
-  appareils: number;
-  envoyes: number;
-  echecs: number;
+  appareils?: number;
+  envoyes?: number;
+  echecs?: number;
+  statut: 'ENVOYE' | 'PROGRAMME';
+  programmeLe?: Date;
+  envoyeLe?: Date;
 }) {
   return prisma.pushBroadcast.create({ data: input });
+}
+
+/** Seule une notification encore programmée peut être annulée. */
+export function cancelPushBroadcast(id: string) {
+  return prisma.pushBroadcast.updateMany({ where: { id, statut: 'PROGRAMME' }, data: { statut: 'ANNULE' } });
+}
+
+export function listDuePushBroadcasts(now: Date) {
+  return prisma.pushBroadcast.findMany({
+    where: { statut: 'PROGRAMME', programmeLe: { lte: now } },
+    orderBy: { programmeLe: 'asc' },
+    take: 20,
+  });
+}
+
+/** Réserve l'envoi : faux si un autre passage du cron l'a déjà pris (ou si l'admin l'a annulé). */
+export async function claimPushBroadcast(id: string): Promise<boolean> {
+  const { count } = await prisma.pushBroadcast.updateMany({
+    where: { id, statut: 'PROGRAMME' },
+    data: { statut: 'EN_COURS' },
+  });
+  return count === 1;
+}
+
+export function finishPushBroadcast(id: string, counts: { appareils: number; envoyes: number; echecs: number }) {
+  return prisma.pushBroadcast.update({ where: { id }, data: { ...counts, statut: 'ENVOYE', envoyeLe: new Date() } });
+}
+
+export function releasePushBroadcast(id: string) {
+  return prisma.pushBroadcast.updateMany({ where: { id, statut: 'EN_COURS' }, data: { statut: 'PROGRAMME' } });
 }
 
 export async function listPushBroadcasts(limit = 50) {

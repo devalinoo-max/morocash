@@ -80,6 +80,9 @@ export interface AdminPushBroadcast {
   appareils: number;
   envoyes: number;
   echecs: number;
+  statut: 'PROGRAMME' | 'EN_COURS' | 'ENVOYE' | 'ANNULE';
+  programmeLe: string | null;
+  envoyeLe: string | null;
   createdAt: string;
 }
 

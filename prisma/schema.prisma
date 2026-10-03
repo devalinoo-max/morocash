@@ -719,9 +719,15 @@ model PushBroadcast {
   appareils   Int      @default(0)
   envoyes     Int      @default(0)
   echecs      Int      @default(0)
+  // PROGRAMME → EN_COURS (pris par le cron) → ENVOYE ; ANNULE si l'admin
+  // l'annule avant l'heure. Un envoi immédiat est créé directement ENVOYE.
+  statut      String    @default("ENVOYE")
+  programmeLe DateTime?
+  envoyeLe    DateTime?
   createdAt   DateTime @default(now())
 
   @@index([createdAt])
+  @@index([statut, programmeLe])
 }
 
 model AuditLog {
