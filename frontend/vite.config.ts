@@ -79,6 +79,10 @@ export default defineConfig(() => {
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api\//],
 
+          // Réception des notifications push et ouverture de l'app au clic
+          // (public/push-sw.js).
+          importScripts: ['push-sw.js'],
+
           runtimeCaching: [
             {
               // Les appels /api/** ne sont JAMAIS servis depuis le cache HTTP :

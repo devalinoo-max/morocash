@@ -68,3 +68,22 @@ export interface AdminSubscriptionPayment {
   referencePasserelle: string | null;
   createdAt: string;
 }
+
+export interface AdminPushBroadcast {
+  id: string;
+  titre: string;
+  message: string;
+  lien: string | null;
+  cible: 'TOUS' | 'BOUTIQUE';
+  businessId: string | null;
+  businessNom: string | null;
+  appareils: number;
+  envoyes: number;
+  echecs: number;
+  createdAt: string;
+}
+
+export interface AdminPushAudience {
+  appareils: number;
+  boutiques: number;
+}

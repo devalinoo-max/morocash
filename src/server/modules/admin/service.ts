@@ -208,7 +208,8 @@ export async function listAuditLogs(opts: { businessId?: string; limit?: number;
 /** AuditLog d'une action admin — `adminUserId` peuplé, `userId` absent (spec : "Admin actions must write AuditLog with adminUserId populated"). */
 export async function auditAdminAction(entry: {
   adminUserId: string;
-  businessId: string;
+  /** Absent pour une action qui vise toutes les boutiques (ex. notification à tous). */
+  businessId?: string;
   action: string;
   entite: string;
   entiteId?: string;

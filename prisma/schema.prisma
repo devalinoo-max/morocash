@@ -218,6 +218,7 @@ model Business {
   invoices     Invoice[]
   auditLogs    AuditLog[]
   productCodes ProductCode[]
+  pushSubscriptions PushSubscription[]
 
   @@index([statut])
 }
@@ -296,6 +297,7 @@ model User {
   cashMoves  CashMovement[]
   registersOpened CashRegister[] @relation("RegisterOpener")
   registersClosed CashRegister[] @relation("RegisterCloser")
+  pushSubscriptions PushSubscription[]
 
   @@unique([businessId, telephone])   // PAS unique globalement
   @@index([telephone])
@@ -680,6 +682,46 @@ model Notification {
   createdAt  DateTime @default(now())
 
   @@index([businessId, lu])
+}
+
+// Abonnement Web Push d'un appareil (navigateur ou app installée). Un même
+// endpoint ne sert qu'un compte à la fois : s'y reconnecter avec un autre
+// compte réattribue la ligne. Pas sous RLS : l'envoi depuis l'admin est
+// cross-tenant, et la lecture côté boutique filtre explicitement sur userId.
+model PushSubscription {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@index([businessId])
+  @@index([userId])
+}
+
+// Notification envoyée depuis le back-office : historique de la page
+// « Notifications » de l'admin.
+model PushBroadcast {
+  id          String   @id @default(cuid())
+  adminUserId String
+  titre       String
+  message     String
+  lien        String?
+  // TOUS, ou une boutique précise (businessId renseigné).
+  cible       String
+  businessId  String?
+  appareils   Int      @default(0)
+  envoyes     Int      @default(0)
+  echecs      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model AuditLog {

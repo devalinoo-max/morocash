@@ -87,6 +87,7 @@ import { loadIdMap, loadSnapshot, saveIdMap, saveSnapshot } from '../offline/cac
 import { CACHE_STORE, QUEUE_STORE, idbClear } from '../offline/idb';
 import { NO_CATEGORY_LABEL } from '../api/categories';
 import { hasSessionHint, markSessionEnded, markSessionStarted } from '../utils/session';
+import { setupAutoPush } from '../api/push';
 
 /** Réglages propres à UNE boutique : remis à zéro quand l'appareil change de boutique. */
 const SHOP_PROFILE_KEYS = [
@@ -1813,6 +1814,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // confirmee, le serveur repondrait AUTH_SESSION_EXPIRED, ce que la file
     // interprete comme un refus (voir replayQueue).
     void replayRef.current?.();
+
+    // Notifications activées d'office (voir setupAutoPush).
+    setupAutoPush();
   };
 
   useEffect(() => {

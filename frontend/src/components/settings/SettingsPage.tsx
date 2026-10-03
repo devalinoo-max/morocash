@@ -25,6 +25,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { CategoriesManager } from './CategoriesManager';
 import { ShopLogoUploader } from './ShopLogoUploader';
+import { PushNotificationsSetting } from './PushNotificationsSetting';
 import { DefaultPrintFormatSetting } from '../receipts/DefaultPrintFormatSetting';
 import {
   ActivityType,
@@ -1478,6 +1479,8 @@ export const SettingsPage: React.FC = () => {
                 </p>
               )}
             </div>
+
+            <PushNotificationsSetting />
 
             {/* Version de l'app : deux téléphones qui n'affichent pas la même
                 n'ont pas pris la même mise à jour. */}

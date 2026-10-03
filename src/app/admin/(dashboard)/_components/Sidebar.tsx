@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: '/admin', label: 'Vue d’ensemble' },
   { href: '/admin/businesses', label: 'Boutiques' },
   { href: '/admin/payments', label: 'Paiements' },
+  { href: '/admin/notifications', label: 'Notifications' },
   { href: '/admin/audit-logs', label: 'Journal d’audit' },
 ];
 
