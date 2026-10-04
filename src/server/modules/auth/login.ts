@@ -87,7 +87,7 @@ export async function login(
     });
   }
 
-  await prisma.user.update({ where: { id: target.id }, data: { lastLoginAt: new Date() } });
+  await prisma.user.update({ where: { id: target.id }, data: { lastLoginAt: new Date(), lastSeenAt: new Date() } });
   const sessionToken = await issueSessionToken(target.id, meta);
 
   return { status: 'OK', userId: target.id, businessId: target.businessId, sessionToken };

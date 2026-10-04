@@ -196,6 +196,8 @@ model Business {
   // étiquettes, coordonnées, remise max...). Écrits par l'OWNER, relus par
   // chaque appareil à la connexion et à chaque recalage. null = jamais envoyés.
   reglages           Json?
+  // Dernière relance automatique d'inactivité : une par semaine au plus.
+  derniereRelanceAt  DateTime?
   createdAt          DateTime       @default(now())
   deletedAt          DateTime?
 
@@ -286,6 +288,9 @@ model User {
   permissions String[]  @default([])
   actif       Boolean   @default(true)
   lastLoginAt DateTime?
+  // Dernière ouverture de l'app (rafraîchie par /auth/me, au plus une fois
+  // par heure) : sert aux relances « tu n'as pas ouvert MoroCash depuis 3 jours ».
+  lastSeenAt  DateTime?
   createdAt   DateTime  @default(now())
 
   sessions   Session[]

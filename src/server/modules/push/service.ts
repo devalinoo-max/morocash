@@ -1,15 +1,19 @@
 import webpush from 'web-push';
 import { z } from 'zod';
 import { AppError } from '@/server/shared/errors';
+import { isSubscriptionLapsed } from '@/server/shared/subscription';
 import {
   cancelPushBroadcast,
   claimPushBroadcast,
+  claimRelance,
   createPushBroadcast,
   deletePushSubscriptionForUser,
   deletePushSubscriptions,
   finishPushBroadcast,
   findBusinessName,
+  findLastOrderAt,
   listDuePushBroadcasts,
+  listRelanceCandidates,
   listPushTargets,
   markPushSubscriptionsUsed,
   releasePushBroadcast,
@@ -117,7 +121,14 @@ export const broadcastSchema = z
     { message: 'Choisis une date d’envoi dans le futur (au plus dans un an).', path: ['programmeLe'] }
   );
 
-type BroadcastContent = { titre: string; message: string; lien?: string | null; businessId?: string | null };
+type BroadcastContent = {
+  titre: string;
+  message: string;
+  lien?: string | null;
+  businessId?: string | null;
+  /** Plusieurs boutiques à la fois (relances) ; prioritaire sur businessId. */
+  businessIds?: string[];
+};
 
 // Envois simultanés vers les services push : assez pour aller vite, pas assez
 // pour saturer la fonction serverless.
@@ -128,7 +139,7 @@ async function deliver(content: BroadcastContent) {
   ensureConfigured();
 
   const payload = JSON.stringify({ title: content.titre, body: content.message, url: content.lien || '/accueil' });
-  const targets = await listPushTargets(content.businessId ?? undefined);
+  const targets = await listPushTargets(content.businessIds ?? content.businessId ?? undefined);
 
   const delivered: string[] = [];
   const expired: string[] = [];
@@ -233,4 +244,97 @@ export async function sendDueBroadcasts() {
     traitees += 1;
   }
   return { traitees };
+}
+
+// ─────────────── Relances d'inactivité ───────────────
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const INACTIVITE_MS = 3 * DAY_MS;
+const RELANCE_INTERVAL_MS = 7 * DAY_MS;
+// Fenêtre d'envoi en heure GMT (Côte d'Ivoire, Sénégal, Mali, Burkina, Togo :
+// GMT ; Bénin : GMT+1) : jamais la nuit.
+const RELANCE_HEURE_MIN = 10;
+const RELANCE_HEURE_MAX = 19;
+
+/** Textes choisis le 2026-10-04 : un par situation. */
+export const RELANCE_MESSAGES = {
+  RELANCE_INACTIF: {
+    titre: 'Tout va bien à la boutique ?',
+    message:
+      'On ne t’a pas vu depuis 3 jours. Si tu as vendu entre-temps, ajoute tes ventes pour ne rien perdre de ton suivi.',
+    lien: '/accueil',
+  },
+  RELANCE_SANS_VENTE: {
+    titre: 'Tu n’as rien oublié ?',
+    message:
+      'Aucune vente enregistrée depuis 3 jours. Prends 1 minute pour noter tes ventes et garder tes chiffres à jour.',
+    lien: '/commandes/nouvelle',
+  },
+  RELANCE_EXPIRE: {
+    titre: 'Ton abonnement a expiré',
+    message:
+      'Tes données sont toujours là, mais tu ne peux plus enregistrer de ventes. Renouvelle ton abonnement pour reprendre ton suivi.',
+    lien: '/abonnement',
+  },
+} as const;
+
+type RelanceType = keyof typeof RELANCE_MESSAGES;
+
+/**
+ * Appelé par le cron : relance les boutiques inactives depuis 3 jours, une
+ * fois par semaine au plus.
+ * - RELANCE_EXPIRE : essai ou abonnement échu. Prioritaire : les deux autres
+ *   inviteraient à enregistrer des ventes que l'app refuse ;
+ * - RELANCE_INACTIF : aucun de leurs comptes n'a ouvert l'app depuis 3 jours ;
+ * - RELANCE_SANS_VENTE : l'app est ouverte, mais aucune vente depuis 3 jours.
+ * Si les deux s'appliquent, seule la première part. Chaque passage est
+ * enregistré dans l'historique de la page Notifications de l'admin.
+ */
+export async function sendInactivityReminders(now = new Date()) {
+  const heure = now.getUTCHours();
+  if (heure < RELANCE_HEURE_MIN || heure >= RELANCE_HEURE_MAX) return { relancees: 0 };
+  // Avant de réserver quoi que ce soit : sans clés, la relance de la semaine serait perdue.
+  ensureConfigured();
+
+  const limite = new Date(now.getTime() - INACTIVITE_MS);
+  const relanceAvant = new Date(now.getTime() - RELANCE_INTERVAL_MS);
+  const candidates = await listRelanceCandidates({ since: limite, relanceAvant });
+
+  const groupes: Record<RelanceType, string[]> = {
+    RELANCE_INACTIF: [],
+    RELANCE_SANS_VENTE: [],
+    RELANCE_EXPIRE: [],
+  };
+  for (const b of candidates) {
+    const derniereVisite = Math.max(0, ...b.users.map((u) => u.lastSeenAt?.getTime() ?? 0));
+    let type: RelanceType | null = null;
+    if (isSubscriptionLapsed(b)) {
+      type = 'RELANCE_EXPIRE';
+    } else if (derniereVisite < limite.getTime()) {
+      type = 'RELANCE_INACTIF';
+    } else {
+      // Une boutique qui n'a jamais vendu compte depuis son inscription.
+      const derniereVente = (await findLastOrderAt(b.id)) ?? b.createdAt;
+      if (derniereVente < limite) type = 'RELANCE_SANS_VENTE';
+    }
+    if (type && (await claimRelance(b.id, relanceAvant))) groupes[type].push(b.id);
+  }
+
+  let relancees = 0;
+  for (const type of Object.keys(groupes) as RelanceType[]) {
+    const businessIds = groupes[type];
+    if (businessIds.length === 0) continue;
+    const content = RELANCE_MESSAGES[type];
+    const { counts } = await deliver({ ...content, businessIds });
+    await createPushBroadcast({
+      adminUserId: 'SYSTEME',
+      ...content,
+      cible: type,
+      ...counts,
+      statut: 'ENVOYE',
+      envoyeLe: new Date(),
+    });
+    relancees += businessIds.length;
+  }
+  return { relancees };
 }

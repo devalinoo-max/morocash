@@ -74,7 +74,7 @@ export interface AdminPushBroadcast {
   titre: string;
   message: string;
   lien: string | null;
-  cible: 'TOUS' | 'BOUTIQUE';
+  cible: 'TOUS' | 'BOUTIQUE' | 'RELANCE_INACTIF' | 'RELANCE_SANS_VENTE' | 'RELANCE_EXPIRE';
   businessId: string | null;
   businessNom: string | null;
   appareils: number;

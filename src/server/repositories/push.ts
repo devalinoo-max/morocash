@@ -1,4 +1,5 @@
 import { prisma } from '@/server/database/client';
+import { runInTenantTransaction } from '@/server/repositories/base';
 
 /**
  * Abonnements Web Push et historique des envois. Hors de `scoped()` : ces
@@ -35,10 +36,11 @@ export function deletePushSubscriptionForUser(endpoint: string, userId: string) 
   return prisma.pushSubscription.deleteMany({ where: { endpoint, userId } });
 }
 
-/** Appareils à notifier : tous, ou ceux d'une boutique. Comptes désactivés exclus. */
-export function listPushTargets(businessId?: string) {
+/** Appareils à notifier : tous, ou ceux d'une ou plusieurs boutiques. Comptes désactivés exclus. */
+export function listPushTargets(businessIds?: string | string[]) {
+  const ids = typeof businessIds === 'string' ? [businessIds] : businessIds;
   return prisma.pushSubscription.findMany({
-    where: { user: { actif: true }, ...(businessId ? { businessId } : {}) },
+    where: { user: { actif: true }, ...(ids ? { businessId: { in: ids } } : {}) },
     select: { id: true, endpoint: true, p256dh: true, auth: true },
   });
 }
@@ -121,4 +123,51 @@ export async function listPushBroadcasts(limit = 50) {
 
 export function findBusinessName(businessId: string) {
   return prisma.business.findUnique({ where: { id: businessId }, select: { id: true, nom: true } });
+}
+
+// ─────────────── Relances d'inactivité ───────────────
+
+/**
+ * Boutiques à examiner pour une relance : au moins un appareil abonné, pas
+ * bloquées par l'admin, inscrites depuis plus de `since`, et pas relancées
+ * depuis `relanceAvant`. Avec la dernière visite de chacun de leurs comptes.
+ */
+export function listRelanceCandidates(opts: { since: Date; relanceAvant: Date }) {
+  return prisma.business.findMany({
+    where: {
+      statut: { in: ['ESSAI', 'ACTIF', 'IMPAYE'] },
+      createdAt: { lte: opts.since },
+      OR: [{ derniereRelanceAt: null }, { derniereRelanceAt: { lte: opts.relanceAvant } }],
+      pushSubscriptions: { some: { user: { actif: true } } },
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      statut: true,
+      trialEndsAt: true,
+      subscriptionEndsAt: true,
+      users: { where: { actif: true }, select: { lastSeenAt: true } },
+    },
+  });
+}
+
+/** Date de la dernière vente (non annulée). Commandes sous RLS : lue dans le contexte de la boutique. */
+export async function findLastOrderAt(businessId: string): Promise<Date | null> {
+  const order = await runInTenantTransaction(businessId, (tx) =>
+    tx.order.findFirst({
+      where: { businessId, statut: { not: 'ANNULEE' } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    })
+  );
+  return order?.createdAt ?? null;
+}
+
+/** Réserve la relance de la semaine avant l'envoi, pour qu'un second passage du cron ne la double pas. */
+export async function claimRelance(businessId: string, relanceAvant: Date): Promise<boolean> {
+  const { count } = await prisma.business.updateMany({
+    where: { id: businessId, OR: [{ derniereRelanceAt: null }, { derniereRelanceAt: { lte: relanceAvant } }] },
+    data: { derniereRelanceAt: new Date() },
+  });
+  return count === 1;
 }

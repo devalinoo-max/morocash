@@ -17,6 +17,14 @@ function toLocalInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+/** Destinataires sans boutique précise. Les relances partent toutes seules (voir sendInactivityReminders). */
+const CIBLE_LABELS: Partial<Record<AdminPushBroadcast['cible'], string>> = {
+  TOUS: 'Toutes les boutiques',
+  RELANCE_INACTIF: 'Relance auto : app pas ouverte depuis 3 jours',
+  RELANCE_SANS_VENTE: 'Relance auto : aucune vente depuis 3 jours',
+  RELANCE_EXPIRE: 'Relance auto : abonnement expiré',
+};
+
 const STATUT_BADGE: Record<AdminPushBroadcast['statut'], { label: string; className: string }> = {
   PROGRAMME: { label: 'Programmée', className: 'bg-amber-100 text-amber-800' },
   EN_COURS: { label: 'En cours', className: 'bg-indigo-100 text-indigo-800' },
@@ -374,7 +382,7 @@ export default function AdminNotificationsPage() {
                     {b.lien && <p className="mt-0.5 font-mono text-[11px] text-indigo-600">{b.lien}</p>}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
-                    {b.cible === 'TOUS' ? 'Toutes les boutiques' : (b.businessNom ?? 'Boutique supprimée')}
+                    {CIBLE_LABELS[b.cible] ?? b.businessNom ?? 'Boutique supprimée'}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-slate-900">
                     {b.statut === 'ENVOYE' ? `${b.envoyes}/${b.appareils}` : '—'}

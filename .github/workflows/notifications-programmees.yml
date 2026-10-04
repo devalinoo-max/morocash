@@ -1,0 +1,21 @@
+# Envoie les notifications programmées depuis le back-office admin.
+# GitHub lance ce job toutes les 5 minutes (parfois avec quelques minutes de
+# retard aux heures chargées) ; la route n'envoie que ce qui est arrivé à
+# échéance. Le secret CRON_SECRET doit être le même que dans Vercel (projet morocash).
+name: Notifications programmées
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  envoyer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Envoyer les notifications arrivées à échéance
+        run: |
+          curl --fail-with-body -sS -m 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://morocash.vercel.app/api/cron/push-scheduled

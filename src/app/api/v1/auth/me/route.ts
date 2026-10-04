@@ -12,6 +12,12 @@ export async function GET() {
       throw new AppError('AUTH_SESSION_EXPIRED', 'Utilisateur introuvable.');
     }
 
+    // Chaque ouverture de l'app passe ici : c'est la « dernière visite » des
+    // relances d'inactivité. Au plus une écriture par heure.
+    if (!user.lastSeenAt || Date.now() - user.lastSeenAt.getTime() > 60 * 60 * 1000) {
+      await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
+    }
+
     const plan = ctx.business.planId
       ? await prisma.plan.findUnique({ where: { id: ctx.business.planId }, select: { code: true } })
       : null;
