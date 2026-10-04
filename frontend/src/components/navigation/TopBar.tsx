@@ -30,6 +30,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
     setCustomersDebtorsFilter,
     refreshNow,
     isRefreshing,
+    customersDebtorsFilter,
   } = useApp();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -65,7 +66,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
       case 'movements':
         return 'Mon stock';
       case 'customers':
-        return 'Mes clients';
+        return customersDebtorsFilter ? 'Qui me doit' : 'Mes clients';
       case 'more':
         if (activeMoreSubTab === 'expenses') return 'Mes dépenses';
         if (activeMoreSubTab === 'reports') return 'Mes chiffres';

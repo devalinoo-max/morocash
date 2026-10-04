@@ -50,6 +50,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
     activeCashSession,
     settings,
     logoutUser,
+    customersDebtorsFilter,
     setCustomersDebtorsFilter,
   } = useApp();
 
@@ -332,7 +333,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
               }}
               title="Clients"
               className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('customers')
+                isCurrentActive('customers') && !customersDebtorsFilter
                   ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
                   : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
               }`}
@@ -352,7 +353,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
                 navigateTo('customers');
               }}
               title="Qui me doit"
-              className="w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] text-[#C6C2E4] hover:bg-[#232141] hover:text-white transition-all cursor-pointer"
+              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
+                isCurrentActive('customers') && customersDebtorsFilter
+                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
+                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
+              }`}
             >
               <span className="flex items-center gap-[10px] truncate">
                 <Clock className="w-[17px] h-[17px] text-amber-400 shrink-0" />
