@@ -138,14 +138,21 @@ function shortPlanName(nom: string): string {
   return nom.replace(/^Formule\s+/i, '');
 }
 
-export async function listBusinesses(opts: { statut?: string; pays?: string; limit?: number; cursor?: string } = {}) {
+export async function listBusinesses(
+  opts: { statut?: string; pays?: string; affiliateId?: string; limit?: number; cursor?: string } = {}
+) {
   const limit = Math.min(opts.limit ?? 50, 200);
   const businesses = await prisma.business.findMany({
     where: {
       ...(opts.statut ? { statut: opts.statut as never } : {}),
       ...(opts.pays ? { pays: opts.pays } : {}),
+      ...(opts.affiliateId ? { affiliateId: opts.affiliateId === 'DIRECT' ? null : opts.affiliateId } : {}),
     },
-    include: { plan: true, subscriptions: paidSubscriptions },
+    include: {
+      plan: true,
+      subscriptions: paidSubscriptions,
+      affiliate: { select: { id: true, code: true, nom: true } },
+    },
     orderBy: { createdAt: 'desc' },
     take: limit,
     ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),

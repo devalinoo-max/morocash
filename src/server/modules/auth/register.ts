@@ -33,6 +33,10 @@ export const registerSchema = z.object({
   // serait donc trompeur d'en faire un attribut durable de sa boutique.
   // L'inscription ne le demande plus : à défaut, il se déduit du type d'activité.
   secteur: z.enum(BUSINESS_SECTORS).optional(),
+  // Code d'affiliation saisi à la main (facultatif). Vérifié par la route avant
+  // l'inscription, et ignoré si la personne est arrivée par un lien d'affilié
+  // (voir resolveSignupAffiliate).
+  affiliateCode: z.string().trim().max(40).optional(),
 });
 
 // z.input (pas z.infer/z.output) : `pays` a une valeur par défaut, donc les
@@ -69,7 +73,9 @@ async function assertIdentityAvailable(telephone: string, email?: string): Promi
 
 export async function registerBusiness(
   rawInput: RegisterInput,
-  meta: { ip?: string; userAgent?: string }
+  meta: { ip?: string; userAgent?: string },
+  /** Affilié déjà résolu par la route (lien ou code saisi), null = inscription directe. */
+  affiliateId: string | null = null
 ) {
   const input = registerSchema.parse(rawInput);
 
@@ -93,6 +99,7 @@ export async function registerBusiness(
           pays: input.pays,
           typeActivite: input.typeActivite,
           email,
+          affiliateId,
           statut: 'ESSAI',
           trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
         },

@@ -32,6 +32,8 @@ export interface AdminBusiness {
   createdAt: string;
   /** Abonnement payé en cours (ou le dernier), null si la boutique n'a jamais payé. */
   abonnement: { formule: string; montant: number; periode: SubPeriod; dateFin: string } | null;
+  /** Affilié dont le lien a amené l'inscription, null pour une inscription directe. */
+  affiliate: { id: string; code: string; nom: string | null } | null;
 }
 
 export interface AdminBusinessUser {
@@ -89,4 +91,58 @@ export interface AdminPushBroadcast {
 export interface AdminPushAudience {
   appareils: number;
   boutiques: number;
+}
+
+export interface AdminAffiliationSettings {
+  seuilRetrait: number;
+  plans: { id: string; code: string; nom: string; commissionAffilie: number }[];
+}
+
+export interface AdminAffiliate {
+  id: string;
+  code: string;
+  nom: string | null;
+  telephone: string;
+  pays: string;
+  createdAt: string;
+  inscrits: number;
+  payants: number;
+  solde: number;
+  /** Demande de retrait en attente de paiement, null s'il n'y en a pas. */
+  retraitDemande: {
+    id: string;
+    montant: number;
+    operateur: string | null;
+    numeroReception: string | null;
+    createdAt: string;
+  } | null;
+}
+
+export interface AdminAffiliatesOverview {
+  retraitsDemandes: number;
+  totalAVerser: number;
+  affiliates: AdminAffiliate[];
+}
+
+export type AffiliateAccountStatus = 'ESSAI' | 'ABONNE' | 'INACTIF';
+
+export interface AdminAffiliateDetail {
+  id: string;
+  code: string;
+  nom: string | null;
+  telephone: string;
+  pays: string;
+  createdAt: string;
+  inscrits: number;
+  payants: number;
+  solde: number;
+  comptes: {
+    id: string;
+    nom: string;
+    createdAt: string;
+    statut: AffiliateAccountStatus;
+    planCode: string | null;
+    paiements: number;
+    commission: number;
+  }[];
 }

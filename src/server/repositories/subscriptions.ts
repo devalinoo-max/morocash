@@ -2,6 +2,7 @@ import { addMonths } from 'date-fns';
 import type { PaymentMethod, Prisma, SubPayState, SubPeriod } from '@prisma/client';
 import { prisma } from '@/server/database/client';
 import { PERIOD_MONTHS } from '@/server/shared/subscription';
+import { creditAffiliateCommission } from './affiliates';
 
 /**
  * Paiements d'abonnement. Hors de `scoped()` : le callback pawaPay arrive sans
@@ -206,6 +207,20 @@ export function activatePaidSubscription(input: {
         },
       },
     });
+
+    // Commission de l'affilié qui a amené la boutique : jamais pour une
+    // boutique suspendue ou résiliée, et dans la même transaction que le
+    // paiement, pour qu'un paiement réussi ne puisse pas la perdre en route.
+    if (business.affiliateId && !administrativelyLocked) {
+      await creditAffiliateCommission(tx, {
+        affiliateId: business.affiliateId,
+        businessId: business.id,
+        subscriptionPaymentId: payment.id,
+        planId: payment.subscription.planId,
+        periode: payment.subscription.periode,
+        renouvellement: previousPaid > 0,
+      });
+    }
     return true;
-  });
+  }, { timeout: 15_000, maxWait: 10_000 });
 }

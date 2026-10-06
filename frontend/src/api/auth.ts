@@ -1,4 +1,5 @@
 import { api, ApiError } from './client';
+import { clearAffiliateCode } from '../utils/affiliateRef';
 import type { ActivityType, UserRole } from '../types';
 import type { EmployeePermission } from '../data/permissions';
 
@@ -53,6 +54,8 @@ export interface RegisterInput {
   pin: string;
   /** Produits / Services / Les deux : fixe le vocabulaire de l'app. */
   typeActivite: ActivityType;
+  /** Code d'affiliation saisi à la main. Ignoré par le serveur si un lien d'affilié a été suivi. */
+  affiliateCode?: string;
 }
 
 export interface LoginInput {
@@ -77,8 +80,15 @@ export async function fetchCurrentSession(): Promise<MeResponse | null> {
   }
 }
 
-export function registerBusiness(input: RegisterInput) {
-  return api.post<{ business: ApiBusiness; user: ApiUser }>('/auth/register', input);
+/**
+ * Le code d'un lien d'affilié n'est pas envoyé ici : le serveur le lit dans
+ * son propre cookie signé (voir claimReferral). Une fois la boutique créée,
+ * l'indice local du lien s'efface.
+ */
+export async function registerBusiness(input: RegisterInput) {
+  const result = await api.post<{ business: ApiBusiness; user: ApiUser }>('/auth/register', input);
+  clearAffiliateCode();
+  return result;
 }
 
 export function login(input: LoginInput) {

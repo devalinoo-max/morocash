@@ -27,6 +27,7 @@ async function seedBusiness(opts: {
       rapportsComparatifs: false,
       exportExcel: false,
       actif: true,
+      commissionAffilie: 1250,
     },
   });
 
@@ -49,6 +50,7 @@ async function seedBusiness(opts: {
       rapportsComparatifs: true,
       exportExcel: true,
       actif: true,
+      commissionAffilie: 2500,
     },
   });
 

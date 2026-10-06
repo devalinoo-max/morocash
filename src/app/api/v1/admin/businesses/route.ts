@@ -8,11 +8,14 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const statut = url.searchParams.get('statut') ?? undefined;
     const pays = url.searchParams.get('pays') ?? undefined;
+    // Id d'un affilié, ou DIRECT pour les inscriptions sans lien d'affilié.
+    const affiliateId = url.searchParams.get('affiliateId') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
     const limitParam = url.searchParams.get('limit');
     const businesses = await listBusinesses({
       statut,
       pays,
+      affiliateId,
       cursor,
       limit: limitParam ? Number(limitParam) : undefined,
     });

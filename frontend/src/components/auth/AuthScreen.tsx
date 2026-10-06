@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { checkAffiliateCode, claimReferral, fetchReferral } from '../../api/affiliate';
+import { clearAffiliateCode, readAffiliateCode } from '../../utils/affiliateRef';
 import { lastKnownPhone } from '../../utils/session';
 import { useApp } from '../../context/AppContext';
 import {
@@ -78,6 +80,51 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   const [typeActivite, setTypeActivite] = useState<ActivityType | null>(null);
   const pinsMatch = /^\d{6}$/.test(pin) && pin === pinConfirm;
 
+  // Code d'affiliation. Arrivée par un lien : code du lien, verrouillé (le
+  // serveur le relit dans son cookie signé et ignore toute saisie). Sinon :
+  // saisie libre, vérifiée auprès du serveur.
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [affiliateCode, setAffiliateCode] = useState('');
+  const [codeStatus, setCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const typedCode = linkCode ? '' : affiliateCode;
+  const codeBlocksSubmit = typedCode !== '' && codeStatus !== 'valid';
+
+  useEffect(() => {
+    let cancelled = false;
+    const localCode = readAffiliateCode();
+    // Le lien a posé un indice local : on le (re)confirme au serveur, qui pose
+    // son cookie. Sans indice, le cookie serveur peut encore exister.
+    const request = localCode ? claimReferral(localCode) : fetchReferral();
+    request
+      .then((code) => {
+        if (cancelled) return;
+        if (!code && localCode) clearAffiliateCode();
+        setLinkCode(code);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!typedCode) {
+      setCodeStatus('idle');
+      return;
+    }
+    setCodeStatus('checking');
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      checkAffiliateCode(typedCode)
+        .then((valide) => !cancelled && setCodeStatus(valide ? 'valid' : 'invalid'))
+        .catch(() => !cancelled && setCodeStatus('invalid'));
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [typedCode]);
+
   // Connexion multi-boutiques (même numéro dans plusieurs boutiques)
   const [businessChoices, setBusinessChoices] = useState<{ businessId: string; businessNom: string }[] | null>(null);
 
@@ -121,7 +168,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       setErrorMessage('Adresse e-mail invalide.');
       return;
     }
-    if (!pinsMatch || !typeActivite) {
+    if (!pinsMatch || !typeActivite || codeBlocksSubmit) {
       return;
     }
 
@@ -134,6 +181,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
       telephone: telephone.trim(),
       pin,
       typeActivite,
+      affiliateCode: typedCode || undefined,
     });
     setIsSubmitting(false);
     if (!result.success) {
@@ -496,6 +544,55 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                       </div>
 
                       <div>
+                        <label htmlFor="register-affiliate-code" className="text-xs font-bold text-slate-700 block mb-1">
+                          Code d'affiliation (optionnel)
+                        </label>
+                        {linkCode ? (
+                          <>
+                            <div className="relative">
+                              <input
+                                id="register-affiliate-code"
+                                type="text"
+                                value={linkCode}
+                                readOnly
+                                aria-readonly="true"
+                                className="w-full pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold font-mono outline-none cursor-not-allowed"
+                                style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                              />
+                              <Lock className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#6B7280' }} />
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1">
+                              Appliqué via ton lien d'invitation. Tu ne peux pas le modifier.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              id="register-affiliate-code"
+                              type="text"
+                              autoCapitalize="characters"
+                              autoComplete="off"
+                              value={affiliateCode}
+                              onChange={(e) => setAffiliateCode(e.target.value.replace(/\s+/g, '').toUpperCase())}
+                              placeholder="Ex. 79HC9M"
+                              aria-invalid={codeStatus === 'invalid'}
+                              className="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold font-mono text-slate-900 outline-none focus:ring-2"
+                              style={{ borderColor: codeStatus === 'invalid' ? '#DC2626' : '#E2E8F0' }}
+                            />
+                            {codeStatus === 'invalid' ? (
+                              <p className="text-[11px] font-semibold mt-1" style={{ color: '#DC2626' }}>
+                                Ce code n'existe pas. Vérifie-le ou laisse le champ vide.
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 mt-1">
+                                Quelqu'un t'a parlé de MoroCash ? Entre son code ici.
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <div>
                         <label className="text-xs font-bold text-slate-700 block mb-1.5">
                           Mot de passe à 6 chiffres
                         </label>
@@ -516,7 +613,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                       <div className="space-y-3 pt-1">
                         <button
                           type="submit"
-                          disabled={isSubmitting || !pinsMatch}
+                          disabled={isSubmitting || !pinsMatch || codeBlocksSubmit}
                           className="w-full py-3.5 rounded-full text-white font-extrabold text-sm flex items-center justify-center shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer transition-all enabled:hover:opacity-90"
                           style={{ backgroundColor: ONBOARDING_INDIGO, boxShadow: '0 10px 25px -5px rgba(79,70,229,0.35)' }}
                         >

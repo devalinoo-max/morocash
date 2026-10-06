@@ -4,6 +4,7 @@ import { issueCsrfToken } from '@/server/middleware/csrf';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
 import { getTrialDaysLeft } from '@/server/shared/subscription';
+import { forgetReferral, resolveSignupAffiliate } from '@/server/modules/affiliation/referral';
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +14,15 @@ export async function POST(request: Request) {
       throw new AppError('VALIDATION_ERROR', 'Données invalides.', parsed.error.flatten());
     }
 
-    const { business, owner, sessionToken } = await registerBusiness(parsed.data, requestMeta(request));
+    // Avant toute création : un code saisi invalide, ou le propre code de la
+    // personne, refuse l'inscription. Le code d'un lien l'emporte sur la saisie.
+    const affiliateId = await resolveSignupAffiliate({
+      telephone: parsed.data.telephone.trim(),
+      typedCode: parsed.data.affiliateCode,
+    });
+
+    const { business, owner, sessionToken } = await registerBusiness(parsed.data, requestMeta(request), affiliateId);
+    await forgetReferral();
     await setSessionCookie(sessionToken);
     await issueCsrfToken();
 

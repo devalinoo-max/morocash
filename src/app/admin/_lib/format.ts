@@ -49,3 +49,21 @@ export function formatAmount(amount: number): string {
 export function formatOffer(formule: string, montant: number, periode: SubPeriod): string {
   return `${formule} — ${formatAmount(montant)}${PERIOD_SUFFIX[periode]}`;
 }
+
+/** « mme koné » → « Mme Koné » : majuscule en tête de chaque mot. */
+export function capitalizeName(nom: string): string {
+  return nom.replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, letter: string) => sep + letter.toUpperCase());
+}
+
+/** « 79HC9M · Mme Koné », ou le code seul si l'affilié n'a pas encore donné son nom. */
+export function affiliateLabel(affiliate: { code: string; nom: string | null }): string {
+  return affiliate.nom ? `${affiliate.code} · ${capitalizeName(affiliate.nom)}` : affiliate.code;
+}
+
+/** Opérateurs mobile money d'un retrait d'affilié. */
+export const PAYOUT_OPERATOR_LABELS: Record<string, string> = {
+  ORANGE_MONEY: 'Orange Money',
+  MTN: 'MTN MoMo',
+  WAVE: 'Wave',
+  MOOV: 'Moov Money',
+};

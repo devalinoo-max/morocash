@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi, adminErrorMessage } from '../../_lib/adminApi';
-import type { AdminBusiness, AdminPlan, BusinessStatus } from '../../_lib/types';
-import { COUNTRY_LABELS, countryLabel, formatOffer } from '../../_lib/format';
+import type { AdminAffiliate, AdminAffiliatesOverview, AdminBusiness, AdminPlan, BusinessStatus } from '../../_lib/types';
+import { COUNTRY_LABELS, affiliateLabel, countryLabel, formatOffer } from '../../_lib/format';
 import { BusinessActionsModal, type ActionMode } from './_components/BusinessActionsModal';
 
 const STATUT_FILTERS: { value: BusinessStatus | 'ALL'; label: string }[] = [
@@ -33,6 +33,9 @@ export default function AdminBusinessesPage() {
   const [plans, setPlans] = useState<AdminPlan[]>([]);
   const [statutFilter, setStatutFilter] = useState<BusinessStatus | 'ALL'>('ALL');
   const [paysFilter, setPaysFilter] = useState('');
+  // Id d'un affilié, ou DIRECT pour les inscriptions sans lien.
+  const [affiliateFilter, setAffiliateFilter] = useState('');
+  const [affiliates, setAffiliates] = useState<AdminAffiliate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -45,6 +48,7 @@ export default function AdminBusinessesPage() {
       const params = new URLSearchParams();
       if (statutFilter !== 'ALL') params.set('statut', statutFilter);
       if (paysFilter) params.set('pays', paysFilter);
+      if (affiliateFilter) params.set('affiliateId', affiliateFilter);
       const query = params.size > 0 ? `?${params.toString()}` : '';
       const data = await adminApi.get<{ businesses: AdminBusiness[] }>(`/businesses${query}`);
       setBusinesses(data.businesses);
@@ -53,7 +57,7 @@ export default function AdminBusinessesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statutFilter, paysFilter]);
+  }, [statutFilter, paysFilter, affiliateFilter]);
 
   useEffect(() => {
     loadBusinesses();
@@ -64,6 +68,10 @@ export default function AdminBusinessesPage() {
       .get<{ plans: AdminPlan[] }>('/plans')
       .then((d) => setPlans(d.plans))
       .catch(() => setPlans([]));
+    adminApi
+      .get<AdminAffiliatesOverview>('/affiliates')
+      .then((d) => setAffiliates(d.affiliates))
+      .catch(() => setAffiliates([]));
   }, []);
 
   const handleToggleSuspend = async (business: AdminBusiness) => {
@@ -71,6 +79,26 @@ export default function AdminBusinessesPage() {
     try {
       const action = business.statut === 'SUSPENDU' ? 'reactivate' : 'suspend';
       await adminApi.post(`/businesses/${business.id}/${action}`);
+      await loadBusinesses();
+    } catch (err) {
+      setError(adminErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Correction du code affilié : vide = inscription directe. Le serveur vérifie
+  // le code et journalise le changement (AFFILIATE_CODE_CHANGED).
+  const handleChangeAffiliate = async (business: AdminBusiness) => {
+    const saisi = window.prompt(
+      `Code affilié de « ${business.nom} » (laisser vide pour une inscription directe) :`,
+      business.affiliate?.code ?? ''
+    );
+    if (saisi === null) return;
+    setBusyId(business.id);
+    setError(null);
+    try {
+      await adminApi.post(`/businesses/${business.id}/affiliate`, { code: saisi });
       await loadBusinesses();
     } catch (err) {
       setError(adminErrorMessage(err));
@@ -112,6 +140,19 @@ export default function AdminBusinessesPage() {
             </option>
           ))}
         </select>
+        <select
+          value={affiliateFilter}
+          onChange={(e) => setAffiliateFilter(e.target.value)}
+          className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600"
+        >
+          <option value="">Tous les affiliés</option>
+          <option value="DIRECT">Inscription directe</option>
+          {affiliates.map((a) => (
+            <option key={a.id} value={a.id}>
+              {affiliateLabel(a)}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -119,11 +160,12 @@ export default function AdminBusinessesPage() {
       )}
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full min-w-[860px] text-left text-sm">
+        <table className="w-full min-w-[1000px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <th className="px-4 py-3">Boutique</th>
               <th className="px-4 py-3">Pays</th>
+              <th className="px-4 py-3">Code affilié</th>
               <th className="px-4 py-3">Offre</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">Essai jusqu&apos;au</th>
@@ -134,14 +176,14 @@ export default function AdminBusinessesPage() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                   Chargement…
                 </td>
               </tr>
             )}
             {!isLoading && businesses.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                   Aucune boutique pour ce filtre.
                 </td>
               </tr>
@@ -153,6 +195,20 @@ export default function AdminBusinessesPage() {
                   <div className="text-xs font-normal text-slate-400">{b.ville ?? '—'}</div>
                 </td>
                 <td className="px-4 py-3 text-slate-600">{countryLabel(b.pays)}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {b.affiliate ? (
+                    <span className="text-slate-700">{affiliateLabel(b.affiliate)}</span>
+                  ) : (
+                    <span className="text-xs text-slate-400">— inscription directe</span>
+                  )}
+                  <button
+                    onClick={() => handleChangeAffiliate(b)}
+                    disabled={busyId === b.id}
+                    className="block text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-60"
+                  >
+                    Modifier
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-slate-600">
                   {b.abonnement ? (
                     formatOffer(b.abonnement.formule, b.abonnement.montant, b.abonnement.periode)

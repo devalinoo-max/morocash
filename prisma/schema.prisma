@@ -167,6 +167,10 @@ model Plan {
   rapportsComparatifs Boolean  @default(false)
   exportExcel         Boolean  @default(false)
   actif               Boolean  @default(true)
+  // Commission versée à l'affilié par mois d'abonnement payé, en FCFA.
+  // Modifiable depuis l'admin : seul le taux du moment du paiement compte,
+  // il est recopié sur chaque AffiliateCommission.
+  commissionAffilie   Int            @default(0)
   businesses          Business[]
   subscriptions       Subscription[]
 }
@@ -198,6 +202,9 @@ model Business {
   reglages           Json?
   // Dernière relance automatique d'inactivité : une par semaine au plus.
   derniereRelanceAt  DateTime?
+  // Affilié dont le lien a amené l'inscription. Posé à la création, jamais modifié.
+  affiliateId         String?
+  affiliate           Affiliate?       @relation(fields: [affiliateId], references: [id])
   createdAt          DateTime       @default(now())
   deletedAt          DateTime?
 
@@ -221,8 +228,10 @@ model Business {
   auditLogs    AuditLog[]
   productCodes ProductCode[]
   pushSubscriptions PushSubscription[]
+  affiliateCommissions AffiliateCommission[]
 
   @@index([statut])
+  @@index([affiliateId])
 }
 
 model Subscription {
@@ -256,6 +265,7 @@ model SubscriptionPayment {
   statut              SubPayState  @default(INITIE)
   payloadWebhook      Json?
   createdAt           DateTime     @default(now())
+  affiliateCommission AffiliateCommission?
 
   @@index([businessId, statut])
 }
@@ -348,6 +358,7 @@ model RateLimit {
   cle       String                       // "login:2250700000000" | "ip:1.2.3.4"
   compteur  Int      @default(1)
   resetAt   DateTime
+
   @@unique([cle])
   @@index([resetAt])
 }
@@ -752,4 +763,100 @@ model AuditLog {
 
   @@index([businessId, createdAt])
   @@index([entite, entiteId])
+}
+
+// ─────────────── AFFILIATION ───────────────
+// Comptes et sessions distincts des boutiques : un affilié n'a pas besoin de
+// boutique. Hors RLS, comme les paiements d'abonnement (voir
+// repositories/affiliates.ts).
+
+enum AffiliatePayoutStatus {
+  DEMANDE
+  PAYE
+}
+
+model Affiliate {
+  id        String   @id @default(cuid())
+  // Prénom ou nom, affiché « Bonjour … » et dans le back-office. null pour les
+  // comptes créés avant ce champ : ils le saisissent à la prochaine ouverture.
+  nom       String?
+  // Code du lien personnel (/a/CODE), en majuscules.
+  code      String   @unique
+  // Sans indicatif, comme User.telephone : sert au contrôle « pas de
+  // commission sur sa propre boutique ».
+  telephone String   @unique
+  pays      String   @default("CI")
+  codeHash  String
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  sessions    AffiliateSession[]
+  businesses  Business[]
+  commissions AffiliateCommission[]
+  payouts     AffiliatePayout[]
+}
+
+model AffiliateSession {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([affiliateId])
+}
+
+// Une commission par paiement d'abonnement réussi. Le taux et le nombre de
+// mois sont figés au moment du paiement : changer le taux dans l'admin ne
+// touche jamais une commission déjà créditée.
+model AffiliateCommission {
+  id                    String              @id @default(cuid())
+  affiliateId           String
+  affiliate             Affiliate           @relation(fields: [affiliateId], references: [id])
+  businessId            String
+  business              Business            @relation(fields: [businessId], references: [id])
+  subscriptionPaymentId String              @unique
+  subscriptionPayment   SubscriptionPayment @relation(fields: [subscriptionPaymentId], references: [id])
+  planCode              String
+  mois                  Int
+  tauxMensuel           Int
+  montant               Int
+  renouvellement        Boolean             @default(false)
+  // Retrait qui l'a emportée ; null = encore dans le solde.
+  payoutId              String?
+  payout                AffiliatePayout?    @relation(fields: [payoutId], references: [id])
+  createdAt             DateTime            @default(now())
+
+  @@index([affiliateId, createdAt])
+  @@index([payoutId])
+}
+
+// Un retrait regroupe les commissions du solde au moment de la demande.
+// L'admin paie hors de l'app puis le marque PAYE.
+model AffiliatePayout {
+  id              String                @id @default(cuid())
+  affiliateId     String
+  affiliate       Affiliate             @relation(fields: [affiliateId], references: [id])
+  montant         Int
+  // Où envoyer l'argent : opérateur mobile money et numéro de réception.
+  operateur       PaymentMethod?
+  numeroReception String?
+  statut          AffiliatePayoutStatus @default(DEMANDE)
+  adminUserId     String?
+  payeLe          DateTime?
+  createdAt       DateTime              @default(now())
+
+  commissions AffiliateCommission[]
+
+  @@index([affiliateId, createdAt])
+  @@index([statut])
+}
+
+// Réglages du programme (une seule ligne, id = "default"). Les taux par
+// formule vivent sur Plan.commissionAffilie.
+model AffiliateSettings {
+  id           String   @id @default("default")
+  seuilRetrait Int      @default(5000)
+  updatedAt    DateTime @updatedAt
 }
