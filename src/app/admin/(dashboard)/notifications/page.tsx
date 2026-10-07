@@ -332,7 +332,7 @@ export default function AdminNotificationsPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Aperçu</p>
             <div className="mt-3 flex gap-3 rounded-xl bg-slate-100 p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://morocashfront.vercel.app/icons/icon-192.png" alt="" className="h-9 w-9 rounded-lg" />
+              <img src="https://www.morocash.net/icons/icon-192.png" alt="" className="h-9 w-9 rounded-lg" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-slate-900">{titre || 'Titre de la notification'}</p>
                 <p className="line-clamp-3 text-xs text-slate-600">{message || 'Le message apparaîtra ici.'}</p>

@@ -43,7 +43,7 @@ export const affiliatePayoutSchema = z.object({
  * Jamais l'adresse du navigateur : en développement, ce serait localhost, un
  * lien qui ne s'ouvre sur aucun autre téléphone.
  */
-const DEFAULT_PUBLIC_URL = 'https://morocashfront.vercel.app';
+const DEFAULT_PUBLIC_URL = 'https://www.morocash.net';
 
 function publicBaseUrl(): string {
   for (const candidate of [process.env.AFFILIATE_PUBLIC_URL, process.env.APP_PUBLIC_URL]) {
