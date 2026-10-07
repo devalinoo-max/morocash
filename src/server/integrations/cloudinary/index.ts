@@ -2,10 +2,37 @@ import { v2 as cloudinary } from 'cloudinary';
 
 let configured = false;
 
+/**
+ * Identifiants Cloudinary : CLOUDINARY_URL (cloudinary://clé:secret@cloud, le
+ * format donné tel quel par la console) en priorité, sinon les trois variables
+ * séparées. La console affiche le secret masqué (« ********** ») : le recopier
+ * dans CLOUDINARY_API_SECRET donne un « api_secret mismatch », pas l'URL.
+ */
+function readCredentials(): { cloudName?: string; apiKey?: string; apiSecret?: string } {
+  const url = process.env.CLOUDINARY_URL;
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'cloudinary:' && parsed.username && parsed.password && parsed.hostname) {
+        return {
+          cloudName: parsed.hostname,
+          apiKey: decodeURIComponent(parsed.username),
+          apiSecret: decodeURIComponent(parsed.password),
+        };
+      }
+    } catch {
+      // URL invalide : on retombe sur les variables séparées
+    }
+  }
+  return {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+  };
+}
+
 function ensureConfigured(): boolean {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const { cloudName, apiKey, apiSecret } = readCredentials();
 
   if (!cloudName || !apiKey || !apiSecret) {
     return false;

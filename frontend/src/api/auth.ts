@@ -60,8 +60,10 @@ export interface RegisterInput {
   affiliateCode?: string;
 }
 
+/** Numéro WhatsApp OU e-mail de la boutique (propriétaire seulement), au choix. */
 export interface LoginInput {
-  telephone: string;
+  telephone?: string;
+  email?: string;
   pin: string;
   businessId?: string;
 }

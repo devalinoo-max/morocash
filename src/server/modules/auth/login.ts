@@ -5,11 +5,19 @@ import { verifyPin } from './pin';
 import { issueSessionToken } from './session';
 import { assertNotRateLimited, recordFailedAttempt, clearRateLimit, phoneKey, ipKey } from '@/server/middleware/rateLimit';
 
-export const loginSchema = z.object({
-  telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide'),
-  pin: z.string().regex(/^\d{6}$/, 'Le mot de passe doit comporter exactement 6 chiffres'),
-  businessId: z.string().cuid().optional(),
-});
+/**
+ * Connexion au choix : numéro WhatsApp (tout compte, employés compris) ou
+ * e-mail de la boutique renseigné à l'inscription (le propriétaire seulement :
+ * l'adresse appartient à la boutique, pas aux employés).
+ */
+export const loginSchema = z
+  .object({
+    telephone: z.string().trim().regex(/^\d{8,15}$/, 'Numéro de téléphone invalide').optional(),
+    email: z.string().trim().toLowerCase().email('Adresse e-mail invalide').max(180).optional(),
+    pin: z.string().regex(/^\d{6}$/, 'Le mot de passe doit comporter exactement 6 chiffres'),
+    businessId: z.string().cuid().optional(),
+  })
+  .refine((v) => !!v.telephone !== !!v.email, { message: 'Indique ton numéro WhatsApp ou ton adresse e-mail.' });
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
@@ -32,21 +40,26 @@ export async function login(
   input: LoginInput,
   meta: { ip?: string; userAgent?: string }
 ): Promise<LoginResult> {
-  const rlPhone = phoneKey(input.telephone);
+  // Compteur d'échecs par identifiant (numéro ou e-mail) ET par IP.
+  const rlPhone = input.email ? `login:email:${input.email}` : phoneKey(input.telephone!);
   const rlIp = meta.ip ? ipKey(meta.ip) : null;
 
   await assertNotRateLimited(rlPhone);
   if (rlIp) await assertNotRateLimited(rlIp);
 
+  const invalidMessage = input.email ? 'E-mail ou mot de passe incorrect.' : 'Numéro ou mot de passe incorrect.';
+
   const candidates = await prisma.user.findMany({
-    where: { telephone: input.telephone, actif: true },
+    where: input.email
+      ? { actif: true, role: 'OWNER', business: { email: input.email } }
+      : { telephone: input.telephone, actif: true },
     include: { business: true },
   });
 
   if (candidates.length === 0) {
     await recordFailedAttempt(rlPhone);
     if (rlIp) await recordFailedAttempt(rlIp);
-    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou mot de passe incorrect.');
+    throw new AppError('AUTH_INVALID_PIN', invalidMessage);
   }
 
   if (candidates.length > 1 && !input.businessId) {
@@ -63,14 +76,14 @@ export async function login(
   if (!target) {
     await recordFailedAttempt(rlPhone);
     if (rlIp) await recordFailedAttempt(rlIp);
-    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou mot de passe incorrect.');
+    throw new AppError('AUTH_INVALID_PIN', invalidMessage);
   }
 
   const valid = await verifyPin(input.pin, target.codeHash);
   if (!valid) {
     await recordFailedAttempt(rlPhone);
     if (rlIp) await recordFailedAttempt(rlIp);
-    throw new AppError('AUTH_INVALID_PIN', 'Numéro ou mot de passe incorrect.');
+    throw new AppError('AUTH_INVALID_PIN', invalidMessage);
   }
 
   await clearRateLimit(rlPhone);

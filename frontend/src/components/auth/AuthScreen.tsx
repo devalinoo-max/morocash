@@ -76,6 +76,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   // le commercant n'a plus qu'a taper son code (point 3).
   const [telephone, setTelephone] = useState(lastKnownPhone);
   const [pin, setPin] = useState('');
+  // Connexion au choix : numéro WhatsApp, ou e-mail de la boutique (propriétaire).
+  const [loginCanal, setLoginCanal] = useState<'WHATSAPP' | 'EMAIL'>('WHATSAPP');
+  const [loginEmail, setLoginEmail] = useState('');
 
   // Inscription
   const [businessNom, setBusinessNom] = useState('');
@@ -207,8 +210,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!/^\d{8,15}$/.test(telephone.trim())) {
+    if (loginCanal === 'WHATSAPP' && !/^\d{8,15}$/.test(telephone.trim())) {
       setErrorMessage('Numéro de téléphone invalide.');
+      return;
+    }
+    if (loginCanal === 'EMAIL' && !/^\S+@\S+\.\S+$/.test(loginEmail.trim())) {
+      setErrorMessage('Adresse e-mail invalide.');
       return;
     }
     if (!/^\d{6}$/.test(pin)) {
@@ -217,7 +224,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
     }
 
     setIsSubmitting(true);
-    const result = await loginUser({ telephone: telephone.trim(), pin, businessId });
+    const result = await loginUser(
+      loginCanal === 'EMAIL'
+        ? { email: loginEmail.trim().toLowerCase(), pin, businessId }
+        : { telephone: telephone.trim(), pin, businessId }
+    );
     setIsSubmitting(false);
 
     if (result.requiresBusinessSelection && result.businesses) {
@@ -660,6 +671,56 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                 </>
               ) : (
                 <form onSubmit={(e) => handleLogin(e)} className="space-y-3">
+                  <div
+                    role="radiogroup"
+                    aria-label="Se connecter avec"
+                    className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl text-[11px] font-bold"
+                  >
+                    {(
+                      [
+                        { value: 'WHATSAPP', label: 'Numéro WhatsApp', icon: Phone },
+                        { value: 'EMAIL', label: 'E-mail', icon: Mail },
+                      ] as const
+                    ).map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={loginCanal === value}
+                        onClick={() => {
+                          setLoginCanal(value);
+                          setErrorMessage(null);
+                        }}
+                        className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          loginCanal === value ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" /> {label}
+                      </button>
+                    ))}
+                  </div>
+                  {loginCanal === 'EMAIL' ? (
+                    <div>
+                      <label htmlFor="login-email" className="text-xs font-bold text-slate-700 block mb-1">
+                        E-mail de la boutique
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          id="login-email"
+                          type="email"
+                          autoComplete="email"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          placeholder="boutique@exemple.com"
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4338CA] focus:border-[#4338CA] outline-none"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Celle indiquée à la création de la boutique (propriétaire uniquement).
+                      </p>
+                    </div>
+                  ) : (
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">Numéro WhatsApp</label>
                     <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4338CA] focus-within:border-[#4338CA] transition-all">
@@ -687,6 +748,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                       />
                     </div>
                   </div>
+                  )}
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1.5">Mot de passe</label>
                     <PinInput value={pin} onChange={setPin} />
