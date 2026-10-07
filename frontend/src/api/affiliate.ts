@@ -1,5 +1,5 @@
 import { api, ApiError } from './client';
-import type { CountryCode } from './auth';
+import type { CountryCode, ResetBusinessChoice, ResetTarget } from './auth';
 
 export type AffiliateActivity =
   | { type: 'INSCRIPTION'; date: string; boutique: string; paye: boolean }
@@ -42,7 +42,15 @@ export async function fetchAffiliate(): Promise<AffiliateDashboard | null> {
   }
 }
 
-export function registerAffiliate(input: { nom: string; telephone: string; pays: CountryCode; pin: string }) {
+export function registerAffiliate(input: {
+  prenom: string;
+  nom: string;
+  telephone: string;
+  pays: CountryCode;
+  /** Vide : pas d’e-mail. */
+  email: string;
+  pin: string;
+}) {
   return api.post<{ affiliate: AffiliateDashboard }>('/affiliate/register', input).then((d) => d.affiliate);
 }
 
@@ -92,4 +100,36 @@ export interface AffiliatePerks {
 /** Avantage d'une inscription avec un code (réglages du back-office). */
 export function fetchAffiliatePerks() {
   return api.get<AffiliatePerks>('/affiliate/perks');
+}
+
+// ─── Page publique /affiliation ───
+
+export interface AffiliateProgram {
+  /** Commission par mois payé, par formule (réglages du back-office). */
+  commissions: { planCode: string; nom: string; montant: number }[];
+  seuilRetrait: number;
+  joursEssaiOfferts: number;
+  joursEssaiTotal: number;
+  reductionPremierPaiement: number;
+}
+
+export function fetchAffiliateProgram() {
+  return api.get<AffiliateProgram>('/affiliate/program');
+}
+
+// ─── Mot de passe oublié (espace affilié) ───
+// Même forme de réponse que le parcours boutique, pour réutiliser ForgotPinFlow.
+
+export function requestAffiliatePinReset(target: ResetTarget) {
+  return api.post<{ sent: true; message: string }>('/affiliate/reset-code/request', target).then((d) => d.message);
+}
+
+export function verifyAffiliatePinReset(target: ResetTarget, code: string) {
+  return api
+    .post<{ verified: true; businesses: ResetBusinessChoice[] }>('/affiliate/reset-code/verify', { ...target, code })
+    .then((d) => d.businesses);
+}
+
+export function confirmAffiliatePinReset(target: ResetTarget, input: { code: string; newPin: string }) {
+  return api.post<{ reset: true }>('/affiliate/reset-code/confirm', { ...target, ...input });
 }

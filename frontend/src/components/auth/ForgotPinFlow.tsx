@@ -9,6 +9,16 @@ import {
   type ResetBusinessChoice,
   type ResetTarget,
 } from '../../api/auth';
+import { SUPPORT_WHATSAPP } from '../../utils/support';
+
+/** Appels du parcours : ceux des boutiques par défaut, ceux de l'espace affilié sinon. */
+export interface ResetApi {
+  request: (target: ResetTarget) => Promise<string>;
+  verify: (target: ResetTarget, code: string) => Promise<ResetBusinessChoice[]>;
+  confirm: (target: ResetTarget, input: { code: string; newPin: string; businessId?: string }) => Promise<unknown>;
+}
+
+const SHOP_RESET_API: ResetApi = { request: requestPinReset, verify: verifyPinReset, confirm: confirmPinReset };
 
 interface ForgotPinFlowProps {
   /** Numéro déjà saisi sur l'écran de connexion, repris tel quel. */
@@ -16,6 +26,11 @@ interface ForgotPinFlowProps {
   onCancel: () => void;
   /** Nouveau PIN enregistré : on revient à la connexion, numéro pré-rempli quand il est connu. */
   onDone: (telephone: string) => void;
+  resetApi?: ResetApi;
+  /** Aide sous le champ e-mail. */
+  emailHint?: string;
+  /** Rappel sous le titre du nouveau mot de passe. */
+  newPinHint?: string;
 }
 
 type Step = 'CHANNEL' | 'CODE' | 'SHOP' | 'NEW_PIN';
@@ -23,9 +38,6 @@ type Canal = ResetTarget['canal'];
 
 const ONBOARDING_INDIGO = '#4F46E5';
 const RESEND_DELAY_S = 60;
-
-/** Numéro WhatsApp du support (avec indicatif, chiffres seuls). Vide : le lien n'est pas affiché. */
-const SUPPORT_WHATSAPP = String(import.meta.env.VITE_SUPPORT_WHATSAPP ?? '').replace(/\D/g, '');
 
 /** « 0708091098 » → « 07 ** ** ** 98 ». */
 export function maskPhone(telephone: string): string {
@@ -50,7 +62,14 @@ export function maskEmail(email: string): string {
  * nouveau code pour rien. Un écran de plus s'intercale quand le numéro ouvre
  * plusieurs boutiques — il faut alors désigner laquelle.
  */
-export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCancel, onDone }) => {
+export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
+  initialPhone,
+  onCancel,
+  onDone,
+  resetApi = SHOP_RESET_API,
+  emailHint = 'Celle indiquée à la création de ta boutique.',
+  newPinHint = '6 chiffres, à retenir : il ouvre ta caisse à chaque connexion.',
+}) => {
   const [step, setStep] = useState<Step>('CHANNEL');
   const [canal, setCanal] = useState<Canal>('WHATSAPP');
   const [country, setCountry] = useState<CountryOption>(DEFAULT_COUNTRY);
@@ -92,7 +111,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
     }
     setIsSubmitting(true);
     try {
-      setSentMessage(await requestPinReset(target));
+      setSentMessage(await resetApi.request(target));
       setCode('');
       setResendIn(RESEND_DELAY_S);
       setStep('CODE');
@@ -117,7 +136,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
     }
     setIsSubmitting(true);
     try {
-      const found = await verifyPinReset(target, code);
+      const found = await resetApi.verify(target, code);
       setBusinesses(found);
       // Une seule boutique : rien à demander, on passe au nouveau code.
       if (found.length <= 1) {
@@ -146,7 +165,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
     }
     setIsSubmitting(true);
     try {
-      await confirmPinReset(target, { code, newPin, businessId });
+      await resetApi.confirm(target, { code, newPin, businessId });
       onDone(canal === 'WHATSAPP' ? telephone.trim() : initialPhone);
     } catch (error) {
       fail(error, 'Impossible de changer le mot de passe.');
@@ -255,7 +274,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
                 placeholder="boutique@exemple.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
               />
-              <p className="text-[11px] text-slate-400 mt-1">Celle indiquée à la création de ta boutique.</p>
+              <p className="text-[11px] text-slate-400 mt-1">{emailHint}</p>
             </div>
           )}
 
@@ -334,7 +353,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({ initialPhone, onCa
             <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Choisis ton nouveau mot de passe</h2>
             <p className="text-xs text-slate-500 flex items-start gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-px" />
-              <span>6 chiffres, à retenir : il ouvre ta caisse à chaque connexion.</span>
+              <span>{newPinHint}</span>
             </p>
           </div>
 

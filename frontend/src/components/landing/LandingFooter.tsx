@@ -38,6 +38,11 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({ theme }) => {
                 </button>
               </li>
             ))}
+            <li>
+              <a href="/affiliation" className="hover:text-[var(--emerald)] transition-colors">
+                Affiliation
+              </a>
+            </li>
           </ul>
         </div>
         <div className="md:col-span-4 flex md:justify-end items-start">

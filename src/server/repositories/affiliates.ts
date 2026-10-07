@@ -32,12 +32,27 @@ export function findAffiliateByPhone(telephone: string) {
   return prisma.affiliate.findUnique({ where: { telephone } });
 }
 
+export function findAffiliateByEmail(email: string) {
+  return prisma.affiliate.findUnique({ where: { email } });
+}
+
 export function findAffiliateById(id: string) {
   return prisma.affiliate.findUnique({ where: { id } });
 }
 
-export function createAffiliate(data: { code: string; nom: string; telephone: string; pays: string; codeHash: string }) {
+export function createAffiliate(data: {
+  code: string;
+  nom: string;
+  telephone: string;
+  pays: string;
+  email: string | null;
+  codeHash: string;
+}) {
   return prisma.affiliate.create({ data });
+}
+
+export function setAffiliatePin(id: string, codeHash: string) {
+  return prisma.affiliate.update({ where: { id }, data: { codeHash } });
 }
 
 export function setAffiliateName(id: string, nom: string) {

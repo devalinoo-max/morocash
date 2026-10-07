@@ -17,7 +17,9 @@ import {
   fetchAffiliate,
   loginAffiliate,
   logoutAffiliate,
-  registerAffiliate,
+  confirmAffiliatePinReset,
+  requestAffiliatePinReset,
+  verifyAffiliatePinReset,
   requestAffiliatePayout,
   saveAffiliateName,
   type AffiliateActivity,
@@ -29,6 +31,7 @@ import { COUNTRIES, DEFAULT_COUNTRY, type CountryOption } from '../../data/count
 import { formatMoney } from '../../utils/currency';
 import { Logo, LogoMark } from '../common/Logo';
 import { PinInput } from '../common/PinInput';
+import { ForgotPinFlow, type ResetApi } from '../auth/ForgotPinFlow';
 
 const INDIGO = '#4F46E5';
 
@@ -150,30 +153,23 @@ export const AffiliateApp: React.FC = () => {
 const inputClass =
   'w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5]';
 
+/**
+ * Connexion à l'espace affilié. La création de compte se fait sur la page
+ * publique /affiliation (formulaire « Crée ton compte affilié »).
+ */
 const AffiliateAuth: React.FC<{ onAuthenticated: (data: AffiliateDashboard) => void }> = ({ onAuthenticated }) => {
-  const [mode, setMode] = useState<'REGISTER' | 'LOGIN'>('REGISTER');
   const [country, setCountry] = useState<CountryOption>(DEFAULT_COUNTRY);
-  const [nom, setNom] = useState('');
   const [telephone, setTelephone] = useState('');
   const [pin, setPin] = useState('');
-  const [pinConfirm, setPinConfirm] = useState('');
+  const [isForgot, setIsForgot] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const switchMode = (next: 'REGISTER' | 'LOGIN') => {
-    setMode(next);
-    setError(null);
-    setPin('');
-    setPinConfirm('');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (mode === 'REGISTER' && nom.trim().length < 2) {
-      setError('Indique ton prénom ou ton nom.');
-      return;
-    }
+    setNotice(null);
     if (!/^\d{8,15}$/.test(telephone)) {
       setError('Numéro de téléphone invalide (8 à 15 chiffres).');
       return;
@@ -182,18 +178,10 @@ const AffiliateAuth: React.FC<{ onAuthenticated: (data: AffiliateDashboard) => v
       setError('Le mot de passe doit comporter exactement 6 chiffres.');
       return;
     }
-    if (mode === 'REGISTER' && pin !== pinConfirm) {
-      setError('Les deux mots de passe ne sont pas identiques.');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
-      const data =
-        mode === 'REGISTER'
-          ? await registerAffiliate({ nom: nom.trim(), telephone, pays: country.code, pin })
-          : await loginAffiliate({ telephone, pin });
-      onAuthenticated(data);
+      onAuthenticated(await loginAffiliate({ telephone, pin }));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -205,122 +193,117 @@ const AffiliateAuth: React.FC<{ onAuthenticated: (data: AffiliateDashboard) => v
     <div className="min-h-screen w-full bg-[#F4F4F8] flex flex-col items-center justify-center px-4 py-8">
       <div className="w-full max-w-[420px] space-y-5">
         <div className="text-center space-y-2">
-          <LogoMark size={44} className="mx-auto" />
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Programme d'affiliation</h1>
-          <p className="text-xs text-slate-500">
-            Partage ton lien MoroCash et gagne une commission à chaque mois d'abonnement payé par les boutiques que tu amènes.
-          </p>
+          <a href="/affiliation" aria-label="Programme d'affiliation MoroCash" className="inline-block">
+            <LogoMark size={44} className="mx-auto" />
+          </a>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Mon espace affilié</h1>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/60 overflow-hidden">
-          <div className="grid grid-cols-2 p-1.5 m-4 mb-0 bg-slate-100 rounded-xl text-xs font-bold">
-            {(['REGISTER', 'LOGIN'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
-                className={`py-2.5 rounded-lg transition-all cursor-pointer ${
-                  mode === m ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {m === 'REGISTER' ? 'Créer mon compte' : 'Se connecter'}
-              </button>
-            ))}
-          </div>
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/60 p-6">
+          {isForgot ? (
+            <ForgotPinFlow
+              initialPhone={telephone}
+              resetApi={AFFILIATE_RESET_API}
+              emailHint="Celle indiquée à la création de ton compte affilié."
+              newPinHint="6 chiffres, à retenir : il ouvre ton espace affilié."
+              onCancel={() => setIsForgot(false)}
+              onDone={(phone) => {
+                setIsForgot(false);
+                setTelephone(phone);
+                setPin('');
+                setNotice('Mot de passe changé. Connecte-toi avec le nouveau.');
+              }}
+            />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
+                  {error}
+                </div>
+              )}
+              {notice && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-700">
+                  {notice}
+                </div>
+              )}
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {error && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
-                {error}
-              </div>
-            )}
-
-            {mode === 'REGISTER' && (
               <div>
-                <label htmlFor="affiliate-name" className="text-xs font-bold text-slate-700 block mb-1">
-                  Ton prénom
+                <label htmlFor="affiliate-phone" className="text-xs font-bold text-slate-700 block mb-1">
+                  Numéro WhatsApp
                 </label>
-                <input
-                  id="affiliate-name"
-                  type="text"
-                  autoComplete="given-name"
-                  value={nom}
-                  onChange={(e) => setNom(e.target.value)}
-                  placeholder="Ex : Aminata"
-                  className={inputClass}
-                />
+                <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4F46E5] focus-within:border-[#4F46E5] transition-all">
+                  <select
+                    aria-label="Indicatif pays"
+                    value={country.code}
+                    onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
+                    className="bg-slate-50 pl-3 pr-1 py-2.5 text-xs font-bold text-slate-600 border-r border-slate-200 shrink-0 cursor-pointer outline-none"
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} {c.dialCode}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    id="affiliate-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    value={telephone}
+                    onChange={(e) => setTelephone(e.target.value.replace(/\D/g, ''))}
+                    placeholder="0708091011"
+                    className="w-full min-w-0 px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none font-mono"
+                  />
+                </div>
               </div>
-            )}
 
-            <div>
-              <label htmlFor="affiliate-phone" className="text-xs font-bold text-slate-700 block mb-1">
-                Numéro WhatsApp
-              </label>
-              <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4F46E5] focus-within:border-[#4F46E5] transition-all">
-                <select
-                  aria-label="Indicatif pays"
-                  value={country.code}
-                  onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
-                  className="bg-slate-50 pl-3 pr-1 py-2.5 text-xs font-bold text-slate-600 border-r border-slate-200 shrink-0 cursor-pointer outline-none"
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code} {c.dialCode}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  id="affiliate-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  value={telephone}
-                  onChange={(e) => setTelephone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="0708091011"
-                  className="w-full min-w-0 px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                {mode === 'REGISTER' ? 'Mot de passe à 6 chiffres' : 'Mot de passe'}
-              </label>
-              <PinInput id="affiliate-pin" value={pin} onChange={setPin} />
-            </div>
-
-            {mode === 'REGISTER' && (
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Confirmation du mot de passe</label>
-                <PinInput id="affiliate-pin-confirm" value={pinConfirm} onChange={setPinConfirm} />
-                {pinConfirm.length === 6 && pin !== pinConfirm && (
-                  <p className="text-[11px] font-semibold text-rose-600 mt-1.5">
-                    Les deux mots de passe ne sont pas identiques.
-                  </p>
-                )}
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">Mot de passe</label>
+                <PinInput id="affiliate-pin" value={pin} onChange={setPin} />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 cursor-pointer transition-all hover:opacity-90"
-              style={{ backgroundColor: INDIGO, boxShadow: '0 10px 25px -5px rgba(79,70,229,0.35)' }}
-            >
-              <Lock className="w-4 h-4" />
-              <span>
-                {isSubmitting
-                  ? 'Un instant...'
-                  : mode === 'REGISTER'
-                    ? 'Créer mon compte affilié'
-                    : 'Ouvrir mon espace affilié'}
-              </span>
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 cursor-pointer transition-all hover:opacity-90"
+                style={{ backgroundColor: INDIGO, boxShadow: '0 10px 25px -5px rgba(79,70,229,0.35)' }}
+              >
+                <Lock className="w-4 h-4" />
+                <span>{isSubmitting ? 'Un instant...' : 'Se connecter'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setNotice(null);
+                  setIsForgot(true);
+                }}
+                className="w-full text-center text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
+              >
+                Mot de passe oublié ?
+              </button>
+            </form>
+          )}
         </div>
+
+        {!isForgot && (
+          <p className="text-center text-xs text-slate-500">
+            Pas encore affilié ?{' '}
+            <a href="/affiliation#inscription" className="font-bold text-[#4F46E5] hover:underline">
+              Devenir affilié
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );
+};
+
+const AFFILIATE_RESET_API: ResetApi = {
+  request: requestAffiliatePinReset,
+  verify: verifyAffiliatePinReset,
+  confirm: confirmAffiliatePinReset,
 };
 
 const NameScreen: React.FC<{ onSaved: (data: AffiliateDashboard) => void }> = ({ onSaved }) => {

@@ -799,6 +799,8 @@ model Affiliate {
   // commission sur sa propre boutique ».
   telephone String   @unique
   pays      String   @default("CI")
+  // Facultatif, en minuscules : sert seulement au mot de passe oublié par e-mail.
+  email     String?  @unique
   codeHash  String
   actif     Boolean  @default(true)
   createdAt DateTime @default(now())
