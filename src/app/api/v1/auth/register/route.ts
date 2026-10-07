@@ -41,6 +41,7 @@ export async function POST(request: Request) {
           trialEndsAt: business.trialEndsAt,
           subscriptionEndsAt: business.subscriptionEndsAt,
           trialDaysLeft: getTrialDaysLeft(business),
+          dureeEssaiJours: business.dureeEssaiJours,
           locked: false,
           cashRegisterMode: business.cashRegisterMode,
         },

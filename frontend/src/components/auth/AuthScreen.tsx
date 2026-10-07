@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { checkAffiliateCode, claimReferral, fetchReferral } from '../../api/affiliate';
+import {
+  checkAffiliateCode,
+  claimReferral,
+  fetchAffiliatePerks,
+  fetchReferral,
+  type AffiliatePerks,
+} from '../../api/affiliate';
 import { clearAffiliateCode, readAffiliateCode } from '../../utils/affiliateRef';
 import { lastKnownPhone } from '../../utils/session';
 import { useApp } from '../../context/AppContext';
@@ -88,6 +94,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   const [codeStatus, setCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const typedCode = linkCode ? '' : affiliateCode;
   const codeBlocksSubmit = typedCode !== '' && codeStatus !== 'valid';
+  // Avantage du code (jours offerts), lu dans les réglages du back-office.
+  const [perks, setPerks] = useState<AffiliatePerks | null>(null);
+
+  useEffect(() => {
+    fetchAffiliatePerks()
+      .then(setPerks)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -589,6 +603,24 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                               </p>
                             )}
                           </>
+                        )}
+                        {perks && perks.joursOfferts > 0 && (
+                          <p
+                            className="mt-2 p-2.5 rounded-xl border text-[11px] leading-relaxed"
+                            style={{ backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', color: '#166534' }}
+                          >
+                            {linkCode ? (
+                              <>
+                                <strong>Avantages activés :</strong> {perks.joursOfferts} jours gratuits en plus (
+                                {perks.joursEssaiTotal} jours d'essai au total) et des réductions sur ton abonnement.
+                              </>
+                            ) : (
+                              <>
+                                Avec un code d'affiliation : <strong>{perks.joursOfferts} jours gratuits en plus</strong> (
+                                {perks.joursEssaiTotal} jours d'essai au total) et des réductions sur ton abonnement.
+                              </>
+                            )}
+                          </p>
                         )}
                       </div>
 

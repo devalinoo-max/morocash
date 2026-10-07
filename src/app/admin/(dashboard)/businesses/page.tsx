@@ -227,7 +227,10 @@ export default function AdminBusinessesPage() {
                   </span>
                 </td>
                 {/* L'essai n'a plus de sens une fois la boutique passée ACTIF, même si la date reste en base. */}
-                <td className="px-4 py-3 text-slate-600">{b.statut === 'ACTIF' ? '—' : formatDate(b.trialEndsAt)}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {b.statut === 'ACTIF' ? '—' : formatDate(b.trialEndsAt)}
+                  <div className="text-xs text-slate-400">Essai de {b.dureeEssaiJours} jours</div>
+                </td>
                 <td className="px-4 py-3 text-slate-600">{formatDate(b.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1.5">

@@ -30,6 +30,8 @@ export function createPendingSubscriptionPayment(input: {
   planId: string;
   periode: SubPeriod;
   montant: number;
+  /** Remise du code d'affiliation déjà déduite de montant, en FCFA. */
+  remiseAffiliation?: number;
   depositId: string;
 }) {
   const now = new Date();
@@ -50,6 +52,7 @@ export function createPendingSubscriptionPayment(input: {
           methode: 'AUTRE',
           referenceInterne: input.depositId,
           statut: 'INITIE',
+          remiseAffiliation: input.remiseAffiliation ?? 0,
         },
       },
     },
@@ -82,6 +85,12 @@ export function findBusinessSubscriptionHistory(businessId: string) {
       take: 50,
     }),
   ]);
+}
+
+/** La boutique a-t-elle déjà réussi un paiement d'abonnement ? (réduction du premier paiement) */
+export async function hasSuccessfulPayment(businessId: string): Promise<boolean> {
+  const count = await prisma.subscriptionPayment.count({ where: { businessId, statut: 'REUSSI' } });
+  return count > 0;
 }
 
 /** Comptes actifs de la boutique (la table User n'est pas sous RLS). */

@@ -60,6 +60,16 @@ const priceForPeriod = (planId: PlanId, periode: BillingPeriod, tarifAnnuelBusin
     ? tarifAnnuelBusiness
     : PLANS[planId].prix[periode];
 
+/**
+ * Prix après la réduction du code d'affiliation (premier paiement seulement),
+ * arrondi à l'entier FCFA inférieur — même calcul que le serveur
+ * (affiliateDiscountedPrice), qui reste seul à fixer le montant facturé.
+ */
+const discountedPrice = (price: number, reductionPct: number): number =>
+  reductionPct > 0 ? Math.floor((price * (100 - reductionPct)) / 100) : price;
+
+const AFFILIATE_DISCOUNT_LABEL = "Réduction code d'affiliation";
+
 export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
   const { settings, showToast, refreshPlanStatus } = useApp();
 
@@ -85,7 +95,9 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
   const planRank = PLAN_RANK[currentPlan];
   const showSoloCard = planRank < PLAN_RANK.SOLO;
   const showBusinessCard = planRank < PLAN_RANK.BUSINESS;
-  const trialDaysLeft = settings.trialDaysLeft ?? TRIAL_DAYS;
+  // Durée réelle de l'essai de ce compte (45 jours avec un code d'affiliation).
+  const trialDays = settings.trialDays ?? TRIAL_DAYS;
+  const trialDaysLeft = settings.trialDaysLeft ?? trialDays;
 
   // Retour de la page de paiement pawaPay : /abonnement?paiement=<id>. Le
   // retour seul ne prouve rien — on interroge le serveur, qui relit le statut
@@ -160,12 +172,15 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
   // Tarif annuel négocié : le serveur facture ce montant à la place des
   // 199 000 F publics, l'écran doit donc annoncer le même.
   const tarifAnnuelBusiness = overview?.tarifAnnuelBusiness ?? null;
+  // Réduction (%) du code d'affiliation sur le premier paiement ; 0 ensuite.
+  const reduction = overview?.reductionAffiliation ?? 0;
 
   if (durationPlan) {
     return (
       <DurationPicker
         planId={durationPlan}
         tarifAnnuelBusiness={tarifAnnuelBusiness}
+        reduction={reduction}
         pendingPeriod={checkoutPeriod}
         onBack={() => setDurationPlan(null)}
         onPay={(periode) => void startPayment(periode)}
@@ -192,7 +207,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
 
             <h2 className="text-xl sm:text-2xl font-black tracking-tight">
               {currentPlan === 'TRIAL'
-                ? `Essai gratuit de ${TRIAL_DAYS} jours`
+                ? `Essai gratuit de ${trialDays} jours`
                 : currentPlan === 'BUSINESS'
                 ? `Formule active : Business`
                 : currentPlan === 'SOLO'
@@ -254,11 +269,17 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
             }`}
           >
             {showSoloCard && (
-              <PlanCard planId="SOLO" ctaLabel="Choisir la formule Solo" onSelect={() => openDurationPicker('SOLO')} />
+              <PlanCard
+                planId="SOLO"
+                reduction={reduction}
+                ctaLabel="Choisir la formule Solo"
+                onSelect={() => openDurationPicker('SOLO')}
+              />
             )}
             <PlanCard
               planId="BUSINESS"
               tarifAnnuelBusiness={tarifAnnuelBusiness}
+              reduction={reduction}
               highlighted
               ctaLabel={currentPlan === 'SOLO' ? 'Passer en Business' : 'Choisir la formule Business'}
               onSelect={() => openDurationPicker('BUSINESS')}
@@ -328,8 +349,9 @@ const PlanCard: React.FC<{
   highlighted?: boolean;
   ctaLabel: string;
   tarifAnnuelBusiness?: number | null;
+  reduction?: number;
   onSelect: () => void;
-}> = ({ planId, highlighted = false, ctaLabel, tarifAnnuelBusiness = null, onSelect }) => {
+}> = ({ planId, highlighted = false, ctaLabel, tarifAnnuelBusiness = null, reduction = 0, onSelect }) => {
   const plan = PLANS[planId];
   const isBusiness = planId === 'BUSINESS';
   const prixAnnuel = priceForPeriod(planId, 'ANNUEL', tarifAnnuelBusiness);
@@ -358,9 +380,19 @@ const PlanCard: React.FC<{
 
         <div className={`p-4 rounded-2xl space-y-1 border ${isBusiness ? 'bg-indigo-50/60 border-indigo-100' : 'bg-slate-50/80 border-slate-200/70'}`}>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-3xl sm:text-4xl font-black text-slate-900">{formatMoney(plan.prixMensuel)}</span>
+            <span className="text-3xl sm:text-4xl font-black text-slate-900">
+              {formatMoney(discountedPrice(plan.prixMensuel, reduction))}
+            </span>
+            {reduction > 0 && (
+              <span className="text-sm font-bold text-slate-400 line-through">{formatMoney(plan.prixMensuel)}</span>
+            )}
             <span className="text-xs font-bold text-slate-500">/ mois</span>
           </div>
+          {reduction > 0 && (
+            <p className="text-[11px] font-extrabold text-emerald-700">
+              {AFFILIATE_DISCOUNT_LABEL} : -{reduction} % sur ton premier paiement
+            </p>
+          )}
           <p className="text-[11px] text-slate-600">
             Paiement pour 1, 3, 6 ou 12 mois ·{' '}
             <strong className="text-emerald-700">
@@ -402,15 +434,18 @@ const PlanCard: React.FC<{
 const DurationPicker: React.FC<{
   planId: PlanId;
   tarifAnnuelBusiness: number | null;
+  reduction: number;
   pendingPeriod: BillingPeriod | null;
   onBack: () => void;
   onPay: (periode: BillingPeriod) => void;
-}> = ({ planId, tarifAnnuelBusiness, pendingPeriod, onBack, onPay }) => {
+}> = ({ planId, tarifAnnuelBusiness, reduction, pendingPeriod, onBack, onPay }) => {
   const plan = PLANS[planId];
   const [selected, setSelected] = useState<BillingPeriod>('ANNUEL');
   const selectedPeriod = BILLING_PERIODS.find((p) => p.id === selected) ?? BILLING_PERIODS[0];
   const isPending = pendingPeriod !== null;
-  const prixDe = (periode: BillingPeriod) => priceForPeriod(planId, periode, tarifAnnuelBusiness);
+  // Prix normal, puis prix à payer (réduction du code d'affiliation au premier paiement).
+  const prixNormalDe = (periode: BillingPeriod) => priceForPeriod(planId, periode, tarifAnnuelBusiness);
+  const prixDe = (periode: BillingPeriod) => discountedPrice(prixNormalDe(periode), reduction);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-20 animate-in fade-in duration-200">
@@ -434,7 +469,8 @@ const DurationPicker: React.FC<{
       <div role="radiogroup" aria-label="Durée de l'abonnement" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {BILLING_PERIODS.map((period) => {
           const total = prixDe(period.id);
-          const savings = Math.max(0, getFullPrice(planId, period.id) - total);
+          const normal = prixNormalDe(period.id);
+          const savings = Math.max(0, getFullPrice(planId, period.id) - normal);
           const isSelected = selected === period.id;
           const isYear = period.id === 'ANNUEL';
 
@@ -459,6 +495,9 @@ const DurationPicker: React.FC<{
                 <div className="space-y-1">
                   <span className="block text-sm font-black text-slate-900">{period.label}</span>
                   <span className="block text-2xl font-black text-slate-900 leading-none">{formatMoney(total)}</span>
+                  {total < normal && (
+                    <span className="block text-xs font-bold text-slate-400 line-through">{formatMoney(normal)}</span>
+                  )}
                   <span className="block text-[11px] text-slate-500">
                     {period.mois > 1 ? `soit ${formatMoney(Math.round(total / period.mois))} / mois` : 'sans engagement'}
                   </span>
@@ -488,8 +527,18 @@ const DurationPicker: React.FC<{
           <span className="text-slate-600">
             {plan.nom} · {selectedPeriod.label}
           </span>
-          <span className="font-black text-slate-900">{formatMoney(prixDe(selected))}</span>
+          <span className="text-right">
+            <span className="font-black text-slate-900">{formatMoney(prixDe(selected))}</span>
+            {reduction > 0 && (
+              <span className="ml-2 text-xs font-bold text-slate-400 line-through">{formatMoney(prixNormalDe(selected))}</span>
+            )}
+          </span>
         </div>
+        {reduction > 0 && (
+          <p className="text-[11px] font-extrabold text-emerald-700">
+            {AFFILIATE_DISCOUNT_LABEL} (-{reduction} %) : premier paiement seulement, les suivants au prix normal.
+          </p>
+        )}
         <button
           onClick={() => onPay(selected)}
           disabled={isPending}
@@ -711,6 +760,14 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap text-right font-black text-slate-900">
                         {formatMoney(p.montant)}
+                        {p.remiseAffiliation > 0 && (
+                          <>
+                            <span className="block text-[11px] font-bold text-slate-400 line-through">
+                              {formatMoney(p.montant + p.remiseAffiliation)}
+                            </span>
+                            <span className="block text-[10px] font-bold text-emerald-700">{AFFILIATE_DISCOUNT_LABEL}</span>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

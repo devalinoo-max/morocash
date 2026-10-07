@@ -45,7 +45,7 @@ import { countLabel } from '../utils/plural';
 import { validateBarcodeChecksum } from '../utils/barcodeEngine';
 import { findProductByCode as lookupProductByCode } from '../utils/productCodeLookup';
 import confetti from 'canvas-confetti';
-import { PLANS, QUOTA_MESSAGES } from '../data/plans';
+import { PLANS, QUOTA_MESSAGES, TRIAL_DAYS } from '../data/plans';
 import type { EmployeePermission } from '../data/permissions';
 import * as authApi from '../api/auth';
 import * as businessApi from '../api/business';
@@ -1793,6 +1793,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       city: session.business.ville || '',
       planStatus,
       trialDaysLeft,
+      trialDays: session.business.dureeEssaiJours ?? TRIAL_DAYS,
       subscriptionDaysLeft,
       quotaMaxProducts,
       cashRegisterMode: session.business.cashRegisterMode ?? 'LIBRE',

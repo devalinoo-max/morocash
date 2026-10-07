@@ -81,3 +81,16 @@ export function getTrialDaysLeft(business: Pick<Business, 'statut' | 'trialEndsA
   const msLeft = business.trialEndsAt.getTime() - Date.now();
   return Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
 }
+
+/** Essai de base, sans code d'affiliation. La durée réelle d'un compte est Business.dureeEssaiJours. */
+export const BASE_TRIAL_DAYS = 30;
+
+/**
+ * Prix après la réduction du code d'affiliation (premier paiement seulement),
+ * arrondi à l'entier FCFA inférieur. Même calcul côté écran pour l'affichage ;
+ * le montant facturé, lui, est toujours celui calculé ici par le serveur.
+ */
+export function affiliateDiscountedPrice(price: number, reductionPct: number): number {
+  if (reductionPct <= 0) return price;
+  return Math.floor((price * (100 - reductionPct)) / 100);
+}

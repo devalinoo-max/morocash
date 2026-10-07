@@ -59,12 +59,13 @@ function formatDay(value: string): string {
   return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function shareMessage(lien: string): string {
-  return `Gère ta boutique avec MoroCash. 30 jours d'essai gratuit : ${lien}`;
+/** `jours` : durée d'essai d'un compte inscrit avec le lien (réglages du back-office). */
+function shareMessage(lien: string, jours: number): string {
+  return `Gère ta boutique avec MoroCash. ${jours} jours d'essai gratuit avec mon lien : ${lien}`;
 }
 
-function whatsappShareUrl(lien: string): string {
-  return `https://wa.me/?text=${encodeURIComponent(shareMessage(lien))}`;
+function whatsappShareUrl(lien: string, jours: number): string {
+  return `https://wa.me/?text=${encodeURIComponent(shareMessage(lien, jours))}`;
 }
 
 /**
@@ -448,7 +449,7 @@ const AffiliateHome: React.FC<{
               {copied ? 'Copié' : 'Copier'}
             </button>
             <a
-              href={whatsappShareUrl(lien)}
+              href={whatsappShareUrl(lien, dashboard.joursEssaiAvecLien)}
               target="_blank"
               rel="noopener noreferrer"
               className="py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 bg-[#25D366] hover:opacity-90"
@@ -457,7 +458,7 @@ const AffiliateHome: React.FC<{
             </a>
           </div>
           <p className="text-[11px] text-slate-500 leading-relaxed break-words">
-            Message envoyé : « {shareMessage(lien)} »
+            Message envoyé : « {shareMessage(lien, dashboard.joursEssaiAvecLien)} »
           </p>
 
           {/* Ce que tu gagnes : taux lus dans les réglages du back-office */}
@@ -534,7 +535,7 @@ const AffiliateHome: React.FC<{
             Inscrits avec ton code {dashboard.code} ({dashboard.inscrits})
           </h2>
           {dashboard.listeInscrits.length === 0 ? (
-            <EmptyState icon={UserPlus} text="Personne ne s'est encore inscrit avec ton lien" lien={lien} />
+            <EmptyState icon={UserPlus} text="Personne ne s'est encore inscrit avec ton lien" lien={lien} jours={dashboard.joursEssaiAvecLien} />
           ) : (
             <ul className="divide-y divide-slate-100">
               {dashboard.listeInscrits.map((compte, i) => (
@@ -554,7 +555,7 @@ const AffiliateHome: React.FC<{
         <section id="abonnes" className="bg-white rounded-2xl border border-slate-200 p-4 scroll-mt-4">
           <h2 className="text-sm font-extrabold text-slate-900 mb-2">Abonnés ({dashboard.payants})</h2>
           {dashboard.listeAbonnes.length === 0 ? (
-            <EmptyState icon={BadgeCheck} text="Aucun abonné pour l'instant" lien={lien} />
+            <EmptyState icon={BadgeCheck} text="Aucun abonné pour l'instant" lien={lien} jours={dashboard.joursEssaiAvecLien} />
           ) : (
             <ul className="divide-y divide-slate-100">
               {dashboard.listeAbonnes.map((abonne, i) => (
@@ -649,14 +650,19 @@ const StatusBadge: React.FC<{ statut: 'ESSAI' | 'ABONNE' | 'INACTIF'; planCode: 
   return <span className="shrink-0 text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Inactif</span>;
 };
 
-const EmptyState: React.FC<{ icon: LucideIcon; text: string; lien: string }> = ({ icon: Icon, text, lien }) => (
+const EmptyState: React.FC<{ icon: LucideIcon; text: string; lien: string; jours: number }> = ({
+  icon: Icon,
+  text,
+  lien,
+  jours,
+}) => (
   <div className="py-6 flex flex-col items-center text-center gap-3">
     <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] text-[#4F46E5] flex items-center justify-center">
       <Icon className="w-7 h-7" />
     </div>
     <p className="text-xs font-semibold text-slate-600">{text}</p>
     <a
-      href={whatsappShareUrl(lien)}
+      href={whatsappShareUrl(lien, jours)}
       target="_blank"
       rel="noopener noreferrer"
       className="px-4 py-2.5 rounded-xl text-white text-xs font-bold"

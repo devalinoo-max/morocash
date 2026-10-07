@@ -29,6 +29,8 @@ export interface AdminBusiness {
   statut: BusinessStatus;
   trialEndsAt: string | null;
   subscriptionEndsAt: string | null;
+  /** Durée de l'essai offerte à l'inscription (30, ou plus avec un code d'affiliation). */
+  dureeEssaiJours: number;
   createdAt: string;
   /** Abonnement payé en cours (ou le dernier), null si la boutique n'a jamais payé. */
   abonnement: { formule: string; montant: number; periode: SubPeriod; dateFin: string } | null;
@@ -95,6 +97,8 @@ export interface AdminPushAudience {
 
 export interface AdminAffiliationSettings {
   seuilRetrait: number;
+  joursEssaiOfferts: number;
+  reductionPremierPaiement: number;
   plans: { id: string; code: string; nom: string; commissionAffilie: number }[];
 }
 

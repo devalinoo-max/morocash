@@ -30,6 +30,8 @@ export interface ApiBusiness {
   trialEndsAt?: string | null;
   subscriptionEndsAt?: string | null;
   trialDaysLeft?: number | null;
+  /** Durée de l'essai offerte à l'inscription : 30 jours, ou plus avec un code d'affiliation. */
+  dureeEssaiJours?: number;
   locked?: boolean;
   cashRegisterMode?: 'LIBRE' | 'STRICT';
   /**
@@ -134,27 +136,25 @@ export interface ResetBusinessChoice {
   businessNom: string;
 }
 
-/** Envoie un code à 6 chiffres sur le WhatsApp du compte. */
-export function requestPinReset(telephone: string) {
-  return api.post<{ sent: true }>('/auth/reset-code/request', { telephone });
+/** Où part le code : WhatsApp du compte, ou e-mail renseigné à l'inscription de la boutique. */
+export type ResetTarget = { canal: 'WHATSAPP'; telephone: string } | { canal: 'EMAIL'; email: string };
+
+/**
+ * Demande un code à 6 chiffres. La réponse est la même que le compte existe
+ * ou non (« Si ce compte existe, un code vient d'être envoyé. »).
+ */
+export function requestPinReset(target: ResetTarget) {
+  return api.post<{ sent: true; message: string }>('/auth/reset-code/request', target).then((d) => d.message);
 }
 
-/** Vérifie le code reçu et renvoie les boutiques rattachées à ce numéro. */
-export function verifyPinReset(telephone: string, code: string) {
+/** Vérifie le code reçu et renvoie les boutiques concernées. */
+export function verifyPinReset(target: ResetTarget, code: string) {
   return api
-    .post<{ verified: true; businesses: ResetBusinessChoice[] }>('/auth/reset-code/verify', {
-      telephone,
-      code,
-    })
+    .post<{ verified: true; businesses: ResetBusinessChoice[] }>('/auth/reset-code/verify', { ...target, code })
     .then((d) => d.businesses);
 }
 
 /** Enregistre le nouveau PIN. `businessId` n'est utile qu'en multi-boutiques. */
-export function confirmPinReset(input: {
-  telephone: string;
-  code: string;
-  newPin: string;
-  businessId?: string;
-}) {
-  return api.post<{ reset: true }>('/auth/reset-code/confirm', input);
+export function confirmPinReset(target: ResetTarget, input: { code: string; newPin: string; businessId?: string }) {
+  return api.post<{ reset: true }>('/auth/reset-code/confirm', { ...target, ...input });
 }

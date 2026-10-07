@@ -241,6 +241,8 @@ export interface ShopSettings {
   showPhone: boolean;
   planStatus: 'TRIAL' | 'SOLO' | 'BUSINESS' | 'EXPIRED';
   trialDaysLeft: number;
+  /** Durée de l'essai offerte à l'inscription : 30 jours, ou plus avec un code d'affiliation. */
+  trialDays?: number;
   /**
    * Jours restants sur un abonnement payé (null pendant l'essai ou une fois
    * expiré). Se lit sans ouvrir « Mon abonnement » : barre latérale, tableau

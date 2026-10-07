@@ -202,6 +202,12 @@ model Business {
   reglages           Json?
   // Dernière relance automatique d'inactivité : une par semaine au plus.
   derniereRelanceAt  DateTime?
+  // Durée de l'essai offerte à l'inscription (30, ou 30 + jours offerts avec un
+  // code d'affiliation). Figée à la création : c'est elle qu'affiche l'app.
+  dureeEssaiJours    Int            @default(30)
+  // Réduction (%) sur le premier paiement d'abonnement, figée à l'inscription
+  // avec un code d'affiliation. 0 = aucune.
+  reductionPremierPaiement Int      @default(0)
   // Affilié dont le lien a amené l'inscription. Posé à la création, jamais modifié.
   affiliateId         String?
   affiliate           Affiliate?       @relation(fields: [affiliateId], references: [id])
@@ -264,6 +270,8 @@ model SubscriptionPayment {
   referencePasserelle String?
   statut              SubPayState  @default(INITIE)
   payloadWebhook      Json?
+  // Remise du code d'affiliation sur ce paiement, en FCFA (prix normal = montant + remise).
+  remiseAffiliation   Int          @default(0)
   createdAt           DateTime     @default(now())
   affiliateCommission AffiliateCommission?
 
@@ -341,9 +349,13 @@ model AdminUser {
   createdAt    DateTime @default(now())
 }
 
+// Code de réinitialisation du mot de passe, envoyé par WhatsApp (telephone)
+// ou par e-mail (email, celui de la boutique). Un seul des deux est renseigné.
 model OtpCode {
   id        String   @id @default(cuid())
-  telephone String
+  telephone String?
+  email     String?
+  canal     String   @default("WHATSAPP") // WHATSAPP | EMAIL
   codeHash  String
   tentatives Int     @default(0)
   expiresAt DateTime
@@ -351,6 +363,7 @@ model OtpCode {
   createdAt DateTime @default(now())
 
   @@index([telephone, expiresAt])
+  @@index([email, expiresAt])
 }
 
 model RateLimit {
@@ -858,5 +871,9 @@ model AffiliatePayout {
 model AffiliateSettings {
   id           String   @id @default("default")
   seuilRetrait Int      @default(5000)
+  // Avantage des inscrits avec un code : jours d'essai offerts et réduction (%)
+  // sur le premier paiement. Figés sur la boutique à l'inscription.
+  joursEssaiOfferts        Int @default(15)
+  reductionPremierPaiement Int @default(10)
   updatedAt    DateTime @updatedAt
 }

@@ -45,6 +45,7 @@ export async function GET() {
         trialEndsAt: ctx.business.trialEndsAt,
         subscriptionEndsAt: ctx.business.subscriptionEndsAt,
         trialDaysLeft: getTrialDaysLeft(ctx.business),
+        dureeEssaiJours: ctx.business.dureeEssaiJours,
         locked: isBusinessLocked(ctx.business),
         cashRegisterMode: ctx.business.cashRegisterMode,
         // Réglages partagés entre les appareils de la boutique (null tant que

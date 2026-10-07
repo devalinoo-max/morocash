@@ -2,6 +2,7 @@ import { customAlphabet } from 'nanoid';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AppError } from '@/server/shared/errors';
+import { BASE_TRIAL_DAYS } from '@/server/shared/subscription';
 import { hashPin, verifyPin } from '@/server/modules/auth/pin';
 import { SUPPORTED_COUNTRIES } from '@/server/modules/auth/register';
 import { assertNotRateLimited, clearRateLimit, ipKey, recordFailedAttempt } from '@/server/middleware/rateLimit';
@@ -165,6 +166,8 @@ export async function getAffiliateDashboard(affiliate: {
     pays: affiliate.pays,
     lien: affiliateLink(affiliate.code),
     taux: data.taux,
+    // Essai des comptes inscrits avec ce lien, repris dans le message WhatsApp.
+    joursEssaiAvecLien: BASE_TRIAL_DAYS + data.joursEssaiOfferts,
     inscrits: inscrits.length,
     payants: abonnes.length,
     solde: data.solde,

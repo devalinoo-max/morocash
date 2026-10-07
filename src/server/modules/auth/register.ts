@@ -3,6 +3,8 @@ import { prisma } from '@/server/database/client';
 import { setTenantContext } from '@/server/middleware/tenant';
 import { AppError } from '@/server/shared/errors';
 import { hashPin } from './pin';
+import { BASE_TRIAL_DAYS } from '@/server/shared/subscription';
+import { getAffiliatePerks } from '@/server/repositories/affiliates';
 import { issueSessionToken } from './session';
 import {
   BUSINESS_SECTORS,
@@ -10,10 +12,9 @@ import {
   starterProductCategories,
 } from '@/server/modules/categories/defaults';
 
-// Essai gratuit de 30 jours à la création d'une boutique (grille des 3 formules :
-// Essai, Solo, Business). Pendant l'essai, les quotas de Solo s'appliquent
-// (voir checkQuota).
-const TRIAL_DAYS = 30;
+// Essai gratuit à la création d'une boutique : 30 jours (BASE_TRIAL_DAYS), plus
+// les jours offerts avec un code d'affiliation (grille des 3 formules : Essai,
+// Solo, Business). Pendant l'essai, les quotas de Solo s'appliquent (voir checkQuota).
 
 export const SUPPORTED_COUNTRIES = ['CI', 'SN', 'BJ', 'TG', 'ML', 'BF'] as const;
 
@@ -79,6 +80,11 @@ export async function registerBusiness(
 ) {
   const input = registerSchema.parse(rawInput);
 
+  // Avantage du code d'affiliation, figé sur la boutique : un changement des
+  // réglages ne vaut que pour les inscriptions suivantes.
+  const perks = affiliateId ? await getAffiliatePerks() : null;
+  const dureeEssaiJours = BASE_TRIAL_DAYS + (perks?.joursEssaiOfferts ?? 0);
+
   // Un numéro WhatsApp ou une adresse e-mail n'ouvre qu'un seul compte MoroCash.
   // Le contrôle est ici, pas dans le formulaire : l'appel HTTP direct doit se
   // heurter au même refus. Le numéro reste en revanche réutilisable POUR UN
@@ -101,7 +107,9 @@ export async function registerBusiness(
           email,
           affiliateId,
           statut: 'ESSAI',
-          trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+          dureeEssaiJours,
+          reductionPremierPaiement: perks?.reductionPremierPaiement ?? 0,
+          trialEndsAt: new Date(Date.now() + dureeEssaiJours * 24 * 60 * 60 * 1000),
         },
       });
 

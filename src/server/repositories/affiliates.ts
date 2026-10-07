@@ -10,6 +10,17 @@ import { PERIOD_MONTHS } from '@/server/shared/subscription';
 
 const SETTINGS_ID = 'default';
 const DEFAULT_SEUIL_RETRAIT = 5000;
+const DEFAULT_JOURS_OFFERTS = 15;
+const DEFAULT_REDUCTION = 10;
+
+/** Avantage des inscrits avec un code : jours d'essai offerts et réduction (%) sur le premier paiement. */
+export async function getAffiliatePerks(): Promise<{ joursEssaiOfferts: number; reductionPremierPaiement: number }> {
+  const settings = await prisma.affiliateSettings.findUnique({ where: { id: SETTINGS_ID } });
+  return {
+    joursEssaiOfferts: settings?.joursEssaiOfferts ?? DEFAULT_JOURS_OFFERTS,
+    reductionPremierPaiement: settings?.reductionPremierPaiement ?? DEFAULT_REDUCTION,
+  };
+}
 
 // ─── Comptes et sessions ───
 
@@ -60,11 +71,21 @@ export async function getAffiliateSettings() {
       orderBy: { prixMensuel: 'asc' },
     }),
   ]);
-  return { seuilRetrait: settings?.seuilRetrait ?? DEFAULT_SEUIL_RETRAIT, plans };
+  return {
+    seuilRetrait: settings?.seuilRetrait ?? DEFAULT_SEUIL_RETRAIT,
+    joursEssaiOfferts: settings?.joursEssaiOfferts ?? DEFAULT_JOURS_OFFERTS,
+    reductionPremierPaiement: settings?.reductionPremierPaiement ?? DEFAULT_REDUCTION,
+    plans,
+  };
 }
 
 /** Enregistre les taux par formule et le seuil ; renvoie l'avant/après pour le journal d'audit. */
-export async function saveAffiliateSettings(input: { commissions: Record<string, number>; seuilRetrait: number }) {
+export async function saveAffiliateSettings(input: {
+  commissions: Record<string, number>;
+  seuilRetrait: number;
+  joursEssaiOfferts: number;
+  reductionPremierPaiement: number;
+}) {
   return prisma.$transaction(async (tx) => {
     const [settings, plans] = await Promise.all([
       tx.affiliateSettings.findUnique({ where: { id: SETTINGS_ID } }),
@@ -72,6 +93,8 @@ export async function saveAffiliateSettings(input: { commissions: Record<string,
     ]);
     const avant = {
       seuilRetrait: settings?.seuilRetrait ?? DEFAULT_SEUIL_RETRAIT,
+      joursEssaiOfferts: settings?.joursEssaiOfferts ?? DEFAULT_JOURS_OFFERTS,
+      reductionPremierPaiement: settings?.reductionPremierPaiement ?? DEFAULT_REDUCTION,
       commissions: Object.fromEntries(plans.map((p) => [p.code, p.commissionAffilie])),
     };
 
@@ -83,12 +106,23 @@ export async function saveAffiliateSettings(input: { commissions: Record<string,
     }
     await tx.affiliateSettings.upsert({
       where: { id: SETTINGS_ID },
-      update: { seuilRetrait: input.seuilRetrait },
-      create: { id: SETTINGS_ID, seuilRetrait: input.seuilRetrait },
+      update: {
+        seuilRetrait: input.seuilRetrait,
+        joursEssaiOfferts: input.joursEssaiOfferts,
+        reductionPremierPaiement: input.reductionPremierPaiement,
+      },
+      create: {
+        id: SETTINGS_ID,
+        seuilRetrait: input.seuilRetrait,
+        joursEssaiOfferts: input.joursEssaiOfferts,
+        reductionPremierPaiement: input.reductionPremierPaiement,
+      },
     });
 
     const apres = {
       seuilRetrait: input.seuilRetrait,
+      joursEssaiOfferts: input.joursEssaiOfferts,
+      reductionPremierPaiement: input.reductionPremierPaiement,
       commissions: Object.fromEntries(plans.map((p) => [p.code, input.commissions[p.code] ?? p.commissionAffilie])),
     };
     return { avant, apres };
@@ -262,6 +296,7 @@ export async function getAffiliateDashboardData(affiliateId: string) {
   return {
     seuilRetrait: settings?.seuilRetrait ?? DEFAULT_SEUIL_RETRAIT,
     taux: plans.map((p) => ({ planCode: p.code, montant: p.commissionAffilie })),
+    joursEssaiOfferts: settings?.joursEssaiOfferts ?? DEFAULT_JOURS_OFFERTS,
     solde,
     accounts,
     commissions,

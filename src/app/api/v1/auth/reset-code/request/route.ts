@@ -1,4 +1,4 @@
-import { resetRequestSchema, requestPinReset } from '@/server/modules/auth/resetCode';
+import { RESET_REQUEST_MESSAGE, resetRequestSchema, requestPinReset } from '@/server/modules/auth/resetCode';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
 
@@ -10,8 +10,8 @@ export async function POST(request: Request) {
       throw new AppError('VALIDATION_ERROR', 'Données invalides.', parsed.error.flatten());
     }
 
-    await requestPinReset(parsed.data.telephone);
-    return ok({ sent: true });
+    await requestPinReset(parsed.data);
+    return ok({ sent: true, message: RESET_REQUEST_MESSAGE });
   } catch (error) {
     return fail(error);
   }

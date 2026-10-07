@@ -18,6 +18,8 @@ export interface AffiliateDashboard {
   lien: string;
   /** Commission par mois payé, par formule, lue dans les réglages du back-office. */
   taux: { planCode: string; montant: number }[];
+  /** Durée d'essai d'un compte inscrit avec ce lien (30 + jours offerts). */
+  joursEssaiAvecLien: number;
   inscrits: number;
   payants: number;
   solde: number;
@@ -79,4 +81,15 @@ export function fetchReferral() {
 /** Vérifie un code saisi à la main (existe, affilié actif). */
 export function checkAffiliateCode(code: string) {
   return api.get<{ valide: boolean }>(`/affiliate/codes/${encodeURIComponent(code)}`).then((d) => d.valide);
+}
+
+export interface AffiliatePerks {
+  joursOfferts: number;
+  joursEssaiTotal: number;
+  reductionPremierPaiement: number;
+}
+
+/** Avantage d'une inscription avec un code (réglages du back-office). */
+export function fetchAffiliatePerks() {
+  return api.get<AffiliatePerks>('/affiliate/perks');
 }

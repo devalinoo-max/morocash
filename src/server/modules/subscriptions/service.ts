@@ -3,7 +3,12 @@ import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 import type { Business, PaymentMethod, SubPeriod } from '@prisma/client';
 import { AppError } from '@/server/shared/errors';
-import { businessPriceForPeriod, isAdministrativelyLocked, periodLabel } from '@/server/shared/subscription';
+import {
+  affiliateDiscountedPrice,
+  businessPriceForPeriod,
+  isAdministrativelyLocked,
+  periodLabel,
+} from '@/server/shared/subscription';
 import { PAWAPAY_COUNTRY, createPaymentPage, getDeposit, type PawapayDeposit } from '@/server/integrations/pawapay';
 import {
   activatePaidSubscription,
@@ -14,6 +19,7 @@ import {
   findBusinessPaymentByReference,
   findBusinessSubscriptionHistory,
   countActiveUsers,
+  hasSuccessfulPayment,
   findPaymentByReference,
   type SubscriptionPaymentWithPlan,
 } from '@/server/repositories/subscriptions';
@@ -45,9 +51,12 @@ export async function startCheckout(
     throw new AppError('VALIDATION_ERROR', 'Offre introuvable ou inactive.');
   }
 
-  // Le montant vient toujours de la base, jamais du navigateur.
-  const montant = businessPriceForPeriod(business, plan, input.periode);
-  if (montant <= 0) {
+  // Le montant vient toujours de la base, jamais du navigateur. Réduction du
+  // code d'affiliation sur le premier paiement seulement.
+  const prixNormal = businessPriceForPeriod(business, plan, input.periode);
+  const reduction = await firstPaymentReduction(business);
+  const montant = affiliateDiscountedPrice(prixNormal, reduction);
+  if (prixNormal <= 0) {
     throw new AppError('VALIDATION_ERROR', "Cette durée n'est pas disponible pour cette offre.");
   }
   const depositId = randomUUID();
@@ -56,6 +65,7 @@ export async function startCheckout(
     planId: plan.id,
     periode: input.periode,
     montant,
+    remiseAffiliation: prixNormal - montant,
     depositId,
   });
 
@@ -78,6 +88,15 @@ export async function startCheckout(
     if (payment) await closePendingPayment(payment.id, 'ECHOUE');
     throw new AppError('SERVER_ERROR', "Impossible d'ouvrir la page de paiement. Réessaie dans un instant.");
   }
+}
+
+/**
+ * Réduction (%) du code d'affiliation applicable au prochain paiement : celle
+ * figée à l'inscription, tant qu'aucun paiement n'a réussi. 0 sinon.
+ */
+async function firstPaymentReduction(business: Pick<Business, 'id' | 'reductionPremierPaiement'>): Promise<number> {
+  if (business.reductionPremierPaiement <= 0) return 0;
+  return (await hasSuccessfulPayment(business.id)) ? 0 : business.reductionPremierPaiement;
 }
 
 function methodFromProvider(provider: string | undefined): PaymentMethod {
@@ -173,12 +192,18 @@ export interface SubscriptionOverview {
    * 199 000 F, pour que le prix annoncé soit celui réellement demandé.
    */
   tarifAnnuelBusiness: number | null;
+  /** Durée de l'essai offerte à l'inscription (30, ou 45 avec un code d'affiliation). */
+  dureeEssaiJours: number;
+  /** Réduction (%) du code d'affiliation sur le prochain paiement, null si aucune. */
+  reductionAffiliation: number | null;
   payments: {
     paymentId: string;
     date: Date;
     montant: number;
     methode: PaymentMethod;
     referencePasserelle: string | null;
+    /** Remise du code d'affiliation sur ce paiement (prix normal = montant + remise). */
+    remiseAffiliation: number;
     planCode: string | null;
     periode: SubPeriod | null;
     dateDebut: Date | null;
@@ -217,12 +242,17 @@ export async function getSubscriptionOverview(businessId: string): Promise<Subsc
     trialEndsAt: business.trialEndsAt,
     utilisateurs,
     tarifAnnuelBusiness: business.tarifAnnuelBusiness,
+    dureeEssaiJours: business.dureeEssaiJours,
+    // `payments` ne contient que les paiements réussis : vide = premier paiement à venir.
+    reductionAffiliation:
+      payments.length === 0 && business.reductionPremierPaiement > 0 ? business.reductionPremierPaiement : null,
     payments: payments.map((p) => ({
       paymentId: p.referenceInterne,
       date: p.createdAt,
       montant: p.montant,
       methode: p.methode,
       referencePasserelle: p.referencePasserelle,
+      remiseAffiliation: p.remiseAffiliation,
       planCode: p.subscription?.plan.code ?? null,
       periode: p.subscription?.periode ?? null,
       dateDebut: p.subscription?.dateDebut ?? null,

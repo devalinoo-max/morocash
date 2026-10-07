@@ -16,6 +16,9 @@ const fcfa = z.number().int().min(0).max(10_000_000);
 export const affiliateSettingsSchema = z.object({
   commissions: z.record(z.string(), fcfa),
   seuilRetrait: fcfa,
+  // Avantage des inscrits avec un code (inscriptions futures seulement).
+  joursEssaiOfferts: z.number().int().min(0).max(365),
+  reductionPremierPaiement: z.number().int().min(0).max(100),
 });
 
 /** Page « Affiliation » : taux par formule et seuil de retrait. */
