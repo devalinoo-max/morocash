@@ -1,8 +1,47 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, MessageCircleMore, SendHorizontal, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronLeft, MessageCircleMore, SendHorizontal, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { HelpIntent, HelpTarget, matchHelpIntent } from './helpIntents';
+
+// Choix « Masqué » de l'utilisateur, gardé d'une visite à l'autre.
+const HIDDEN_KEY = 'morocash_assistant_hidden';
+
+function readHiddenChoice(): boolean {
+  try {
+    return localStorage.getItem(HIDDEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveHiddenChoice(hidden: boolean): void {
+  try {
+    if (hidden) localStorage.setItem(HIDDEN_KEY, '1');
+    else localStorage.removeItem(HIDDEN_KEY);
+  } catch {
+    // Stockage indisponible : le choix vaut pour cette visite seulement.
+  }
+}
+
+/**
+ * Clavier ouvert sur téléphone : la zone visible rétrécit nettement par
+ * rapport à la plus grande hauteur vue depuis l'ouverture.
+ */
+function useKeyboardOpen(): boolean {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let tallest = vv.height;
+    const onResize = () => {
+      tallest = Math.max(tallest, vv.height);
+      setOpen(window.matchMedia('(max-width: 767px)').matches && vv.height < tallest - 150);
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
+  return open;
+}
 
 /**
  * Numéro WhatsApp du support MoroCash (indicatif compris, chiffres seuls),
@@ -31,9 +70,18 @@ const WELCOME: ChatMessage = {
   text: 'Bonjour ! Pose-moi ta question avec tes mots, par exemple « comment je télécharge mon catalogue ? ». Je te montre où aller.',
 };
 
-export const HelpAssistant: React.FC = () => {
+interface HelpAssistantProps {
+  /** La bannière d'installation est affichée : la bulle se place au-dessus. */
+  aboveInstallBanner?: boolean;
+}
+
+export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner = false }) => {
   const {
     settings,
+    isNewSaleOpen,
+    isNewProductOpen,
+    selectedSaleForReceipt,
+    saleSuccessReceipt,
     setActiveTab,
     setActiveMoreSubTab,
     setCustomersDebtorsFilter,
@@ -41,10 +89,30 @@ export const HelpAssistant: React.FC = () => {
     attemptNewSale,
     openNewExpense,
   } = useApp();
-  // Le bouton « Installer l'application » occupe le même coin : la bulle se
-  // place au-dessus de lui tant qu'il est affiché.
-  const { canPromptInstall, isIosManualInstall, isInstalled } = useInstallPrompt();
-  const installButtonShown = !isInstalled && (canPromptInstall || isIosManualInstall);
+  // Trois états : Déployé (pilule, par défaut sur ordinateur), Réduit (bulle
+  // ronde, par défaut sur téléphone) et Masqué (onglet sur le bord droit).
+  const [hiddenChoice, setHiddenChoice] = useState(readHiddenChoice);
+  // Écrans à barre d'action en bas (étapes de commande, paiement, formulaire,
+  // reçu) : l'assistant se masque seul, sans toucher au choix enregistré.
+  const onActionScreen =
+    isNewSaleOpen || isNewProductOpen || Boolean(selectedSaleForReceipt) || Boolean(saleSuccessReceipt);
+  // Rouvert à la main sur un de ces écrans : vaut jusqu'à ce qu'on le quitte.
+  const [reopenedHere, setReopenedHere] = useState(false);
+  useEffect(() => {
+    if (!onActionScreen) setReopenedHere(false);
+  }, [onActionScreen]);
+  const isHidden = hiddenChoice || (onActionScreen && !reopenedHere);
+  const keyboardOpen = useKeyboardOpen();
+
+  const hide = () => {
+    saveHiddenChoice(true);
+    setHiddenChoice(true);
+  };
+  const reopen = () => {
+    saveHiddenChoice(false);
+    setHiddenChoice(false);
+    if (onActionScreen) setReopenedHere(true);
+  };
 
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -57,7 +125,8 @@ export const HelpAssistant: React.FC = () => {
   // Déploiement intermittent (téléphone). Sur ordinateur la pilule est
   // toujours ouverte par le CSS, cet état n'y change rien.
   useEffect(() => {
-    if (isOpen) return;
+    // Masqué : aucun déploiement automatique.
+    if (isOpen || isHidden) return;
     const timers: number[] = [];
     const expandBriefly = () => {
       setIsExpanded(true);
@@ -70,7 +139,7 @@ export const HelpAssistant: React.FC = () => {
       window.clearInterval(interval);
       setIsExpanded(false);
     };
-  }, [isOpen]);
+  }, [isOpen, isHidden]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -133,18 +202,53 @@ export const HelpAssistant: React.FC = () => {
   )}`;
 
   // Position : au-dessus de la barre du bas sur téléphone, dans le coin sur
-  // ordinateur ; un cran plus haut quand le bouton d'installation est là.
-  const position = installButtonShown ? 'bottom-[8.5rem] md:bottom-[4.75rem]' : 'bottom-20 md:bottom-6';
+  // ordinateur ; au-dessus de la bannière d'installation quand elle est là
+  // (de bas en haut : navigation, bannière, bulle).
+  const position = aboveInstallBanner ? 'bottom-[9.25rem] md:bottom-[5.5rem]' : 'bottom-20 md:bottom-6';
 
   return (
     <>
-      {!isOpen && (
+      {!isOpen && !keyboardOpen && isHidden && (
+        <button
+          type="button"
+          id="btn-help-assistant-tab"
+          onClick={reopen}
+          aria-label="Rouvrir l’assistant"
+          className={`fixed ${position} right-0 z-30 w-12 h-14 flex items-center justify-end cursor-pointer`}
+        >
+          <span
+            className="w-4 h-14 rounded-l-lg flex items-center justify-center shadow-md"
+            style={{ backgroundColor: '#4F46E5' }}
+          >
+            <ChevronLeft className="w-4 h-4 text-white" strokeWidth={3} />
+          </span>
+        </button>
+      )}
+
+      {!isOpen && !keyboardOpen && !isHidden && (
+        <div className={`fixed ${position} right-4 z-30 flex flex-col items-end`}>
+        {/* Rond de 28 px, 8 px au-dessus de la bulle, aligné sur son bord droit ;
+            la zone de toucher fait 48 px. */}
+        <button
+          type="button"
+          id="btn-help-assistant-reduce"
+          onClick={hide}
+          aria-label="Réduire l’assistant"
+          className="w-12 h-12 -mr-[10px] -mb-[2px] flex items-center justify-center cursor-pointer"
+        >
+          <span
+            className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-sm"
+            style={{ border: '1px solid #E5E7EB' }}
+          >
+            <ChevronDown className="w-4 h-4" style={{ color: '#4F46E5' }} strokeWidth={2.5} />
+          </span>
+        </button>
         <button
           type="button"
           id="btn-help-assistant"
           onClick={() => setIsOpen(true)}
           aria-label="Besoin d’aide ? Ouvrir l’assistant MoroCash"
-          className={`fixed ${position} right-4 z-30 h-[42px] rounded-full bg-gradient-to-br from-[#4F46E5] to-[#8B5CF6] text-white shadow-lg shadow-indigo-500/30 flex items-center cursor-pointer transition-all duration-300 active:scale-95 ${
+          className={`relative h-[42px] rounded-full bg-gradient-to-br from-[#4F46E5] to-[#8B5CF6] text-white shadow-lg shadow-indigo-500/30 flex items-center cursor-pointer transition-all duration-300 active:scale-95 ${
             isExpanded ? 'pl-3 pr-4 gap-2' : 'px-[9px] gap-0 md:pl-3 md:pr-4 md:gap-2'
           }`}
         >
@@ -163,6 +267,7 @@ export const HelpAssistant: React.FC = () => {
             </span>
           )}
         </button>
+        </div>
       )}
 
       {isOpen && (

@@ -1,6 +1,7 @@
 import { api, generateClientUuid } from './client';
 import { toApiPaymentMethode, toFrontendPaymentMethod } from './mappers';
-import type { CashRegisterSession, CashMovement, PaymentMethod } from '../types';
+import type { CashRegisterSession, CashMovement, PaymentMethod, Versement } from '../types';
+import { toFrontendVersement, type ApiVersement } from './payments';
 
 export interface ApiCashRegister {
   id: string;
@@ -110,4 +111,93 @@ export function toFrontendCashMovement(m: ApiCashMovement, userName: string): Ca
     userName,
     createdAt: m.createdAt,
   };
+}
+
+// ── Journal de la caisse ────────────────────────────────────────────────────
+// Cartes, cumuls et soldes calculés par le serveur (GET /cash/journal).
+
+export interface CashJournalLine {
+  id: string;
+  kind: 'FOND' | 'ENTREE' | 'SORTIE';
+  createdAt: string;
+  amount: number;
+  method: PaymentMethod;
+  label: string;
+  category: string | null;
+  by: string | null;
+  isCancelled: boolean;
+  versement: Versement | null;
+  expenseId: string | null;
+  /** Total courant de sa carte après cette ligne. */
+  cumul: number;
+  /** Total courant de son mode de paiement après cette ligne. */
+  cumulMode: number;
+  /** Solde après cette ligne ; null si les sorties sont masquées pour ce compte. */
+  balanceAfter: number | null;
+}
+
+export interface CashJournal {
+  canSeeExits: boolean;
+  fondDepart: number;
+  entrees: number;
+  sorties: number | null;
+  solde: number | null;
+  modes: { method: PaymentMethod; total: number }[];
+  creances: { total: number; nbClients: number };
+  lines: CashJournalLine[];
+}
+
+interface ApiCashJournal {
+  peutVoirSorties: boolean;
+  fondDepart: number;
+  entrees: number;
+  sorties: number | null;
+  solde: number | null;
+  modes: { methode: string; total: number }[];
+  creances: { total: number; nbClients: number };
+  lignes: {
+    id: string;
+    kind: 'FOND' | 'ENTREE' | 'SORTIE';
+    createdAt: string;
+    montant: number;
+    methode: string;
+    libelle: string;
+    categorie: string | null;
+    par: string | null;
+    annule: boolean;
+    versement: ApiVersement | null;
+    expenseId: string | null;
+    cumul: number;
+    cumulMode: number;
+    soldeApres: number | null;
+  }[];
+}
+
+export function fetchCashJournal(from: Date, to: Date): Promise<CashJournal> {
+  const query = `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+  return api.get<ApiCashJournal>(`/cash/journal?${query}`).then((d) => ({
+    canSeeExits: d.peutVoirSorties,
+    fondDepart: d.fondDepart,
+    entrees: d.entrees,
+    sorties: d.sorties,
+    solde: d.solde,
+    modes: d.modes.map((m) => ({ method: toFrontendPaymentMethod(m.methode), total: m.total })),
+    creances: d.creances,
+    lines: d.lignes.map((l) => ({
+      id: l.id,
+      kind: l.kind,
+      createdAt: l.createdAt,
+      amount: l.montant,
+      method: toFrontendPaymentMethod(l.methode),
+      label: l.libelle,
+      category: l.categorie,
+      by: l.par,
+      isCancelled: l.annule,
+      versement: l.versement ? toFrontendVersement(l.versement) : null,
+      expenseId: l.expenseId,
+      cumul: l.cumul,
+      cumulMode: l.cumulMode,
+      balanceAfter: l.soldeApres,
+    })),
+  }));
 }
