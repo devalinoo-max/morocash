@@ -1,0 +1,1182 @@
+<!doctype html>
+<html lang="fr" class="js">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MoroCash · Ce que tu gagnes, chaque soir</title>
+<meta name="description" content="Enregistre tes ventes en 10 secondes. Suis ton stock, tes bénéfices et tes dettes, même sans réseau. Pour les commerçants d'Afrique de l'Ouest. 30 jours gratuits, sans carte bancaire." />
+<meta property="og:title" content="MoroCash · Ce que tu gagnes, chaque soir" />
+<meta property="og:description" content="Ventes, stock, dettes et bénéfice du jour. Même sans réseau. 30 jours gratuits." />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#000000" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%234338CA'/%3E%3Cpath d='M10 23V13L18 20L26 13V23' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='26' cy='9' r='3' fill='%2310B981'/%3E%3C/svg%3E" />
+<script>(function(){var t=new URLSearchParams(location.search).get("theme");if(!t){try{t=localStorage.getItem("mc-theme")}catch(e){}}if(t==="light")document.documentElement.setAttribute("data-theme","light");})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{
+  --bg:#000000; --card:#181818; --card2:#1F1F1F; --line:#272727; --line2:#313131;
+  --text:#FFFFFF; --muted:#9B9B9B; --dim:#6b6b6b;
+  --em:#00E687; --em-ink:#04130B; --vi:#7B61FF; --terre:#F59E0B; --red:#FF5C5C;
+  --fluid:cubic-bezier(0.32,0.72,0,1);
+  --alt:#0b0b0b; --glass:rgba(24,24,24,.72); --glass-line:rgba(255,255,255,.08); --overlay:rgba(0,0,0,.8);
+  --h-grad:linear-gradient(90deg,#FFFFFF,#9B9B9B); --phone:#0d0d0d; --phone-ring:#131313;
+  --shadow:rgba(0,0,0,.9); --chip-bg:rgba(31,31,31,.85); --best:#0d1a13; --best-h:#0f1f16;
+  --word-off:rgba(255,255,255,.22); --wordmark:#0e0e0e; --brand2:#7f74ff;
+  --ink-bg:#04130B; --ink-fg:#FFFFFF; --ring:rgba(4,19,11,.12);
+}
+[data-theme="light"]{
+  --bg:#FFFBF5; --card:#FFFFFF; --card2:#FFF7ED; --line:#F1E6D6; --line2:#E5D5BF;
+  --text:#1C1917; --muted:#78716C; --dim:#A8A29E;
+  --em:#009A66; --em-ink:#FFFFFF; --vi:#6247F5; --terre:#C2540A; --red:#DC2626;
+  --alt:#FBF3E8; --glass:rgba(255,255,255,.72); --glass-line:rgba(28,25,23,.08); --overlay:rgba(255,251,245,.85);
+  --h-grad:linear-gradient(90deg,#000000,#666666); --phone:#FFFFFF; --phone-ring:#F3EADF;
+  --shadow:rgba(120,85,40,.22); --chip-bg:rgba(255,255,255,.88); --best:#F0FAF5; --best-h:#E8F7EF;
+  --word-off:rgba(28,25,23,.18); --wordmark:#F6EDE1; --brand2:#4F46E5;
+  --ink-bg:#FFFFFF; --ink-fg:#1C1917; --ring:rgba(255,255,255,.18);
+}
+html{transition:background-color .7s var(--fluid)}
+body,.card,.band,.ba,.pill,.phone,.screen,.chip,.device,.tbl-wrap{transition:background-color .7s var(--fluid),border-color .7s var(--fluid),color .7s var(--fluid)}
+.theme-btn{width:40px;height:40px;border-radius:9999px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform .7s var(--fluid),background-color .7s var(--fluid)}
+.theme-btn:hover{transform:rotate(-20deg)}
+.theme-btn .ph-sun{display:none}
+[data-theme="light"] .theme-btn .ph-sun{display:block}
+[data-theme="light"] .theme-btn .ph-moon{display:none}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);overflow-x:clip;font-size:16px;line-height:24px}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+ul{list-style:none}
+img,svg{display:block}
+p{text-wrap:pretty}
+h1,h2,h3{text-wrap:balance;font-weight:700;letter-spacing:-0.02em}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+:focus-visible{outline:2px solid var(--em);outline-offset:4px;border-radius:12px}
+::selection{background:var(--em);color:var(--em-ink)}
+
+.skip{position:absolute;left:16px;top:-64px;z-index:200;background:var(--em);color:var(--em-ink);padding:8px 12px;border-radius:12px;font-weight:600;transition:top .5s var(--fluid)}
+.skip:focus{top:16px}
+
+.wrap{max-width:1152px;margin:0 auto;padding:0 16px}
+@media(min-width:768px){.wrap{padding:0 32px}}
+section{position:relative;padding:96px 0}
+.eyebrow{font-family:'Geist Mono',monospace;font-size:12px;line-height:16px;text-transform:uppercase;letter-spacing:.14em;color:var(--em);display:inline-flex;align-items:center;gap:8px}
+.eyebrow::before{content:"";width:16px;height:2px;background:currentColor;border-radius:2px}
+.eyebrow.vi{color:var(--vi)}
+.h2{font-size:30px;line-height:36px;max-width:680px}
+@media(min-width:768px){.h2{font-size:48px;line-height:1}}
+.lead{color:var(--muted);font-size:16px;line-height:24px;max-width:560px}
+@media(min-width:768px){.lead{font-size:18px;line-height:28px}}
+.head{display:flex;flex-direction:column;gap:16px;margin-bottom:64px}
+.head.center{align-items:center;text-align:center}
+.head.center .h2,.head.center .lead{margin:0 auto}
+.em{color:var(--em)} .vi{color:var(--vi)}
+
+/* Boutons */
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:16px;line-height:24px;font-weight:600;padding:16px 24px;border-radius:9999px;transition:transform .7s var(--fluid),background-color .5s var(--fluid),box-shadow .7s var(--fluid),color .5s var(--fluid);will-change:transform}
+.btn:active{transform:scale(.98)}
+.btn-em{background:var(--em);color:var(--em-ink);box-shadow:0 0 0 0 rgba(0,230,135,0)}
+.btn-em:hover{box-shadow:0 12px 40px -8px rgba(0,230,135,.55)}
+.btn-em .arr{display:inline-flex;width:24px;height:24px;border-radius:9999px;background:var(--em-ink);color:var(--em);align-items:center;justify-content:center;font-size:12px;transition:transform .7s var(--fluid)}
+.btn-em:hover .arr{transform:translateX(4px) rotate(-45deg)}
+.btn-ghost{color:var(--text);border:1px solid var(--line2)}
+.btn-ghost:hover{background:var(--card2)}
+.btn-sm{font-size:14px;line-height:20px;padding:8px 16px}
+.link{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-weight:600;transition:color .5s var(--fluid)}
+.link:hover{color:var(--text)}
+
+/* Nav îlot */
+.nav{position:fixed;top:24px;left:0;right:0;z-index:100;display:flex;justify-content:center;pointer-events:none;transition:transform .9s var(--fluid)}
+.nav.hide{transform:translateY(-120px)}
+.pill{pointer-events:auto;display:flex;align-items:center;gap:24px;padding:8px 8px 8px 16px;border-radius:9999px;background:var(--glass);border:1px solid var(--glass-line);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);width:max-content;max-width:calc(100% - 32px)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px;letter-spacing:-.02em}
+.logo b{color:var(--brand2);font-weight:700}
+.nav-links{display:none;gap:4px}
+.nav-links a{font-size:14px;line-height:20px;font-weight:600;color:var(--muted);padding:8px 12px;border-radius:9999px;transition:color .5s var(--fluid),background-color .5s var(--fluid)}
+.nav-links a:hover{color:var(--text)}
+.nav-links a.current{color:var(--text);background:var(--card2)}
+.nav-cta{display:none;align-items:center;gap:8px}
+@media(min-width:960px){.nav-links,.nav-cta{display:flex}.burger{display:none!important}}
+.burger{position:relative;width:40px;height:40px;border-radius:9999px;background:var(--card2);display:block}
+.burger span{position:absolute;left:12px;width:16px;height:2px;border-radius:2px;background:var(--text);transition:transform .7s var(--fluid),top .7s var(--fluid)}
+.burger span:nth-child(1){top:15px} .burger span:nth-child(2){top:23px}
+.menu-open .burger span:nth-child(1){top:19px;transform:rotate(45deg)}
+.menu-open .burger span:nth-child(2){top:19px;transform:rotate(-45deg)}
+.overlay{position:fixed;inset:0;z-index:90;background:var(--overlay);backdrop-filter:blur(64px);-webkit-backdrop-filter:blur(64px);display:flex;flex-direction:column;justify-content:center;padding:96px 32px 48px;gap:8px;opacity:0;visibility:hidden;transition:opacity .7s var(--fluid),visibility .7s}
+.menu-open .overlay{opacity:1;visibility:visible}
+.overlay a{font-size:36px;line-height:40px;font-weight:700;letter-spacing:-.02em;padding:8px 0;transform:translateY(48px);opacity:0;transition:transform .9s var(--fluid),opacity .9s var(--fluid)}
+.menu-open .overlay a{transform:none;opacity:1}
+.overlay a:nth-child(2){transition-delay:.05s}.overlay a:nth-child(3){transition-delay:.1s}.overlay a:nth-child(4){transition-delay:.15s}.overlay a:nth-child(5){transition-delay:.2s}.overlay a:nth-child(6){transition-delay:.25s}
+.overlay .btn{margin-top:32px;font-size:16px;line-height:24px;align-self:flex-start}
+
+/* Hero */
+.hero{min-height:100svh;padding:160px 0 96px;display:flex;align-items:center;overflow:hidden}
+.hero-chart{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.5}
+.hero-chart path{fill:none;stroke:var(--em);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.hero-chart path.b{stroke:var(--vi);opacity:.5}
+.hero-grid{display:grid;grid-template-columns:1fr;gap:64px;align-items:center;position:relative}
+@media(min-width:1024px){.hero-grid{grid-template-columns:7fr 5fr}}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:9999px;border:1px solid var(--line2);background:var(--card);font-size:12px;line-height:16px;font-weight:600;color:var(--muted);width:max-content}
+.ping{position:relative;width:8px;height:8px}
+.ping::before,.ping::after{content:"";position:absolute;inset:0;border-radius:9999px;background:var(--em)}
+.ping::before{animation:ping 1.8s var(--fluid) infinite}
+@keyframes ping{0%{transform:scale(1);opacity:.8}100%{transform:scale(3);opacity:0}}
+.h1{font-size:48px;line-height:1;max-width:680px;margin:24px 0}
+@media(min-width:768px){.h1{font-size:60px}}
+.h1 .line{display:block;overflow:hidden;padding-bottom:8px;margin-bottom:-8px}
+.h1 .line>span{display:inline-block;background:var(--h-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.h1 .line>span .em{-webkit-text-fill-color:var(--em);color:var(--em)}
+.hero .lead{max-width:680px}
+.hero-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:24px;margin-top:40px}
+.trust{display:flex;flex-wrap:wrap;gap:8px 24px;margin-top:32px;font-size:14px;line-height:20px;color:var(--muted)}
+.trust span{display:inline-flex;align-items:center;gap:8px}
+.trust i{color:var(--em);font-size:16px}
+
+/* Téléphone */
+.stage{position:relative;display:flex;justify-content:center;perspective:1200px}
+.phone{position:relative;width:280px;height:576px;border-radius:48px;background:var(--phone);border:1px solid var(--line2);padding:8px;box-shadow:0 48px 96px -24px var(--shadow),0 0 0 8px var(--phone-ring);transform-style:preserve-3d;will-change:transform}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;background:var(--card);overflow:hidden;display:flex;flex-direction:column;font-size:12px;line-height:16px}
+.notch{position:absolute;top:16px;left:50%;transform:translateX(-50%);width:80px;height:24px;border-radius:9999px;background:#000;z-index:5}
+.ps-head{padding:56px 16px 16px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line)}
+.ps-label{font-size:12px;line-height:16px;color:var(--em);text-transform:uppercase;letter-spacing:.08em}
+.ps-big{font-size:24px;line-height:32px;font-weight:600;margin-top:4px}
+.live{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:9999px;background:rgba(0,230,135,.1);color:var(--em);font-size:12px;line-height:16px;font-weight:600}
+.live i{width:6px;height:6px;border-radius:9999px;background:var(--em);animation:blink 1.6s ease-in-out infinite}
+@keyframes blink{50%{opacity:.3}}
+.bars{display:flex;align-items:flex-end;gap:8px;height:64px;padding:16px 16px 0}
+.bars i{flex:1;height:var(--h);border-radius:4px 4px 0 0;background:rgba(123,97,255,.3);transition:height 1s var(--fluid),background-color .7s var(--fluid)}
+.bars i.hot{background:var(--em)}
+.ps-sub{padding:16px 16px 8px;font-weight:600;font-size:12px;color:var(--text)}
+.sales{padding:0 16px;display:flex;flex-direction:column;gap:8px;flex:1;overflow:hidden}
+.sale{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:12px;background:var(--card2);border:1px solid var(--line)}
+.sale .q{width:24px;height:24px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:rgba(0,230,135,.1);color:var(--em);font-weight:600;margin-right:8px}
+.sale .n{display:flex;align-items:center;font-weight:600;font-size:12px}
+.sale .p{font-family:'Geist Mono',monospace;font-weight:500}
+.toast{margin:8px 16px;padding:8px;border-radius:12px;background:var(--em);color:var(--em-ink);font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px}
+.tabs{display:flex;justify-content:space-around;padding:8px 8px 16px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;line-height:16px}
+.tabs span{display:flex;flex-direction:column;align-items:center;gap:2px}
+.tabs i{font-size:16px}
+.tabs .on{color:var(--em)}
+.chip{position:absolute;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:16px;background:var(--chip-bg);border:1px solid var(--line2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;box-shadow:0 24px 48px -16px var(--shadow);z-index:3}
+.chip i{font-size:16px}
+.chip small{display:block;color:var(--muted);font-weight:500;font-size:12px}
+.chip .ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.c1{top:64px;left:-24px}.c1 .ic{background:rgba(0,230,135,.12);color:var(--em)}
+.c2{top:248px;right:-40px}.c2 .ic{background:rgba(245,158,11,.12);color:var(--terre)}
+.c3{bottom:80px;left:-48px}.c3 .ic{background:rgba(123,97,255,.15);color:var(--vi)}
+@media(max-width:480px){.c1{left:-8px}.c2{right:-8px}.c3{left:-8px}}
+.float{animation:float 6s ease-in-out infinite}
+.c2.float{animation-delay:-2s}.c3.float{animation-delay:-4s}
+@keyframes float{50%{translate:0 -12px}}
+
+/* Marquee */
+.band{padding:48px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--alt);overflow:hidden}
+.band p{font-family:'Geist Mono',monospace;font-size:12px;line-height:16px;text-transform:uppercase;letter-spacing:.14em;color:var(--dim);margin-bottom:16px}
+.mq{display:flex;width:max-content;gap:12px;will-change:transform}
+.mq+p{margin-top:24px}
+.mq-item{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:9999px;font-weight:600;font-size:14px;line-height:20px;border:1px solid var(--line2);background:var(--card);white-space:nowrap}
+.mq-item i{font-size:16px}
+.mq-item.v i{color:var(--vi)} .mq-item.e i{color:var(--em)}
+.mq-item.soon{border-style:dashed;color:var(--dim);background:transparent}
+
+/* Cartes */
+.grid4{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:640px){.grid4{grid-template-columns:1fr 1fr}}
+@media(min-width:1024px){.grid4{grid-template-columns:repeat(4,1fr)}}
+.grid3{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:1024px){.grid3{grid-template-columns:repeat(3,1fr)}}
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:16px;transition:transform .7s var(--fluid),border-color .7s var(--fluid),background-color .7s var(--fluid)}
+.card:hover{transform:translateY(-4px);border-color:var(--line2);background:var(--card2)}
+.card h3{font-size:18px;line-height:28px}
+.card p{color:var(--muted);font-size:14px;line-height:20px}
+.ico{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.ico.red{background:rgba(255,92,92,.1);color:var(--red)}
+.ico.em{background:rgba(0,230,135,.1);color:var(--em)}
+.ico.vi{background:rgba(123,97,255,.12);color:var(--vi)}
+.ico.terre{background:rgba(245,158,11,.1);color:var(--terre)}
+.card .num{position:absolute;top:32px;right:32px;font-family:'Geist Mono',monospace;color:var(--dim);font-size:12px}
+
+/* Avant / après */
+.ba{background:var(--alt);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+@media(min-width:1024px){.ba{min-height:100vh;display:flex;align-items:center}}
+.ba .head{margin-bottom:48px}
+.ba-score{display:inline-flex;align-items:center;gap:12px;font-family:'Geist Mono',monospace;font-size:14px;color:var(--muted)}
+.ba-score b{color:var(--em);font-size:24px;line-height:32px;font-weight:600}
+.ba-meter{width:160px;height:4px;border-radius:4px;background:var(--line2);overflow:hidden}
+.ba-meter i{display:block;height:100%;width:0;background:var(--em);transition:width .7s var(--fluid)}
+.ba-grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:1024px){.ba-grid{grid-template-columns:1fr 1fr}}
+.ba-col{border-radius:24px;padding:32px;border:1px solid var(--line);background:var(--card)}
+.ba-col.mc{border-color:rgba(0,230,135,.35)}
+.ba-col h3{font-size:14px;line-height:20px;font-family:'Geist Mono',monospace;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.ba-col.ca h3{color:var(--red)} .ba-col.mc h3{color:var(--em)}
+.ba-col li{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px;padding:8px 0}
+.ba-col li i{font-size:16px;margin-top:2px;flex-shrink:0;transition:transform .7s var(--fluid),opacity .7s var(--fluid),color .7s var(--fluid)}
+.ba-col.ca li{color:var(--text);transition:opacity .7s var(--fluid),color .7s var(--fluid)}
+.ba-col.ca li i{color:var(--red)}
+.ba-col.ca li span{position:relative}
+.ba-col.ca li span::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--red);transform:scaleX(0);transform-origin:left;transition:transform .9s var(--fluid)}
+.ba-col.ca li.dead{opacity:.35}
+.ba-col.ca li.dead span::after{transform:scaleX(1)}
+.ba-col.mc li{color:var(--dim);transition:color .7s var(--fluid)}
+.ba-col.mc li i{color:var(--em);transform:scale(0);opacity:0}
+.ba-col.mc li.live{color:var(--text);font-weight:600}
+.ba-col.mc li.live i{transform:scale(1);opacity:1}
+
+/* Phrase révélée */
+.tagline{padding:160px 0}
+.tagline p{font-size:30px;line-height:36px;font-weight:700;letter-spacing:-.02em;max-width:880px;text-wrap:balance}
+@media(min-width:768px){.tagline p{font-size:48px;line-height:1.1}}
+@media(min-width:1024px){.tagline p{font-size:60px;line-height:1.05}}
+.tagline .w{color:var(--word-off);transition:color .8s var(--fluid)}
+.tagline .w.on{color:var(--text)}
+.tagline .w.on.hl{color:var(--em)}
+
+/* Comment ça marche */
+.how-grid{display:grid;grid-template-columns:1fr;gap:48px}
+@media(min-width:1024px){.how-grid{grid-template-columns:1fr 1fr;gap:64px}}
+.steps{display:flex;flex-direction:column;gap:16px}
+@media(min-width:1024px){.steps{gap:0}.step{min-height:64vh;display:flex;align-items:center}}
+.step-in{width:100%;text-align:left;display:flex;gap:16px;padding:24px;border-radius:24px;border:1px solid var(--line);background:var(--card);opacity:.45;transition:opacity .7s var(--fluid),border-color .7s var(--fluid),transform .7s var(--fluid)}
+.step.on .step-in{opacity:1;border-color:var(--line2);transform:translateX(8px)}
+.step-n{width:40px;height:40px;flex-shrink:0;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-weight:600;background:var(--line);color:var(--muted);transition:background-color .7s var(--fluid),color .7s var(--fluid)}
+.step.on .step-n{background:var(--vi);color:#fff}
+.step.on[data-step="3"] .step-n{background:var(--em);color:var(--em-ink)}
+.step h3{font-size:20px;line-height:28px;margin-bottom:8px}
+.step p{color:var(--muted);font-size:14px;line-height:20px}
+.step-bar{height:2px;border-radius:2px;background:var(--line);margin-top:16px;overflow:hidden}
+.step-bar i{display:block;height:100%;width:0;background:var(--vi)}
+.sticky{position:relative}
+@media(min-width:1024px){.sticky{position:sticky;top:0;height:100vh;display:flex;align-items:center;justify-content:center}}
+.device{position:relative;width:320px;max-width:100%;height:400px;border-radius:32px;border:1px solid var(--line2);background:var(--card);overflow:hidden;margin:0 auto;box-shadow:0 48px 96px -32px var(--shadow)}
+.scr{position:absolute;inset:0;padding:24px;display:flex;flex-direction:column;justify-content:space-between;opacity:0;transform:translateY(24px) scale(.98);filter:blur(8px);transition:opacity .8s var(--fluid),transform .8s var(--fluid),filter .8s var(--fluid);pointer-events:none}
+.scr.on{opacity:1;transform:none;filter:none}
+.scr .ps-label{color:var(--vi)}
+.scr .ps-label.em{color:var(--em)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:12px;background:var(--card2);border:1px solid var(--line);font-size:14px;line-height:20px}
+.row .mono{color:var(--em)}
+.stack>*+*{margin-top:8px}
+.total{display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--line);font-weight:600;color:var(--muted);font-size:14px}
+.total .mono{color:var(--em);font-size:20px;line-height:28px}
+.pay{margin-top:16px;padding:12px;border-radius:12px;background:var(--vi);color:#fff;font-weight:700;text-align:center;position:relative;overflow:hidden}
+.meter{height:8px;border-radius:9999px;background:var(--card2);overflow:hidden;margin-top:8px}
+.meter i{display:block;height:100%;width:0;border-radius:9999px;background:var(--vi);transition:width 1.4s var(--fluid)}
+.meter i.low{background:var(--terre)}
+.stk{font-size:14px;line-height:20px}
+.stk div:first-child{display:flex;justify-content:space-between;font-weight:600}
+.stk .mono{color:var(--muted);font-size:12px}
+.wa{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--card2);border:1px solid var(--line);font-size:12px;line-height:16px;font-weight:600;transform:translateY(16px);opacity:0;transition:transform .8s var(--fluid) .6s,opacity .8s var(--fluid) .6s}
+.scr.on .wa{transform:none;opacity:1}
+.wa i{font-size:24px;color:var(--em)}
+.gain{border-radius:16px;border:1px solid rgba(0,230,135,.3);background:rgba(0,230,135,.06);padding:24px;text-align:center}
+.gain small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.gain b{display:block;font-family:'Geist Mono',monospace;font-size:36px;line-height:40px;color:var(--em);font-weight:600;margin-top:8px}
+.calc{font-family:'Geist Mono',monospace;font-size:12px;line-height:16px;color:var(--muted);text-align:center}
+
+/* Chiffres */
+.stats{padding:80px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px 24px}
+@media(min-width:1024px){.stats-grid{grid-template-columns:repeat(4,1fr)}}
+.stat{text-align:center}
+.stat b{display:block;font-family:'Geist Mono',monospace;font-weight:500;font-size:48px;line-height:1;color:var(--text);letter-spacing:-.04em}
+@media(min-width:768px){.stat b{font-size:60px}}
+.stat span{display:block;color:var(--muted);font-size:14px;line-height:20px;margin-top:12px}
+
+/* Bento */
+.bento{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:900px){.bento{grid-template-columns:repeat(12,1fr)}.b7{grid-column:span 7}.b5{grid-column:span 5}.b12{grid-column:span 12}}
+.bento .card:hover{transform:none}
+.persona-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.chat{position:relative;min-height:176px}
+.bubble{max-width:340px;padding:16px;border-radius:4px 20px 20px 20px;background:var(--card2);border:1px solid var(--line);font-size:14px;line-height:20px;transition:opacity .7s var(--fluid),transform .9s var(--fluid),filter .7s var(--fluid)}
+.bubble small{color:var(--dim);font-weight:500}
+.bubble p{color:var(--muted);margin-top:4px}
+.receipt{position:absolute;inset:0 auto auto 0;width:100%;max-width:380px;padding:16px;border-radius:20px;background:var(--card2);border:1px solid rgba(0,230,135,.35);font-size:14px;line-height:20px;opacity:0;transform:translateY(24px) scale(.96);filter:blur(8px);transition:opacity .8s var(--fluid),transform .9s var(--fluid),filter .8s var(--fluid);pointer-events:none}
+.receipt .r-l{display:flex;justify-content:space-between;padding:4px 0;opacity:0;transform:translateX(-12px);transition:opacity .6s var(--fluid),transform .6s var(--fluid)}
+.receipt .r-t{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;font-weight:700}
+.receipt .r-t .mono{color:var(--em)}
+.receipt .r-h{font-family:'Geist Mono',monospace;color:var(--em);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.chat.done .bubble{opacity:0;transform:translateY(-24px) scale(.94);filter:blur(8px)}
+.chat.done .receipt{opacity:1;transform:none;filter:none;pointer-events:auto}
+.chat.done .r-l{opacity:1;transform:none}
+.chat.done .r-l:nth-child(3){transition-delay:.15s}.chat.done .r-l:nth-child(4){transition-delay:.3s}.chat.done .r-l:nth-child(5){transition-delay:.45s}
+.mini{border-radius:16px;background:var(--card2);border:1px solid var(--line);padding:16px;font-size:14px;line-height:20px}
+.mini>div{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+.mini .sep{border-top:1px solid var(--line);margin-top:8px;padding-top:12px}
+.mini .mono{font-size:14px}
+.blur-num{filter:blur(4px);color:var(--dim);transition:filter .7s var(--fluid)}
+.split2{display:grid;grid-template-columns:1fr;gap:24px;align-items:center}
+@media(min-width:768px){.split2{grid-template-columns:1fr 1fr}}
+
+/* Avis */
+.quotes{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:1024px){.quotes{grid-template-columns:repeat(3,1fr)}}
+.quote blockquote{font-size:16px;line-height:24px;color:var(--text);font-weight:500}
+.stars{display:flex;gap:4px;color:#FBBF24}
+.stars i{font-size:16px;transform:scale(0) rotate(-90deg);opacity:0;transition:transform .7s var(--fluid),opacity .7s var(--fluid)}
+.lit .stars i{transform:none;opacity:1}
+.lit .stars i:nth-child(2){transition-delay:.07s}.lit .stars i:nth-child(3){transition-delay:.14s}.lit .stars i:nth-child(4){transition-delay:.21s}.lit .stars i:nth-child(5){transition-delay:.28s}
+.who{display:flex;align-items:center;gap:12px;padding-top:16px;border-top:1px solid var(--line);margin-top:auto}
+.av{width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.who b{display:block;font-size:14px;line-height:20px}
+.who small{color:var(--muted);font-size:12px;line-height:16px}
+
+/* Comparatif */
+.tbl-wrap{border:1px solid var(--line);border-radius:24px;overflow-x:auto;background:var(--card)}
+table{width:100%;min-width:640px;border-collapse:collapse;font-size:14px;line-height:20px}
+th,td{padding:16px 24px;text-align:center}
+th:first-child,td:first-child{text-align:left}
+thead th{font-family:'Geist Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line)}
+tbody tr{border-bottom:1px solid var(--line)}
+tbody tr:last-child{border-bottom:0}
+td:first-child{font-weight:600}
+.col-mc{background:rgba(123,97,255,.07)}
+thead .col-mc{color:var(--text);position:relative;overflow:hidden}
+.sweep{position:absolute;top:0;bottom:0;width:40%;left:-40%;background:rgba(123,97,255,.25);transform:skewX(-12deg);animation:sweep 3.6s var(--fluid) infinite}
+@keyframes sweep{60%,100%{left:120%}}
+.g{color:var(--em);font-weight:700}.b{color:var(--red);font-weight:600}.n{color:var(--muted)}
+.tbl-note{margin-top:24px;text-align:center;color:var(--muted);font-size:14px}
+
+/* Tarifs */
+.toggle{display:inline-flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:var(--muted)}
+.toggle .on{color:var(--text)}
+.sw{width:48px;height:28px;border-radius:9999px;background:var(--line2);position:relative;transition:background-color .7s var(--fluid)}
+.sw i{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:9999px;background:#fff;transition:transform .7s var(--fluid)}
+.sw[aria-pressed="true"]{background:var(--vi)}
+.sw[aria-pressed="true"] i{transform:translateX(20px)}
+.plans{display:grid;grid-template-columns:1fr;gap:16px;align-items:stretch}
+@media(min-width:900px){.plans{grid-template-columns:repeat(3,1fr)}}
+.plan{justify-content:space-between}
+.plan:hover{transform:translateY(-4px)}
+.plan.best{border-color:rgba(0,154,102,.45);background:var(--best)}
+.plan.best:hover{background:var(--best-h)}
+.tag{position:absolute;top:24px;right:24px;font-family:'Geist Mono',monospace;font-size:12px;line-height:16px;text-transform:uppercase;letter-spacing:.08em;color:var(--em);background:rgba(0,230,135,.1);border:1px solid rgba(0,230,135,.25);padding:4px 8px;border-radius:9999px}
+.plan h3{font-size:20px;line-height:28px}
+.price{display:flex;align-items:baseline;gap:8px;font-family:'Geist Mono',monospace;margin:24px 0}
+.price b{font-size:36px;line-height:40px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.price .cur{color:var(--em);font-weight:600}
+.price small{color:var(--muted);font-size:12px}
+.feat{display:flex;flex-direction:column;gap:12px;padding-top:24px;border-top:1px solid var(--line);font-size:14px;line-height:20px;color:var(--muted)}
+.feat li{display:flex;gap:12px}
+.feat i{color:var(--em);font-size:16px;margin-top:2px}
+.feat strong{color:var(--text);font-weight:600}
+.plan .btn{width:100%;margin-top:32px}
+.plan .fine{margin-top:12px;text-align:center;color:var(--dim);font-size:12px;line-height:16px}
+.lock{margin-top:48px;text-align:center;color:var(--muted);font-size:14px}
+.lock i{color:var(--em);vertical-align:-2px;margin-right:4px}
+
+/* FAQ */
+.faq{max-width:768px;margin:0 auto;border-top:1px solid var(--line)}
+.qa{border-bottom:1px solid var(--line)}
+.qa button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px 0;text-align:left;font-size:18px;line-height:28px;font-weight:600}
+.qa .pl{width:32px;height:32px;flex-shrink:0;border-radius:9999px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;transition:transform .7s var(--fluid),background-color .7s var(--fluid),color .7s var(--fluid)}
+.qa.open .pl{transform:rotate(45deg);background:var(--em);color:var(--em-ink);border-color:var(--em)}
+.qa .ans{display:grid;grid-template-rows:0fr;transition:grid-template-rows .7s var(--fluid)}
+.qa.open .ans{grid-template-rows:1fr}
+.qa .ans>div{overflow:hidden}
+.qa .ans p{padding:0 56px 24px 0;color:var(--muted)}
+
+/* CTA final */
+.final{padding:48px 0 96px}
+.final-box{position:relative;overflow:hidden;border-radius:40px;background:var(--em);color:var(--em-ink);padding:80px 24px;text-align:center}
+@media(min-width:768px){.final-box{padding:96px 48px}}
+.final-box h2{font-size:36px;line-height:40px;max-width:760px;margin:0 auto}
+@media(min-width:768px){.final-box h2{font-size:60px;line-height:1}}
+.final-box h2 .line{display:block;overflow:hidden;padding-bottom:8px;margin-bottom:-8px}
+.final-box h2 .line>span{display:inline-block}
+.final-box p{max-width:520px;margin:24px auto 0;font-size:18px;line-height:28px;opacity:.75}
+.btn-ink{background:var(--ink-bg);color:var(--ink-fg);margin-top:40px}
+.btn-ink:hover{box-shadow:0 16px 40px -12px rgba(4,19,11,.7)}
+.btn-ink .arr{display:inline-flex;width:24px;height:24px;border-radius:9999px;background:var(--em);color:var(--em-ink);align-items:center;justify-content:center;font-size:12px;transition:transform .7s var(--fluid)}
+.btn-ink:hover .arr{transform:translateX(4px) rotate(-45deg)}
+.final-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 24px;margin-top:24px;font-size:14px;font-weight:600;opacity:.75}
+.final-meta span{display:inline-flex;align-items:center;gap:8px}
+.ring{position:absolute;border:1px solid var(--ring);border-radius:9999px;pointer-events:none;left:50%;top:50%;transform:translate(-50%,-50%)}
+
+/* Pied */
+footer{border-top:1px solid var(--line);padding:64px 0 48px;font-size:14px;line-height:20px}
+.foot{display:grid;grid-template-columns:1fr;gap:32px}
+@media(min-width:768px){.foot{grid-template-columns:5fr 3fr 4fr}}
+.foot p{color:var(--muted);max-width:320px;margin-top:16px}
+.foot h4{font-family:'Geist Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);font-weight:500;margin-bottom:16px}
+.foot li+li{margin-top:8px}
+.foot li a{color:var(--muted);transition:color .5s var(--fluid)}
+.foot li a:hover{color:var(--em)}
+.status{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:9999px;border:1px solid var(--line);font-family:'Geist Mono',monospace;font-size:12px;color:var(--muted)}
+.status i{width:6px;height:6px;border-radius:9999px;background:var(--em);animation:blink 1.6s infinite}
+.copy{margin-top:48px;padding-top:24px;border-top:1px solid var(--line);color:var(--dim);font-size:12px}
+.wordmark{font-weight:700;letter-spacing:-.06em;line-height:.8;font-size:22vw;color:var(--wordmark);text-align:center;margin-top:48px;user-select:none;white-space:nowrap}
+
+/* États initiaux pour les animations (seulement si JS actif) */
+.js [data-reveal]{opacity:0}
+.js .h1 .line>span,.js .final-box h2 .line>span{transform:translateY(110%)}
+@media (prefers-reduced-motion: reduce){
+  .js [data-reveal]{opacity:1}
+  .js .h1 .line>span,.js .final-box h2 .line>span{transform:none}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Aller au contenu</a>
+
+<!-- Navigation îlot -->
+<header class="nav" id="nav">
+  <div class="pill">
+    <a href="#top" class="logo" aria-label="MoroCash, retour en haut">
+      <svg viewBox="0 0 36 36" width="28" height="28" fill="none" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#4338CA"/><path d="M10 23V13L18 20L26 13V23" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="9" r="3" fill="#10B981"/></svg>
+      <span>Moro<b>Cash</b></span>
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#comment-ca-marche">Fonctionnement</a>
+      <a href="#solutions">Pour qui</a>
+      <a href="#tarifs">Tarifs</a>
+      <a href="#faq">Questions</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="link" style="font-size:14px;padding:0 8px" href="https://morocashfront.vercel.app/">Se connecter</a>
+      <a class="btn btn-em btn-sm magnetic" href="https://morocashfront.vercel.app/">Essayer gratuitement</a>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Changer de thème"><i class="ph ph-moon"></i><i class="ph ph-sun"></i></button>
+    <button class="burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="overlay"><span></span><span></span></button>
+  </div>
+</header>
+<div class="overlay" id="overlay" aria-hidden="true">
+  <a href="#comment-ca-marche">Fonctionnement</a>
+  <a href="#solutions">Pour qui</a>
+  <a href="#tarifs">Tarifs</a>
+  <a href="#faq">Questions</a>
+  <a href="https://morocashfront.vercel.app/">Se connecter</a>
+  <a class="btn btn-em" href="https://morocashfront.vercel.app/">Essayer 30 jours gratuits</a>
+</div>
+
+<main id="main">
+<!-- HERO -->
+<section class="hero" id="top">
+  <svg class="hero-chart" viewBox="0 0 1440 800" preserveAspectRatio="none" aria-hidden="true">
+    <path class="b" d="M0 700 C 180 690, 260 720, 380 650 S 600 640, 720 600 S 960 560, 1080 520 S 1300 470, 1440 430"/>
+    <path id="heroLine" d="M0 640 C 160 620, 240 660, 360 590 S 560 540, 680 560 S 900 420, 1040 440 S 1300 260, 1440 220"/>
+  </svg>
+  <div class="wrap hero-grid">
+    <div>
+      <div class="badge" data-hero><span class="ping"></span>30 jours gratuits · sans carte bancaire</div>
+      <h1 class="h1">
+        <span class="line"><span>Tu vends tous les jours.</span></span>
+        <span class="line"><span>Mais tu <span class="em">gagnes</span> combien&nbsp;?</span></span>
+      </h1>
+      <p class="lead" data-hero>MoroCash te dit chaque soir ce que tu as vraiment gagné, ce qui te reste en stock, et qui te doit de l'argent. En 10 secondes par vente.</p>
+      <div class="hero-ctas" data-hero>
+        <a class="btn btn-em magnetic" href="https://morocashfront.vercel.app/">Essayer gratuitement <span class="arr"><i class="ph-bold ph-arrow-right"></i></span></a>
+        <a class="link" href="#comment-ca-marche"><i class="ph ph-play-circle" style="font-size:20px"></i>Voir comment ça marche</a>
+      </div>
+      <div class="trust" data-hero>
+        <span><i class="ph ph-shield-check"></i>Pas de carte bancaire</span>
+        <span><i class="ph ph-wifi-slash"></i>Marche sans réseau</span>
+        <span><i class="ph ph-lightning"></i>Prêt en 3 minutes</span>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="phone" id="heroPhone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="ps-head">
+            <div><p class="ps-label mono">Bénéfice du jour</p><p class="ps-big mono" id="heroProfit">0 F</p></div>
+            <span class="live"><i></i>En ligne</span>
+          </div>
+          <div class="bars" id="heroBars"><i style="--h:35%"></i><i style="--h:55%"></i><i style="--h:40%"></i><i style="--h:70%"></i><i class="hot" style="--h:85%"></i><i style="--h:50%"></i></div>
+          <p class="ps-sub">Dernières ventes</p>
+          <ul class="sales" id="heroSales" aria-live="off"></ul>
+          <div class="toast" id="heroToast"><i class="ph-bold ph-check-circle"></i> Vente enregistrée</div>
+          <div class="tabs">
+            <span class="on"><i class="ph-fill ph-shopping-cart"></i>Vendre</span>
+            <span><i class="ph ph-package"></i>Stock</span>
+            <span><i class="ph ph-users"></i>Clients</span>
+            <span><i class="ph ph-chart-pie"></i>Rapports</span>
+          </div>
+        </div>
+      </div>
+      <div class="chip c1" data-chip><div class="ic"><i class="ph-fill ph-whatsapp-logo"></i></div><div>Reçu envoyé<small>à Awa T. · 21:14</small></div></div>
+      <div class="chip c2" data-chip><div class="ic"><i class="ph-fill ph-warning"></i></div><div>Stock bas<small>Crème de soin · 3 restants</small></div></div>
+      <div class="chip c3" data-chip><div class="ic"><i class="ph-fill ph-hand-coins"></i></div><div>Dette réglée<small class="mono">+12 500 F · Kouadio</small></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Bandeau pays / paiements -->
+<div class="band" aria-label="Pays et moyens de paiement">
+  <div class="wrap"><p>Disponible en Afrique de l'Ouest</p></div>
+  <div class="mq" data-mq="left">
+    <span class="mq-item v"><i class="ph-fill ph-map-pin"></i>Côte d'Ivoire</span><span class="mq-item v"><i class="ph-fill ph-map-pin"></i>Sénégal</span><span class="mq-item v"><i class="ph-fill ph-map-pin"></i>Burkina Faso</span><span class="mq-item v"><i class="ph-fill ph-map-pin"></i>Mali</span><span class="mq-item soon"><i class="ph ph-hourglass"></i>Bénin (bientôt)</span><span class="mq-item soon"><i class="ph ph-hourglass"></i>Togo (bientôt)</span>
+  </div>
+  <div class="wrap"><p style="margin-top:24px">Tes clients paient comme ils veulent</p></div>
+  <div class="mq" data-mq="right">
+    <span class="mq-item e"><i class="ph-fill ph-wallet"></i>Wave</span><span class="mq-item e"><i class="ph-fill ph-wallet"></i>Orange Money</span><span class="mq-item e"><i class="ph-fill ph-wallet"></i>MTN MoMo</span><span class="mq-item e"><i class="ph-fill ph-wallet"></i>Moov Money</span><span class="mq-item e"><i class="ph-fill ph-money"></i>Espèces</span>
+  </div>
+</div>
+
+<!-- Problème -->
+<section id="probleme">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow vi" data-reveal>Constat terrain</span>
+      <h2 class="h2" data-reveal>Ton commerce marche. Mais tu <span class="vi">pilotes à l'aveugle</span>.</h2>
+    </div>
+    <div class="grid4" data-stagger>
+      <article class="card"><span class="num">01</span><div class="ico red"><i class="ph ph-package"></i></div><h3>Tu ne sais pas ce qui te reste</h3><p>Un client demande un article, tu vas voir au fond du magasin. Parfois il n'y en a plus depuis trois jours.</p></article>
+      <article class="card"><span class="num">02</span><div class="ico red"><i class="ph ph-user-minus"></i></div><h3>Tu ne sais plus qui te doit</h3><p>Tu fais crédit à des habitués sur WhatsApp. Six mois après, tu ne sais plus combien, ni depuis quand.</p></article>
+      <article class="card"><span class="num">03</span><div class="ico red"><i class="ph ph-scales"></i></div><h3>Tu confonds vendre et gagner</h3><p>La caisse est pleine le soir. Mais après les achats, le transport et le loyer, il reste quoi&nbsp;?</p></article>
+      <article class="card"><span class="num">04</span><div class="ico red"><i class="ph ph-notebook"></i></div><h3>Ton cahier finit par se perdre</h3><p>Mouillé, déchiré, oublié chez toi. Et avec lui, tout l'historique de ton commerce.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- Avant / après : chaque ligne du cahier est barrée pendant que MoroCash la règle -->
+<section class="ba" id="ba">
+  <div class="wrap" style="width:100%">
+    <div class="head">
+      <span class="eyebrow" data-reveal>Le même commerce</span>
+      <h2 class="h2" data-reveal>Deux façons de le tenir. <span class="em">Une seule te dit la vérité.</span></h2>
+      <div class="ba-score" data-reveal><b id="baN">0</b>/7 problèmes réglés <span class="ba-meter"><i id="baMeter"></i></span></div>
+    </div>
+    <div class="ba-grid">
+      <div class="ba-col ca">
+        <h3><i class="ph ph-notebook"></i>Avec ton cahier</h3>
+        <ul id="baCa">
+          <li><i class="ph-bold ph-x"></i><span>Tu comptes ta caisse le soir sans savoir si le compte est juste.</span></li>
+          <li><i class="ph-bold ph-x"></i><span>Tu découvres une rupture quand le client est déjà devant toi.</span></li>
+          <li><i class="ph-bold ph-x"></i><span>Tu oublies des crédits, parfois pendant des mois.</span></li>
+          <li><i class="ph-bold ph-x"></i><span>Tu confonds ce que tu vends et ce que tu gagnes.</span></li>
+          <li><i class="ph-bold ph-x"></i><span>Tu ne sais pas quel produit te rapporte vraiment.</span></li>
+          <li><i class="ph-bold ph-x"></i><span>Ton vendeur note sur un bout de papier, ou pas du tout.</span></li>
+          <li><i class="ph-bold ph-x"></i><span>Un cahier perdu, et tout l'historique disparaît.</span></li>
+        </ul>
+      </div>
+      <div class="ba-col mc">
+        <h3><i class="ph-fill ph-sparkle"></i>Avec MoroCash</h3>
+        <ul id="baMc">
+          <li><i class="ph-bold ph-check"></i><span>Tu sais au franc près ce que tu dois avoir en caisse.</span></li>
+          <li><i class="ph-bold ph-check"></i><span>Tu es prévenu avant la rupture, pas après.</span></li>
+          <li><i class="ph-bold ph-check"></i><span>Chaque crédit est noté, avec son ancienneté et un rappel WhatsApp.</span></li>
+          <li><i class="ph-bold ph-check"></i><span>Un seul chiffre chaque soir : ce que tu as réellement gagné.</span></li>
+          <li><i class="ph-bold ph-check"></i><span>Tu vois quel produit te fait gagner, et lequel te fait travailler.</span></li>
+          <li><i class="ph-bold ph-check"></i><span>Ton vendeur enregistre, sans jamais voir tes bénéfices.</span></li>
+          <li><i class="ph-bold ph-check"></i><span>Ton historique est en sécurité, et il t'appartient à vie.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comment ça marche : le téléphone reste fixe, les étapes défilent -->
+<section id="comment-ca-marche">
+  <div class="wrap">
+    <div class="head center">
+      <span class="eyebrow vi" data-reveal>Fonctionnement</span>
+      <h2 class="h2" data-reveal>Trois étapes, et <span class="vi">tu sais tout</span>.</h2>
+    </div>
+    <div class="how-grid">
+      <div class="steps" id="steps">
+        <div class="step on" data-step="1"><button class="step-in" type="button"><span class="step-n">1</span><span><h3>Tu enregistres ta vente</h3><p>Tu touches le produit, tu indiques combien le client t'a donné. Tu peux même scanner le code barres. <span class="mono em">10 s</span></p><div class="step-bar"><i></i></div></span></button></div>
+        <div class="step" data-step="2"><button class="step-in" type="button"><span class="step-n">2</span><span><h3>Tout se met à jour</h3><p>Le stock baisse, le client est créé, sa dette est notée, le reçu part sur WhatsApp.</p><div class="step-bar"><i></i></div></span></button></div>
+        <div class="step" data-step="3"><button class="step-in" type="button"><span class="step-n">3</span><span><h3>Tu vois ce que tu as gagné</h3><p>Chaque soir, un seul chiffre : ce qu'il te reste vraiment en poche, une fois le coût d'achat et les frais retirés.</p><div class="step-bar"><i></i></div></span></button></div>
+      </div>
+      <div class="sticky">
+        <div class="device" data-reveal>
+          <div class="scr on" data-scr="1">
+            <div class="stack">
+              <p class="ps-label mono">Panier en cours</p>
+              <div class="row"><span>3× Mèches synthétiques</span><span class="mono">6 000 F</span></div>
+              <div class="row"><span>1× Crème de soin</span><span class="mono">4 500 F</span></div>
+            </div>
+            <div>
+              <div class="total"><span>Total</span><span class="mono">10 500 F</span></div>
+              <div class="pay">Encaisser</div>
+            </div>
+          </div>
+          <div class="scr" data-scr="2">
+            <div class="stack" style="display:flex;flex-direction:column;gap:16px">
+              <p class="ps-label mono">Mises à jour instantanées</p>
+              <div class="stk"><div><span>Mèches synthétiques</span><span class="mono">14 restants</span></div><div class="meter"><i data-w="70%"></i></div></div>
+              <div class="stk"><div><span>Crème de soin</span><span class="mono">8 restants</span></div><div class="meter"><i data-w="40%"></i></div></div>
+              <div class="stk"><div><span>Savon karité</span><span class="mono">3 restants</span></div><div class="meter"><i class="low" data-w="14%"></i></div></div>
+            </div>
+            <div class="wa"><i class="ph-fill ph-whatsapp-logo"></i>Reçu envoyé à Awa T. sur WhatsApp</div>
+          </div>
+          <div class="scr" data-scr="3">
+            <div class="stack">
+              <p class="ps-label mono em">Rapport du soir</p>
+              <div class="gain"><small>Ce que tu as gagné</small><b id="nightGain">0 F</b></div>
+            </div>
+            <p class="calc">Ventes 45 000 F − Achats 18 650 F − Dépenses 5 000 F</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Phrase révélée mot à mot -->
+<section class="tagline" aria-label="Notre promesse">
+  <div class="wrap">
+    <p id="tagline">Ton cahier est rapide et gratuit. C'est vrai. Il ne te dira simplement jamais si tu gagnes de l'argent. *MoroCash *te *le *dit *chaque *soir.</p>
+  </div>
+</section>
+
+<!-- Chiffres -->
+<div class="stats">
+  <div class="wrap stats-grid" data-stagger>
+    <div class="stat"><b data-count data-from="60" data-to="10" data-suffix=" s">10 s</b><span>pour enregistrer une vente</span></div>
+    <div class="stat"><b data-count data-from="30" data-to="3" data-suffix=" min">3 min</b><span>pour être prêt à vendre</span></div>
+    <div class="stat"><b data-count data-from="9900" data-to="0" data-suffix=" F">0 F</b><span>pendant 30 jours d'essai</span></div>
+    <div class="stat"><b data-count data-from="9" data-to="0" data-suffix="">0</b><span>carte bancaire demandée</span></div>
+  </div>
+</div>
+
+<!-- Piliers -->
+<section id="pourquoi">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow" data-reveal>Notre philosophie</span>
+      <h2 class="h2" data-reveal>Fait pour ton commerce, pas pour un <span class="em">bureau climatisé</span>.</h2>
+    </div>
+    <div class="grid3" data-stagger>
+      <article class="card"><div class="ico em"><i class="ph ph-wifi-slash"></i></div><h3>Le réseau coupe&nbsp;? Tu continues à vendre.</h3><p>Tes ventes s'enregistrent sur ton téléphone même sans internet. Tout se synchronise dès que le réseau revient.</p></article>
+      <article class="card"><div class="ico vi"><i class="ph ph-chat-circle-text"></i></div><h3>Si tu sais utiliser WhatsApp, tu sais utiliser MoroCash.</h3><p>Pas de jargon comptable. On écrit « ce que tu as gagné », jamais « bénéfice net d'exploitation ».</p></article>
+      <article class="card"><div class="ico terre"><i class="ph ph-download-simple"></i></div><h3>Tes données sont à toi. Même si tu arrêtes.</h3><p>Exporte tout en Excel ou PDF quand tu veux. Si tu arrêtes de payer, tu gardes un accès en lecture seule à vie.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- Pour qui -->
+<section id="solutions" style="padding-top:0">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow" data-reveal>Pour qui</span>
+      <h2 class="h2" data-reveal>MoroCash s'adapte à <span class="em">ton métier</span>.</h2>
+    </div>
+    <div class="bento">
+      <article class="card b7" data-reveal>
+        <div class="persona-top">
+          <div>
+            <div class="ico em" style="margin-bottom:16px"><i class="ph ph-whatsapp-logo"></i></div>
+            <h3>La vendeuse WhatsApp</h3>
+            <p style="max-width:320px;margin-top:4px">Awa prend ses commandes toute la journée sur WhatsApp. Un clic transforme le message en reçu propre.</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="chatBtn" type="button" style="flex-shrink:0">Transformer en reçu</button>
+        </div>
+        <div class="chat" id="chat">
+          <div class="bubble"><b>Awa T.</b> <small>· 21:14</small><p>« Bjr Awa, tu me mets 2 mèches et 1 crème svp, je passe demain »</p></div>
+          <div class="receipt">
+            <p class="r-h">Reçu MoroCash · #0231</p>
+            <div class="r-l"><span>2× Mèches synthétiques</span><span class="mono">12 000 F</span></div>
+            <div class="r-l"><span>1× Crème de soin</span><span class="mono">4 500 F</span></div>
+            <div class="r-l r-t"><span>Total</span><span class="mono">16 500 F</span></div>
+          </div>
+        </div>
+      </article>
+      <article class="card b5 boss" data-reveal>
+        <div class="ico vi"><i class="ph ph-users-three"></i></div>
+        <div><h3>Le boutiquier</h3><p style="margin-top:4px">Il gère une équipe de vendeurs. Ils encaissent, mais ne voient jamais les marges.</p></div>
+        <div class="mini">
+          <div><span style="font-weight:600">Vente de Kouadio</span><span class="mono">12 500 F</span></div>
+          <div style="color:var(--muted)"><span style="display:flex;align-items:center;gap:8px"><i class="ph ph-eye-slash"></i>Marge réelle</span><span class="mono blur-num">3 200 F</span></div>
+          <div class="sep"><span class="em" style="display:flex;align-items:center;gap:8px;font-weight:600"><i class="ph ph-eye"></i>Toi, le patron</span><span class="mono em" style="font-weight:600">+3 200 F</span></div>
+        </div>
+      </article>
+      <article class="card b12" data-reveal>
+        <div class="split2">
+          <div>
+            <div class="ico terre" style="margin-bottom:16px"><i class="ph ph-scissors"></i></div>
+            <h3>Le prestataire</h3>
+            <p style="max-width:380px;margin-top:4px">Coiffure, couture, réparation : pas de stock à gérer, juste des prestations encaissées en 10 secondes.</p>
+          </div>
+          <div class="mini">
+            <div><span style="font-weight:600">Coupe homme</span><span class="mono em">3 000 F</span></div>
+            <div><span style="font-weight:600">Tresses Awalé</span><span class="mono em">8 000 F</span></div>
+            <div><span style="font-weight:600">Retouche express</span><span class="mono em">1 500 F</span></div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- Avis -->
+<section id="temoignages" style="background:var(--alt);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="head center">
+      <span class="eyebrow" data-reveal>Avis commerçants</span>
+      <h2 class="h2" data-reveal>Recommandé par <span class="em">ceux qui l'utilisent</span>.</h2>
+    </div>
+    <div class="quotes" data-stagger>
+      <figure class="card quote" data-stars>
+        <div class="stars" aria-label="5 étoiles sur 5"><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i></div>
+        <blockquote>« Un client me devait 60 000 F depuis huit mois, je l'avais complètement oublié. Le jour où j'ai vu la liste, j'ai récupéré mon argent. »</blockquote>
+        <figcaption class="who"><span class="av" style="background:rgba(0,230,135,.12);color:var(--em)">AT</span><span><b>Awa T.</b><small>Cosmétiques, Yopougon</small></span></figcaption>
+      </figure>
+      <figure class="card quote" data-stars>
+        <div class="stars" aria-label="5 étoiles sur 5"><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i></div>
+        <blockquote>« Le réseau coupe souvent à Adjamé. Je continue à enregistrer mes ventes, et quand ça revient, tout est là. »</blockquote>
+        <figcaption class="who"><span class="av" style="background:rgba(123,97,255,.15);color:var(--vi)">KY</span><span><b>Kouassi Y.</b><small>Alimentation, Adjamé</small></span></figcaption>
+      </figure>
+      <figure class="card quote" data-stars>
+        <div class="stars" aria-label="5 étoiles sur 5"><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i></div>
+        <blockquote>« Je croyais gagner beaucoup parce que la caisse était pleine. En vrai je perdais sur deux produits. »</blockquote>
+        <figcaption class="who"><span class="av" style="background:rgba(245,158,11,.12);color:var(--terre)">FD</span><span><b>Fatou D.</b><small>Mode, Cocody</small></span></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- Comparatif -->
+<section id="comparatif">
+  <div class="wrap">
+    <div class="head center">
+      <span class="eyebrow vi" data-reveal>Comparatif honnête</span>
+      <h2 class="h2" data-reveal>Cahier, Excel ou <span class="vi">MoroCash</span>&nbsp;?</h2>
+    </div>
+    <div class="tbl-wrap" data-reveal>
+      <table>
+        <thead><tr><th>Ce que tu veux savoir</th><th>Cahier</th><th>Excel</th><th class="col-mc"><span class="sweep"></span><span style="position:relative">MoroCash</span></th></tr></thead>
+        <tbody id="cmp"></tbody>
+      </table>
+    </div>
+    <p class="tbl-note" data-reveal>Ton cahier est rapide et gratuit. Il ne te dira simplement jamais si tu gagnes de l'argent.</p>
+  </div>
+</section>
+
+<!-- Tarifs -->
+<section id="tarifs" style="padding-top:0">
+  <div class="wrap">
+    <div class="head center">
+      <span class="eyebrow" data-reveal>Tarifs</span>
+      <h2 class="h2" data-reveal>Un tarif clair, en <span class="em">francs CFA</span>.</h2>
+      <div class="toggle" data-reveal>
+        <span id="lblM" class="on">Mensuel</span>
+        <button class="sw" id="billing" type="button" aria-pressed="false" aria-label="Facturation annuelle"><i></i></button>
+        <span id="lblY">Annuel <span class="em">(2 mois offerts)</span></span>
+      </div>
+    </div>
+    <div class="plans" data-stagger>
+      <article class="card plan">
+        <div>
+          <h3>Essai</h3><p>Pour essayer MoroCash sur ta vraie caisse.</p>
+          <div class="price"><b>0</b><span class="cur">FCFA</span><small>/ 30 jours</small></div>
+          <ul class="feat"><li><i class="ph-bold ph-check"></i><strong>30 jours complets</strong></li><li><i class="ph-bold ph-check"></i><strong>Sans carte bancaire</strong></li><li><i class="ph-bold ph-check"></i>Tout ce que fait la formule Solo</li><li><i class="ph-bold ph-check"></i>Tes données restent à toi à la fin</li></ul>
+        </div>
+        <div><a class="btn btn-ghost" href="https://morocashfront.vercel.app/">Commencer l'essai</a><p class="fine">Aucun paiement · aucun engagement</p></div>
+      </article>
+      <article class="card plan">
+        <div>
+          <h3>Solo</h3><p>Pour les entrepreneurs qui vendent seuls.</p>
+          <div class="price"><b data-price data-m="9900" data-y="99000">9 900</b><span class="cur">FCFA</span><small data-per>/ mois</small></div>
+          <ul class="feat"><li><i class="ph-bold ph-check"></i><strong>2 utilisateurs · 900 commandes / mois</strong></li><li><i class="ph-bold ph-check"></i>Historique de ventes illimité</li><li><i class="ph-bold ph-check"></i>Stocks complets et alertes</li><li><i class="ph-bold ph-check"></i>Suivi des dettes et relances WhatsApp</li></ul>
+        </div>
+        <div><a class="btn btn-ghost" href="https://morocashfront.vercel.app/">Choisir Solo</a><p class="fine">30 jours gratuits · sans carte · sans engagement</p></div>
+      </article>
+      <article class="card plan best">
+        <span class="tag">Équipe et vendeurs</span>
+        <div>
+          <h3>Business</h3><p>Pour les boutiques avec vendeurs et personnel.</p>
+          <div class="price"><b data-price data-m="19900" data-y="199000">19 900</b><span class="cur">FCFA</span><small data-per>/ mois</small></div>
+          <ul class="feat"><li><i class="ph-bold ph-check"></i><strong>Jusqu'à 10 utilisateurs · commandes illimitées</strong></li><li><i class="ph-bold ph-check"></i><strong>Bénéfices masqués aux vendeurs</strong></li><li><i class="ph-bold ph-check"></i>Suivi et comparaison des performances</li><li><i class="ph-bold ph-check"></i>Export complet Excel et PDF en 1 clic</li></ul>
+        </div>
+        <div><a class="btn btn-em magnetic" href="https://morocashfront.vercel.app/">Choisir Business</a><p class="fine">30 jours gratuits · sans carte · sans engagement</p></div>
+      </article>
+    </div>
+    <p class="lock" data-reveal><i class="ph-fill ph-lock-simple"></i>Si l'abonnement expire, tes données passent en lecture seule. Tu ne perds jamais ton historique.</p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="padding-top:0">
+  <div class="wrap">
+    <div class="head center">
+      <span class="eyebrow vi" data-reveal>Questions fréquentes</span>
+      <h2 class="h2" data-reveal>Ce qu'on nous demande <span class="vi">avant d'essayer</span>.</h2>
+    </div>
+    <div class="faq" id="faqList" data-reveal></div>
+  </div>
+</section>
+
+<!-- CTA final -->
+<section class="final">
+  <div class="wrap">
+    <div class="final-box" id="finalBox">
+      <span class="ring" style="width:640px;height:640px"></span><span class="ring" style="width:960px;height:960px"></span><span class="ring" style="width:1280px;height:1280px"></span>
+      <h2><span class="line"><span>Ce soir, tu sauras</span></span><span class="line"><span>ce que tu as gagné.</span></span></h2>
+      <p data-reveal>Essaie MoroCash gratuitement pendant 30 jours. Sans engagement, sans carte bancaire.</p>
+      <a class="btn btn-ink magnetic" href="https://morocashfront.vercel.app/" data-reveal>Essayer gratuitement <span class="arr"><i class="ph-bold ph-arrow-right"></i></span></a>
+      <div class="final-meta" data-reveal><span><i class="ph-bold ph-clock"></i>Prêt en 3 minutes</span><span><i class="ph-bold ph-shield-check"></i>Sans carte bancaire</span></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a href="#top" class="logo"><svg viewBox="0 0 36 36" width="28" height="28" fill="none" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#4338CA"/><path d="M10 23V13L18 20L26 13V23" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="9" r="3" fill="#10B981"/></svg><span>Moro<b>Cash</b></span></a>
+        <p>Conçu pour les commerçants d'Afrique de l'Ouest. Caisse, stocks, clients et relances.</p>
+      </div>
+      <div>
+        <h4>Produit</h4>
+        <ul><li><a href="#solutions">Pour qui</a></li><li><a href="#comment-ca-marche">Fonctionnement</a></li><li><a href="#tarifs">Tarifs</a></li><li><a href="#faq">Questions</a></li></ul>
+      </div>
+      <div style="display:flex;align-items:flex-start" class="foot-r"><span class="status"><i></i>Système MoroCash opérationnel</span></div>
+    </div>
+    <p class="copy">© 2026 MoroCash Technologies. Tous droits réservés.</p>
+  </div>
+  <div class="wordmark" aria-hidden="true">MoroCash</div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/CustomEase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const fmt = (n) => Math.round(n).toLocaleString('fr-FR').replace(/ | /g, ' ');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(pointer: fine)').matches;
+
+  /* ---------- Contenu généré (comparatif, FAQ) ---------- */
+  const CMP = [
+    ['Enregistrer une vente en 10 secondes', 'g:Oui', 'b:Non', 'g:Oui'],
+    ['Alertes de rupture de stock', 'b:Non', 'n:Non', 'g:Automatique'],
+    ['Masquer les bénéfices aux employés', 'b:Non', 'b:Non', 'g:Oui'],
+    ['Relancer une dette en 1 clic (WhatsApp)', 'b:Non', 'b:Non', 'g:Oui'],
+    ['Fonctionner sans réseau', 'g:Oui', 'g:Oui', 'g:Oui'],
+    ['Survivre au vol, au feu, à la pluie', 'b:Non', 'n:Si sauvegardé', 'g:Oui'],
+    ['Envoyer un reçu automatique au client', 'b:Non', 'b:Non', 'g:Sur WhatsApp'],
+    ['Connaître son bénéfice net chaque soir', 'b:Non', 'n:Si tu sais faire', 'g:Chaque soir'],
+    ['Historique client (qui doit, depuis quand)', 'n:Si tu y penses', 'n:À la main', 'g:Automatique'],
+    ['Coûter zéro franc', 'g:Oui', 'g:Oui', 'b:30 j, puis payant'],
+  ];
+  $('#cmp').innerHTML = CMP.map(([l, ...c]) =>
+    `<tr><td>${l}</td>${c.map((v, i) => { const [t, x] = v.split(':'); return `<td class="${t}${i === 2 ? ' col-mc' : ''}">${x}</td>`; }).join('')}</tr>`
+  ).join('');
+
+  const FAQ = [
+    ['Je dois payer pour essayer ?', "Non. L'essai dure 30 jours, sans carte bancaire. Tu choisis une formule seulement si MoroCash te sert."],
+    ['Ça marche quand le réseau coupe ?', "Oui. Tes ventes s'enregistrent sur ton téléphone, puis tout se synchronise dès que le réseau revient."],
+    ['Mes vendeurs vont voir mes bénéfices ?', "Non. Avec la formule Business, tes vendeurs encaissent, mais les marges et le bénéfice restent visibles par toi seul."],
+    ["Et si j'arrête de payer ?", "Tes données passent en lecture seule. Tu gardes ton historique à vie, et tu peux tout exporter en Excel ou PDF."],
+    ['Il faut installer une application ?', "Non. MoroCash s'ouvre dans le navigateur de ton téléphone, et tu peux l'ajouter à ton écran d'accueil comme une application."],
+    ['Je vends des services, pas des produits. Ça me sert ?', "Oui. Coiffure, couture, réparation : tu enregistres tes prestations en 10 secondes, sans stock à gérer."],
+    ['Dans quels pays MoroCash est disponible ?', "Côte d'Ivoire, Sénégal, Burkina Faso et Mali. Le Bénin et le Togo arrivent bientôt."],
+  ];
+  $('#faqList').innerHTML = FAQ.map(([q, a], i) =>
+    `<div class="qa"><button type="button" aria-expanded="false" aria-controls="a${i}"><span>${q}</span><span class="pl"><i class="ph-bold ph-plus"></i></span></button><div class="ans" id="a${i}" role="region"><div><p>${a}</p></div></div></div>`
+  ).join('');
+  $$('.qa button').forEach((b) => b.addEventListener('click', () => {
+    const qa = b.parentElement, open = !qa.classList.contains('open');
+    $$('.qa.open').forEach((o) => { o.classList.remove('open'); $('button', o).setAttribute('aria-expanded', 'false'); });
+    qa.classList.toggle('open', open); b.setAttribute('aria-expanded', String(open));
+  }));
+
+  /* ---------- Thème clair / sombre ---------- */
+  const root = document.documentElement;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const syncMeta = () => meta.setAttribute('content', root.dataset.theme === 'light' ? '#FFFBF5' : '#000000');
+  syncMeta();
+  $('#themeBtn').addEventListener('click', () => {
+    const light = root.dataset.theme !== 'light';
+    if (light) root.dataset.theme = 'light'; else root.removeAttribute('data-theme');
+    try { localStorage.setItem('mc-theme', light ? 'light' : 'dark'); } catch (e) {}
+    const u = new URL(location.href); u.searchParams.delete('theme'); history.replaceState(null, '', u);
+    syncMeta();
+  });
+
+  /* ---------- Menu mobile ---------- */
+  const burger = $('#burger'), overlay = $('#overlay');
+  const setMenu = (open) => {
+    document.body.classList.toggle('menu-open', open);
+    burger.setAttribute('aria-expanded', String(open));
+    burger.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+    overlay.setAttribute('aria-hidden', String(!open));
+    if (window.lenis) open ? lenis.stop() : lenis.start();
+  };
+  burger.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
+  $$('a', overlay).forEach((a) => a.addEventListener('click', () => setMenu(false)));
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+
+  /* ---------- Sans GSAP (CDN bloqué) : tout reste visible ---------- */
+  if (!window.gsap) { document.documentElement.classList.remove('js'); return; }
+
+  gsap.registerPlugin(ScrollTrigger, CustomEase);
+  CustomEase.create('fluid', '0.32,0.72,0,1');
+  gsap.defaults({ ease: 'fluid' });
+
+  /* ---------- Défilement fluide ---------- */
+  let lenis = null;
+  if (!reduce && window.Lenis) {
+    lenis = new Lenis({ lerp: 0.09 });
+    window.lenis = lenis;
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((t) => lenis.raf(t * 1000));
+    gsap.ticker.lagSmoothing(0);
+  }
+  $$('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
+    const id = a.getAttribute('href');
+    const t = id === '#top' ? 0 : $(id);
+    if (t === null) return;
+    e.preventDefault();
+    lenis ? lenis.scrollTo(t, { offset: id === '#top' ? 0 : -24, duration: 1.6 }) : (t === 0 ? scrollTo(0, 0) : t.scrollIntoView({ behavior: 'smooth' }));
+  }));
+
+  if (reduce) {
+    gsap.set('[data-reveal], .h1 .line>span, .final-box h2 .line>span', { clearProps: 'all', opacity: 1 });
+  }
+
+  /* ---------- Nav : se cache en descendant, revient en remontant ---------- */
+  const nav = $('#nav');
+  ScrollTrigger.create({
+    start: 0, end: 'max',
+    onUpdate(self) { nav.classList.toggle('hide', self.direction === 1 && self.scroll() > 400 && !document.body.classList.contains('menu-open')); },
+  });
+  const navLinks = $$('.nav-links a');
+  ['comment-ca-marche', 'solutions', 'tarifs', 'faq'].forEach((id) => {
+    ScrollTrigger.create({
+      trigger: '#' + id, start: 'top 50%', end: 'bottom 50%',
+      onToggle(self) { navLinks.forEach((l) => l.classList.toggle('current', self.isActive && l.getAttribute('href') === '#' + id)); },
+    });
+  });
+
+  /* ---------- Hero : entrée chorégraphiée ---------- */
+  const line = $('#heroLine');
+  const len = line.getTotalLength();
+  gsap.set(line, { strokeDasharray: len, strokeDashoffset: len });
+  const intro = gsap.timeline({ delay: 0.15 });
+  intro
+    .to('.h1 .line>span', { y: 0, duration: 1.3, stagger: 0.12 })
+    .fromTo('[data-hero]', { y: 40, opacity: 0, filter: 'blur(10px)' }, { y: 0, opacity: 1, filter: 'blur(0px)', duration: 1.1, stagger: 0.09 }, 0.15)
+    .fromTo('#heroPhone', { y: 120, rotateX: 28, rotateZ: -6, opacity: 0, scale: 0.9 }, { y: 0, rotateX: 0, rotateZ: 0, opacity: 1, scale: 1, duration: 1.6 }, 0.2)
+    .fromTo('[data-chip]', { scale: 0.6, opacity: 0, y: 24 }, { scale: 1, opacity: 1, y: 0, duration: 1, stagger: 0.18, ease: 'back.out(1.6)', onComplete() { $$('[data-chip]').forEach((c) => c.classList.add('float')); } }, 0.9)
+    .to(line, { strokeDashoffset: 0, duration: 2.6, ease: 'power2.inOut' }, 0.3)
+    .add(() => startHeroLoop(), 1.1);
+
+  // Le téléphone et les pastilles s'éloignent légèrement en scrollant
+  gsap.to('#stage', { yPercent: -12, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+  gsap.to('.hero-chart', { yPercent: 20, opacity: 0, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+
+  // Inclinaison 3D du téléphone qui suit la souris
+  if (fine && !reduce) {
+    const phone = $('#heroPhone');
+    const rx = gsap.quickTo(phone, 'rotationX', { duration: 0.9, ease: 'power3.out' });
+    const ry = gsap.quickTo(phone, 'rotationY', { duration: 0.9, ease: 'power3.out' });
+    $('.hero').addEventListener('pointermove', (e) => {
+      const r = phone.getBoundingClientRect();
+      ry(((e.clientX - (r.left + r.width / 2)) / innerWidth) * 18);
+      rx(-((e.clientY - (r.top + r.height / 2)) / innerHeight) * 14);
+    });
+    $('.hero').addEventListener('pointerleave', () => { rx(0); ry(0); });
+  }
+
+  /* ---------- Hero : le téléphone vit (ventes en boucle) ---------- */
+  const PRODUCTS = [
+    { q: 3, n: 'Mèches synthétiques', p: 6000, m: 1850 },
+    { q: 1, n: 'Crème de soin', p: 4500, m: 1350 },
+    { q: 2, n: 'Savon karité', p: 1500, m: 560 },
+    { q: 1, n: 'Huile de coco', p: 2500, m: 900 },
+    { q: 4, n: 'Lait corporel', p: 7200, m: 2150 },
+    { q: 1, n: 'Pagne wax', p: 8500, m: 2700 },
+  ];
+  const salesEl = $('#heroSales'), profitEl = $('#heroProfit'), bars = $$('#heroBars i');
+  const profit = { v: 0 };
+  const renderProfit = () => { profitEl.textContent = fmt(profit.v) + ' F'; };
+  const saleNode = (s) => {
+    const li = document.createElement('li');
+    li.className = 'sale';
+    li.innerHTML = `<span class="n"><span class="q">${s.q}×</span>${s.n}</span><span class="p">${fmt(s.p)} F</span>`;
+    return li;
+  };
+  PRODUCTS.slice(0, 3).forEach((s) => salesEl.appendChild(saleNode(s)));
+  let k = 3;
+  function startHeroLoop() {
+    gsap.to(profit, { v: 21350, duration: 1.6, ease: 'power3.out', onUpdate: renderProfit });
+    if (reduce) return;
+    const tick = () => {
+      const s = PRODUCTS[k++ % PRODUCTS.length];
+      const li = saleNode(s);
+      salesEl.prepend(li);
+      gsap.fromTo(li, { height: 0, opacity: 0, y: -16, scale: 0.96 }, { height: 42, opacity: 1, y: 0, scale: 1, duration: 0.9, clearProps: 'height' });
+      const old = salesEl.children[3];
+      if (old) gsap.to(old, { opacity: 0, height: 0, duration: 0.5, onComplete: () => old.remove() });
+      gsap.to(profit, { v: profit.v + s.m, duration: 1.2, ease: 'power3.out', onUpdate: renderProfit });
+      gsap.fromTo('#heroToast', { scale: 0.94 }, { scale: 1, duration: 0.6, ease: 'back.out(3)' });
+      bars.forEach((b) => b.classList.remove('hot'));
+      const hot = bars[Math.floor(Math.random() * bars.length)];
+      hot.classList.add('hot');
+      hot.style.setProperty('--h', 60 + Math.round(Math.random() * 38) + '%');
+    };
+    let timer = setInterval(tick, 2800);
+    // Pause quand le hero n'est plus visible : rien ne tourne pour rien
+    ScrollTrigger.create({ trigger: '.hero', start: 'top bottom', end: 'bottom top',
+      onToggle(self) { clearInterval(timer); if (self.isActive) timer = setInterval(tick, 2800); } });
+  }
+
+  /* ---------- Révélations génériques ---------- */
+  if (!reduce) {
+    $$('[data-reveal]').forEach((el) => {
+      gsap.fromTo(el, { y: 64, opacity: 0, filter: 'blur(12px)' }, {
+        y: 0, opacity: 1, filter: 'blur(0px)', duration: 1.2,
+        scrollTrigger: { trigger: el, start: 'top 88%', once: true },
+      });
+    });
+    $$('[data-stagger]').forEach((g) => {
+      gsap.fromTo(g.children, { y: 80, opacity: 0, filter: 'blur(12px)' }, {
+        y: 0, opacity: 1, filter: 'blur(0px)', duration: 1.2, stagger: 0.1,
+        scrollTrigger: { trigger: g, start: 'top 85%', once: true },
+      });
+    });
+    gsap.from('#cmp tr', { opacity: 0, x: -24, duration: 0.8, stagger: 0.05, scrollTrigger: { trigger: '#cmp', start: 'top 80%', once: true } });
+  }
+
+  /* ---------- Bandeaux défilants, accélérés par la vitesse de scroll ---------- */
+  const mqTweens = $$('[data-mq]').map((el) => {
+    el.innerHTML += el.innerHTML; // deux copies pour une boucle sans couture
+    const left = el.dataset.mq === 'left';
+    return gsap.fromTo(el, { xPercent: left ? 0 : -50 }, { xPercent: left ? -50 : 0, duration: 32, ease: 'none', repeat: -1 });
+  });
+  if (!reduce) {
+    let boost = 0;
+    ScrollTrigger.create({ start: 0, end: 'max', onUpdate(self) { boost = Math.min(Math.abs(self.getVelocity()) / 250, 6); } });
+    gsap.ticker.add(() => { boost *= 0.92; mqTweens.forEach((t) => t.timeScale(1 + boost)); });
+  } else mqTweens.forEach((t) => t.pause());
+
+  /* ---------- Avant / après piloté par le scroll ---------- */
+  const caLis = $$('#baCa li'), mcLis = $$('#baMc li'), baN = $('#baN'), baMeter = $('#baMeter');
+  const setBA = (p) => {
+    const n = Math.min(7, Math.floor(p * 8));
+    caLis.forEach((li, i) => li.classList.toggle('dead', i < n));
+    mcLis.forEach((li, i) => li.classList.toggle('live', i < n));
+    baN.textContent = n;
+    baMeter.style.width = (n / 7) * 100 + '%';
+  };
+  const mm = gsap.matchMedia();
+  mm.add('(min-width: 1024px)', () => {
+    ScrollTrigger.create({ trigger: '#ba', start: 'top top', end: '+=1400', pin: true, scrub: true, onUpdate: (s) => setBA(s.progress) });
+  });
+  mm.add('(max-width: 1023px)', () => {
+    ScrollTrigger.create({ trigger: '#ba .ba-grid', start: 'top 75%', end: 'bottom 45%', scrub: true, onUpdate: (s) => setBA(s.progress) });
+  });
+
+  /* ---------- Phrase révélée mot à mot ---------- */
+  const tag = $('#tagline');
+  tag.innerHTML = tag.textContent.trim().split(/\s+/).map((w) =>
+    w.startsWith('*') ? `<span class="w hl">${w.slice(1)}</span>` : `<span class="w">${w}</span>`
+  ).join(' ');
+  const words = $$('.w', tag);
+  ScrollTrigger.create({
+    trigger: tag, start: 'top 80%', end: 'bottom 40%', scrub: true,
+    onUpdate(self) { const n = Math.round(self.progress * words.length); words.forEach((w, i) => w.classList.toggle('on', i < n)); },
+  });
+  if (reduce) words.forEach((w) => w.classList.add('on'));
+
+  /* ---------- Comment ça marche ---------- */
+  const steps = $$('.step'), scrs = $$('.scr');
+  const gainEl = $('#nightGain'), gain = { v: 0 };
+  let current = 1, gainDone = false;
+  const setStep = (n) => {
+    if (n === current && steps[n - 1].classList.contains('on')) return;
+    current = n;
+    steps.forEach((s) => s.classList.toggle('on', +s.dataset.step === n));
+    scrs.forEach((s) => s.classList.toggle('on', +s.dataset.scr === n));
+    $$('.meter i').forEach((m) => { m.style.width = n === 2 ? m.dataset.w : '0'; });
+    if (n === 1) gsap.fromTo('.pay', { scale: 1 }, { scale: 1.04, yoyo: true, repeat: 1, duration: 0.4, delay: 0.5 });
+    if (n === 3 && !gainDone) {
+      gainDone = true;
+      gsap.to(gain, { v: 21350, duration: 1.6, delay: 0.3, ease: 'power3.out', onUpdate: () => { gainEl.textContent = fmt(gain.v) + ' F'; } });
+    }
+  };
+  mm.add('(min-width: 1024px)', () => {
+    steps.forEach((s) => {
+      const n = +s.dataset.step;
+      ScrollTrigger.create({ trigger: s, start: 'top 55%', end: 'bottom 55%', onToggle: (self) => self.isActive && setStep(n),
+        onUpdate: (self) => gsap.set($('.step-bar i', s), { width: self.progress * 100 + '%' }) });
+    });
+  });
+  mm.add('(max-width: 1023px)', () => {
+    // Sur mobile : les étapes avancent seules quand la section est à l'écran
+    let t = null;
+    const st = ScrollTrigger.create({ trigger: '#comment-ca-marche', start: 'top 60%', end: 'bottom 30%',
+      onToggle(self) {
+        clearInterval(t);
+        if (self.isActive) t = setInterval(() => setStep((current % 3) + 1), 3200);
+      } });
+    return () => { clearInterval(t); st.kill(); };
+  });
+  steps.forEach((s) => $('button', s).addEventListener('click', () => {
+    const n = +s.dataset.step;
+    if (innerWidth >= 1024 && lenis) lenis.scrollTo(s, { offset: -innerHeight * 0.3 });
+    setStep(n);
+  }));
+
+  /* ---------- Compteurs ---------- */
+  $$('[data-count]').forEach((el) => {
+    const o = { v: +el.dataset.from }, to = +el.dataset.to, suf = el.dataset.suffix;
+    el.textContent = fmt(o.v) + suf;
+    ScrollTrigger.create({ trigger: el, start: 'top 90%', once: true,
+      onEnter: () => gsap.to(o, { v: to, duration: 1.8, ease: 'power3.out', onUpdate: () => { el.textContent = fmt(o.v) + suf; } }) });
+  });
+
+  /* ---------- Message WhatsApp → reçu ---------- */
+  const chat = $('#chat'), chatBtn = $('#chatBtn');
+  const setChat = (on) => { chat.classList.toggle('done', on); chatBtn.textContent = on ? 'Revenir au message' : 'Transformer en reçu'; };
+  chatBtn.addEventListener('click', () => setChat(!chat.classList.contains('done')));
+  ScrollTrigger.create({ trigger: chat, start: 'top 70%', once: true, onEnter: () => setTimeout(() => setChat(true), 1200) });
+
+  /* ---------- Étoiles des avis ---------- */
+  $$('[data-stars]').forEach((el) => ScrollTrigger.create({ trigger: el, start: 'top 85%', once: true, onEnter: () => setTimeout(() => el.classList.add('lit'), 400) }));
+
+  /* ---------- Tarifs : les prix roulent ---------- */
+  const bill = $('#billing');
+  bill.addEventListener('click', () => {
+    const yearly = bill.getAttribute('aria-pressed') !== 'true';
+    bill.setAttribute('aria-pressed', String(yearly));
+    $('#lblM').classList.toggle('on', !yearly); $('#lblY').classList.toggle('on', yearly);
+    $$('[data-per]').forEach((p) => { p.textContent = yearly ? '/ an' : '/ mois'; });
+    $$('[data-price]').forEach((el) => {
+      const o = { v: +el.textContent.replace(/\s/g, '') };
+      gsap.to(o, { v: +(yearly ? el.dataset.y : el.dataset.m), duration: 0.9, ease: 'power3.out', onUpdate: () => { el.textContent = fmt(Math.round(o.v / 100) * 100); } });
+      gsap.fromTo(el, { y: -6, filter: 'blur(4px)' }, { y: 0, filter: 'blur(0px)', duration: 0.7 });
+    });
+  });
+
+  /* ---------- CTA final ---------- */
+  if (!reduce) {
+    gsap.to('.final-box h2 .line>span', { y: 0, duration: 1.3, stagger: 0.12, scrollTrigger: { trigger: '#finalBox', start: 'top 75%', once: true } });
+    gsap.fromTo('#finalBox', { scale: 0.92, borderRadius: 80 }, { scale: 1, borderRadius: 40, ease: 'none', scrollTrigger: { trigger: '#finalBox', start: 'top bottom', end: 'top 40%', scrub: true } });
+    gsap.from('.ring', { scale: 0.4, opacity: 0, duration: 2, stagger: 0.2, scrollTrigger: { trigger: '#finalBox', start: 'top 70%', once: true } });
+    gsap.fromTo('.wordmark', { yPercent: 40, opacity: 0 }, { yPercent: 0, opacity: 1, ease: 'none', scrollTrigger: { trigger: 'footer', start: 'top bottom', end: 'bottom bottom', scrub: true } });
+  }
+
+  /* ---------- Boutons magnétiques ---------- */
+  if (fine && !reduce) {
+    $$('.magnetic').forEach((b) => {
+      const x = gsap.quickTo(b, 'x', { duration: 0.6, ease: 'power3.out' });
+      const y = gsap.quickTo(b, 'y', { duration: 0.6, ease: 'power3.out' });
+      b.addEventListener('pointermove', (e) => {
+        const r = b.getBoundingClientRect();
+        x((e.clientX - r.left - r.width / 2) * 0.25);
+        y((e.clientY - r.top - r.height / 2) * 0.35);
+      });
+      b.addEventListener('pointerleave', () => { x(0); y(0); });
+    });
+  }
+
+  addEventListener('load', () => ScrollTrigger.refresh());
+})();
+</script>
+</body>
+</html>
