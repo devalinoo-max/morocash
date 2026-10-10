@@ -1,6 +1,20 @@
 import type { Order, OrderItem, UserRole } from '@prisma/client';
 
-type OrderWithRelations = Order & { items?: OrderItem[] };
+type OrderWithRelations = Order & {
+  items?: OrderItem[];
+  payments?: { montant: number; statut: string }[];
+};
+
+/**
+ * Payé et reste à payer, calculés ici pour que l'écran n'ait jamais à les
+ * déduire : seuls les versements valides comptent, et une commande annulée ne
+ * doit plus rien.
+ */
+function paymentTotals(order: OrderWithRelations) {
+  if (!order.payments) return {};
+  const paye = order.payments.filter((p) => p.statut === 'VALIDE').reduce((acc, p) => acc + p.montant, 0);
+  return { paye, reste: order.statut === 'ANNULEE' ? 0 : Math.max(0, order.total - paye) };
+}
 
 /**
  * Filtrage par rôle AVANT la réponse (spec §0 règle 7) : un SELLER ne reçoit
@@ -20,10 +34,10 @@ export function serializeOrder<T extends OrderWithRelations>(order: T, role: Use
 
   if (role === 'SELLER') {
     const { coutTotal, ...rest } = order;
-    return { ...rest, ...(items ? { items } : {}) };
+    return { ...rest, ...(items ? { items } : {}), ...paymentTotals(order) };
   }
 
-  return { ...order, ...(items ? { items } : {}) };
+  return { ...order, ...(items ? { items } : {}), ...paymentTotals(order) };
 }
 
 export function serializeOrderList<T extends OrderWithRelations>(orders: T[], role: UserRole) {

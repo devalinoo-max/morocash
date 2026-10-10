@@ -56,11 +56,20 @@ export async function cancelOrder(
       });
     }
 
-    let totalRecuAnnule = 0;
     for (const payment of order.payments) {
       if (payment.statut === 'ANNULE') continue;
-      await tx.payment.update({ where: { id: payment.id }, data: { statut: 'ANNULE' } });
-      totalRecuAnnule += payment.montant;
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          statut: 'ANNULE',
+          motifAnnulation: `Commande annulée : ${motif}`,
+          annuleParId: ctx.userId,
+          annuleLe: new Date(),
+        },
+      });
+      // Chaque versement sort du total reçu du jour où il avait été encaissé,
+      // qui n'est pas forcément le jour de la commande.
+      await applyDailyStatsDelta(tx, ctx.businessId, { recu: -payment.montant }, payment.createdAt);
 
       const cashMovement = await tx.cashMovement.findUnique({ where: { paymentId: payment.id } });
       if (cashMovement) {
@@ -98,7 +107,6 @@ export async function cancelOrder(
       {
         nbCommandes: -1,
         totalVendu: -order.total,
-        recu: -totalRecuAnnule,
         coutMarchandises: -order.coutTotal,
       },
       order.createdAt

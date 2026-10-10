@@ -63,13 +63,13 @@ describe('Accord du pluriel', () => {
 describe('Statut d une commande', () => {
   it('une commande soldee est payee', () => {
     expect(saleStatusKey(commande())).toBe('PAID');
-    expect(saleStatusStyle(commande()).label).toBe('Payée');
+    expect(saleStatusStyle(commande()).label).toBe('Soldé');
   });
 
   it('une commande a moitie reglee est partielle', () => {
     const s = commande({ paymentStatus: 'PARTIAL', paidAmount: 5_000, remainingAmount: 7_500 });
     expect(saleStatusKey(s)).toBe('PARTIAL');
-    expect(saleStatusStyle(s).label).toBe('Partielle');
+    expect(saleStatusStyle(s).label).toBe('Partiel');
   });
 
   it('une commande sans aucun paiement est a credit', () => {

@@ -13,7 +13,8 @@ export type PendingKind =
   | 'PRODUCT_CREATE'
   | 'PRODUCT_UPDATE'
   | 'CUSTOMER_CREATE'
-  | 'EXPENSE_CREATE';
+  | 'EXPENSE_CREATE'
+  | 'DEBT_PAYMENT';
 
 export interface PendingMutation {
   /** clientUuid : c'est LUI qui empeche les doublons cote serveur. */
@@ -30,6 +31,25 @@ export interface PendingMutation {
   createdAt: string;
   attempts: number;
   lastError?: string;
+  /**
+   * Boutique dans laquelle l'écriture a été saisie. La file vit sur l'appareil,
+   * pas dans la session : sans cette étiquette, une commande restée en attente
+   * sous une boutique repartait vers la boutique suivante ouverte sur le même
+   * téléphone, y était refusée (« produits introuvables ») et bloquait tout
+   * ce qui attendait derrière elle.
+   */
+  businessId?: string;
+  /**
+   * Mise de côté : écriture d'avant l'étiquette ci-dessus, que la boutique
+   * ouverte ne peut pas recevoir. Elle reste sur l'appareil, mais n'est plus
+   * rejouée et ne bloque plus rien.
+   */
+  parked?: boolean;
+}
+
+/** Les écritures que la boutique ouverte doit envoyer : les siennes, et les anciennes sans étiquette. */
+export function pendingForBusiness(rows: PendingMutation[], businessId: string | null): PendingMutation[] {
+  return rows.filter((m) => !m.parked && (!m.businessId || !businessId || m.businessId === businessId));
 }
 
 /**
@@ -47,6 +67,8 @@ export const SERVER_DEDUPLICATED: Record<PendingKind, boolean> = {
   PRODUCT_CREATE: false,
   PRODUCT_UPDATE: true,
   CUSTOMER_CREATE: false,
+  // Le clientUuid du versement est unique en base : un renvoi répond DUPLICATE.
+  DEBT_PAYMENT: true,
 };
 
 export function listPending(): Promise<PendingMutation[]> {

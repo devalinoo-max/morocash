@@ -22,6 +22,8 @@ const PROXIED_PREFIXES = [
   '/api/v1/products',
   '/api/v1/customers',
   '/api/v1/orders',
+  '/api/v1/payments',
+  '/api/v1/activity',
   '/api/v1/cash',
   '/api/v1/expenses',
   '/api/v1/stock',

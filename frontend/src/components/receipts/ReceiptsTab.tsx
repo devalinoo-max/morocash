@@ -28,6 +28,10 @@ import { WhatsAppRecipientModal, type ReceiptRecipient } from './WhatsAppRecipie
 import { downloadReceiptsPdf, receiptErrorMessage } from '../../utils/receiptHelpers';
 import { getCustomRange, isWithinRange, toDateInputValue } from '../../utils/period';
 import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
+import type { Versement } from '../../types';
+import { versementsOfSale } from '../../utils/versements';
+import { VersementRow } from '../payments/VersementRow';
+import { VersementReceiptModal } from '../payments/VersementReceiptModal';
 
 type PeriodFilter = 'today' | 'week' | 'month' | 'range' | 'all';
 type StateFilter = 'ALL' | 'SENT' | 'UNSENT' | 'PAID' | 'REMAINING';
@@ -40,7 +44,11 @@ export const ReceiptsTab: React.FC = () => {
     receiptDeliveries,
     recordReceiptDelivery,
     showToast,
+    pendingVersements,
+    openOrder,
   } = useApp();
+
+  const [versementOuvert, setVersementOuvert] = useState<Versement | null>(null);
 
   // Filters state
   const [period, setPeriod] = useState<PeriodFilter>('month');
@@ -160,6 +168,59 @@ export const ReceiptsTab: React.FC = () => {
   ]);
 
   // 4. Calculate Key Indicators
+  // Reçus de paiement : un par versement reçu après la commande (le paiement
+  // fait à la commande figure, lui, sur le reçu de la commande). Mêmes filtres
+  // de période, de client, de vendeur et de recherche que les reçus de commande.
+  const versementReceipts = useMemo(() => {
+    if (stateFilter !== 'ALL') return [];
+    const now = new Date();
+    const debut =
+      period === 'today'
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+        : period === 'week'
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime()
+        : period === 'month'
+        ? new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+        : 0;
+    const range = period === 'range' ? getCustomRange(rangeStart, rangeEnd) : null;
+    const moi = (settings.currentSellerName || settings.ownerName || '').toLowerCase().trim();
+    const query = searchQuery.toLowerCase().trim();
+
+    return [...pendingVersements, ...sales.flatMap(versementsOfSale).filter((v) => !v.atOrder)]
+      .filter((v) => {
+        if (new Date(v.createdAt).getTime() < debut) return false;
+        if (range && !isWithinRange(v.createdAt, range)) return false;
+        const auteur = (v.collectedBy || '').toLowerCase().trim();
+        if (settings.role === 'SELLER' && !v.isPending && auteur !== moi) return false;
+        if (settings.role !== 'SELLER' && selectedSeller !== 'ALL' && v.collectedBy !== selectedSeller) return false;
+        if (
+          selectedCustomerId !== 'ALL' &&
+          v.customerId !== selectedCustomerId &&
+          (v.customerName || '').toLowerCase() !== selectedCustomerId.toLowerCase()
+        ) {
+          return false;
+        }
+        if (!query) return true;
+        return [v.receiptNumber, v.orderReference, v.customerName, v.customerPhone].some(
+          (champ) => Boolean(champ) && String(champ).toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [
+    sales,
+    pendingVersements,
+    period,
+    rangeStart,
+    rangeEnd,
+    stateFilter,
+    selectedSeller,
+    selectedCustomerId,
+    searchQuery,
+    settings.role,
+    settings.currentSellerName,
+    settings.ownerName,
+  ]);
+
   const metrics = useMemo(() => {
     const totalIssued = filteredSales.length;
     let sentCount = 0;
@@ -579,6 +640,33 @@ export const ReceiptsTab: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* REÇUS DE PAIEMENT — un par versement, ouvert d'un tap */}
+      {versementReceipts.length > 0 && (
+        <section id="versement-receipts" className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="px-5 py-2.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-800 tracking-wide">Reçus de paiement (versements)</span>
+            <span className="text-slate-500 font-medium">
+              {versementReceipts.length} reçu{versementReceipts.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="p-3 space-y-2">
+            {versementReceipts.map((v) => (
+              <VersementRow
+                key={v.id}
+                versement={v}
+                showCustomer
+                onOpenReceipt={setVersementOuvert}
+                onOpenOrder={openOrder}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {versementOuvert && (
+        <VersementReceiptModal versement={versementOuvert} onClose={() => setVersementOuvert(null)} />
+      )}
 
       {/* 4. TABLEAU GROUPÉ PAR JOUR */}
       {filteredSales.length === 0 ? (

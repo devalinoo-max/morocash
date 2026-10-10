@@ -119,7 +119,7 @@ export const HELP_INTENTS: HelpIntent[] = [
     id: 'debtors',
     phrases: ['qui me doit', 'dette', 'credit client', 'impaye', 'relancer client', 'relance', 'rappeler dette', 'remboursement', 'client doit'],
     answer:
-      '« Qui me doit » liste les clients qui ont une dette. Touche « Relance WhatsApp » pour leur rappeler, ou « Encaisser remboursement » quand ils paient.',
+      '« Qui me doit » liste les clients qui ont une dette. Touche « Relance WhatsApp » pour leur rappeler, ou « Encaisser » quand ils paient, même en plusieurs fois.',
     button: { label: 'Aller à Qui me doit', target: { kind: 'screen', tab: 'customers', debtorsOnly: true } },
   },
   {

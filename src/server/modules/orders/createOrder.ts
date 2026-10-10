@@ -3,6 +3,7 @@ import { runInTenantTransaction } from '@/server/repositories/base';
 import { AppError } from '@/server/shared/errors';
 import { upsertDailyStatsForOrder } from '@/server/modules/reports/dailyStats';
 import { ensureOpenRegisterForPayment } from '@/server/modules/cash/service';
+import { receiptNumber } from '@/server/modules/payments/versements';
 import type { UserRole, CashRegisterMode } from '@prisma/client';
 
 export const orderItemInputSchema = z.object({
@@ -154,12 +155,18 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
         openRegister = await ensureOpenRegisterForPayment(tx, ctx);
       }
 
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const countToday = await tx.order.count({
-        where: { businessId: ctx.businessId, createdAt: { gte: startOfDay } },
+      // Le rang du jour part du dernier numéro DÉJÀ attribué pour cette date,
+      // pas du nombre de commandes du jour : les deux divergent dès qu'une
+      // commande porte un numéro du jour sans être datée du jour, et la
+      // contrainte d'unicité refusait alors toute nouvelle vente.
+      const prefixeDuJour = formatOrderNumero(new Date(), 0).slice(0, -4);
+      const dernier = await tx.order.findFirst({
+        where: { businessId: ctx.businessId, numero: { startsWith: prefixeDuJour } },
+        orderBy: { numero: 'desc' },
+        select: { numero: true },
       });
-      const numero = formatOrderNumero(new Date(), countToday + 1);
+      const dernierRang = dernier ? Number(dernier.numero.slice(prefixeDuJour.length)) || 0 : 0;
+      const numero = formatOrderNumero(new Date(), dernierRang + 1);
 
       // 5. Créer Order + OrderItem
       const order = await tx.order.create({
@@ -194,6 +201,11 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
             montant: input.montantRecu,
             methode: input.methode,
             type: 'COMMANDE',
+            // Le paiement fait à la commande est son 1er versement.
+            numero: 1,
+            resteApres: total - input.montantRecu,
+            numeroRecu: receiptNumber(numero, 1),
+            userId: ctx.userId,
           },
         });
       }

@@ -118,6 +118,57 @@ export interface SalePayment {
   createdAt: string;
   /** Un paiement annulé reste dans l'historique, mais ne compte plus. */
   isCancelled: boolean;
+  /** Rang du versement dans sa commande (1er, 2e…), attribué par le serveur. */
+  numero?: number | null;
+  /** Reste de la commande juste après ce versement, figé par le serveur. */
+  remainingAfter?: number | null;
+  receiptNumber?: string | null;
+  collectedBy?: string | null;
+  cancelReason?: string | null;
+  clientUuid?: string;
+}
+
+/**
+ * Un versement tel que le serveur le renvoie : un paiement, sa commande, et
+ * les chiffres figés le jour où il a été encaissé. L'écran les affiche tels
+ * quels, il ne recalcule ni reste ni cumul.
+ */
+export interface Versement {
+  id: string;
+  clientUuid: string;
+  numero: number | null;
+  /** Payé au moment de la commande (c'est alors son 1er versement). */
+  atOrder: boolean;
+  orderId: string | null;
+  orderReference: string | null;
+  orderDate: string | null;
+  orderTotal: number | null;
+  orderClientUuid: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  amount: number;
+  method: PaymentMethod;
+  createdAt: string;
+  remainingAfter: number | null;
+  paidSoFar: number | null;
+  receiptNumber: string | null;
+  isCancelled: boolean;
+  cancelReason?: string | null;
+  collectedBy: string | null;
+  /** Gardé sur le téléphone, pas encore envoyé au serveur. */
+  isPending?: boolean;
+}
+
+/** Liste du jour ou de la période, calculée par le serveur. */
+export interface Activity {
+  totalVendu: number;
+  nbCommandes: number;
+  nbVersements: number;
+  resteSurCommandes: number;
+  /** Par commande créée sur la période : payé à la commande, payé à ce jour, reste. */
+  commandes: Record<string, { paidAtOrder: number; paid: number; remaining: number }>;
+  versements: Versement[];
 }
 
 export interface Sale {
@@ -159,6 +210,10 @@ export interface Customer {
   lastActivity: string;
   notes?: string;
   syncStatus?: SyncStatus;
+  /** Dernier versement valide du client, fourni par le serveur. */
+  lastPayment?: { at: string; amount: number } | null;
+  /** Dette mise à jour sur le téléphone seulement, en attendant le serveur. */
+  debtProvisional?: boolean;
 }
 
 export interface Expense {

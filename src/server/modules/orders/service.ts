@@ -8,7 +8,11 @@ export async function listOrders(businessId: string) {
   // les reçus le nom de la personne connectée, quel que soit l'auteur de la vente.
   return repo.orders.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { items: true, payments: true, user: { select: { nom: true } } },
+    include: {
+      items: true,
+      payments: { include: { user: { select: { nom: true } } }, orderBy: { createdAt: 'asc' } },
+      user: { select: { nom: true } },
+    },
   });
 }
 

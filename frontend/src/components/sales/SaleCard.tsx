@@ -140,7 +140,8 @@ export const SaleCard: React.FC<SaleCardProps> = ({ sale, showSeller, onOpen, on
       {/* Ligne 3 — ce qu'il reste à aller chercher */}
       {reste > 0 && (
         <div className="mt-1 pl-[44px] text-[12px] text-[#DC2626]" style={{ fontWeight: 650 }}>
-          Reste à payer : {formatMoney(reste)}
+          {sale.paidAmount > 0 ? `Payé ${formatMoney(sale.paidAmount)}` : 'Aucun paiement'} · Reste{' '}
+          {formatMoney(reste)}
         </div>
       )}
     </div>

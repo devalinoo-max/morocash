@@ -1,6 +1,7 @@
 import { guardRead, guardMutation, auditable } from '@/server/guards';
 import { createCustomer, createCustomerSchema, listCustomers } from '@/server/modules/customers/service';
 import { getCustomerBalances } from '@/server/modules/customers/debt';
+import { getLastVersements } from '@/server/modules/payments/versements';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
 
@@ -9,14 +10,19 @@ export async function GET(request: Request) {
     const ctx = await guardRead();
     const url = new URL(request.url);
     const archiveParam = url.searchParams.get('archive');
-    const [customers, balances] = await Promise.all([
+    const [customers, balances, lastVersements] = await Promise.all([
       listCustomers(ctx.businessId, {
         archive: archiveParam === null ? undefined : archiveParam === 'true',
       }),
       getCustomerBalances(ctx.businessId),
+      getLastVersements(ctx.businessId),
     ]);
     return ok({
-      customers: customers.map((c) => ({ ...c, solde: balances.get(c.id) ?? 0 })),
+      customers: customers.map((c) => ({
+        ...c,
+        solde: balances.get(c.id) ?? 0,
+        dernierVersement: lastVersements.get(c.id) ?? null,
+      })),
     });
   } catch (error) {
     return fail(error);

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 import { useApp } from '../../context/AppContext';
 import {
@@ -18,7 +18,10 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
-import { Sale } from '../../types';
+import { Sale, Versement } from '../../types';
+import { useActivity } from '../../hooks/useActivity';
+import { VersementRow } from '../payments/VersementRow';
+import { VersementReceiptModal } from '../payments/VersementReceiptModal';
 import { countLabel } from '../../utils/plural';
 import { useIncrementalList } from '../../hooks/useIncrementalList';
 import { ListSentinel } from '../common/ListSentinel';
@@ -34,7 +37,6 @@ import {
   computePeriodInterval,
   countByStatus,
   filterSales,
-  sumSales,
   type PeriodFilter,
   type StatusFilter,
 } from '../../utils/salesFilters';
@@ -55,7 +57,14 @@ export const SalesTab: React.FC = () => {
     settings,
     showToast,
     hasLoadedOnce,
+    pendingVersements,
+    orderToOpen,
+    clearOrderToOpen,
   } = useApp();
+
+  // Tout · Commandes · Versements : les deux sortes de lignes de la liste.
+  const [kindFilter, setKindFilter] = useState<'ALL' | 'ORDERS' | 'PAYMENTS'>('ALL');
+  const [recuVersement, setRecuVersement] = useState<Versement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
@@ -127,12 +136,51 @@ export const SalesTab: React.FC = () => {
     [baseSales, dateInterval, statusFilter, selectedSeller, searchQuery]
   );
 
-  const activeSales = useMemo(() => filteredSales.filter((s) => !s.isCancelled), [filteredSales]);
-  const totalFilteredSum = useMemo(() => sumSales(filteredSales), [filteredSales]);
-  const totalRemainingSum = useMemo(
-    () => activeSales.reduce((sum, s) => sum + (s.remainingAmount || 0), 0),
-    [activeSales]
+  // Total vendu, compteurs et versements de la période : calculés par le
+  // serveur (somme des paiements valides reçus sur la période). L'écran ne
+  // les déduit pas des commandes — une commande à crédit y compte pour 0 F,
+  // et un versement sur une vieille commande y compte le jour où il arrive.
+  const { activity, stale: activityStale } = useActivity(dateInterval.start, dateInterval.end);
+
+  const versementsEnAttente = useMemo(
+    () =>
+      pendingVersements.filter((v) => {
+        const d = new Date(v.createdAt);
+        return d >= dateInterval.start && d <= dateInterval.end;
+      }),
+    [pendingVersements, dateInterval]
   );
+
+  // Lignes « versement » de la liste. Le filtre de statut ne concerne que les
+  // commandes : dès qu'il est actif, seules les commandes restent.
+  const filteredVersements = useMemo(() => {
+    if (kindFilter === 'ORDERS' || statusFilter !== 'ALL') return [];
+    const q = searchQuery.trim().toLowerCase();
+    return [...versementsEnAttente, ...(activity?.versements ?? [])].filter((v) => {
+      if (selectedSeller !== 'ALL' && v.collectedBy !== selectedSeller) return false;
+      if (!q) return true;
+      return [v.customerName, v.customerPhone, v.orderReference, v.receiptNumber].some(
+        (champ) => Boolean(champ) && String(champ).toLowerCase().includes(q)
+      );
+    });
+  }, [activity, versementsEnAttente, kindFilter, statusFilter, selectedSeller, searchQuery]);
+
+  const shownSales = kindFilter === 'PAYMENTS' ? [] : filteredSales;
+
+  // Arrivée depuis une ligne de versement ou la fiche client : on ouvre la
+  // commande demandée, quelle que soit la période affichée.
+  useEffect(() => {
+    if (!orderToOpen) return;
+    const cible = baseSales.find((s) => s.id === orderToOpen);
+    if (cible) setSaleOpened(cible);
+    clearOrderToOpen();
+  }, [orderToOpen, baseSales, clearOrderToOpen]);
+
+  const ouvrirCommande = (orderId: string) => {
+    const cible = baseSales.find((s) => s.id === orderId);
+    if (cible) setSaleOpened(cible);
+    else showToast('Cette commande n’est pas chargée sur cet appareil', 'warning');
+  };
 
   // Un réglage avancé actif doit rester visible depuis la liste : sinon le
   // commerçant cherche pourquoi il manque des commandes.
@@ -141,15 +189,23 @@ export const SalesTab: React.FC = () => {
 
   // Point 9: GROUPE PAR JOUR
   const groupedByDay = useMemo(() => {
-    const groups = new Map<string, { dateKey: string; label: string; sales: Sale[] }>();
+    const groups = new Map<
+      string,
+      { dateKey: string; label: string; sales: Sale[]; versements: Versement[] }
+    >();
 
     const todayStr = new Date().toISOString().slice(0, 10);
     const yesterdayObj = new Date();
     yesterdayObj.setDate(yesterdayObj.getDate() - 1);
     const yesterdayStr = yesterdayObj.toISOString().slice(0, 10);
 
-    for (const sale of filteredSales) {
-      const dayKey = sale.createdAt.slice(0, 10);
+    const lignes: { createdAt: string; sale?: Sale; versement?: Versement }[] = [
+      ...shownSales.map((sale) => ({ createdAt: sale.createdAt, sale })),
+      ...filteredVersements.map((versement) => ({ createdAt: versement.createdAt, versement })),
+    ];
+
+    for (const ligne of lignes) {
+      const dayKey = ligne.createdAt.slice(0, 10);
       if (!groups.has(dayKey)) {
         let label = '';
         if (dayKey === todayStr) {
@@ -157,7 +213,7 @@ export const SalesTab: React.FC = () => {
         } else if (dayKey === yesterdayStr) {
           label = 'Hier';
         } else {
-          const dObj = new Date(sale.createdAt);
+          const dObj = new Date(ligne.createdAt);
           const fullStr = dObj.toLocaleDateString('fr-FR', {
             weekday: 'long',
             day: 'numeric',
@@ -166,13 +222,14 @@ export const SalesTab: React.FC = () => {
           label = fullStr.charAt(0).toUpperCase() + fullStr.slice(1);
         }
 
-        groups.set(dayKey, { dateKey: dayKey, label, sales: [] });
+        groups.set(dayKey, { dateKey: dayKey, label, sales: [], versements: [] });
       }
-      groups.get(dayKey)!.sales.push(sale);
+      if (ligne.sale) groups.get(dayKey)!.sales.push(ligne.sale);
+      if (ligne.versement) groups.get(dayKey)!.versements.push(ligne.versement);
     }
 
     return Array.from(groups.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
-  }, [filteredSales]);
+  }, [shownSales, filteredVersements]);
 
   // L'historique s'affiche par journées, une poignée à la fois : un an de
   // commandes, ce sont des milliers de lignes de tableau construites d'un coup
@@ -186,6 +243,7 @@ export const SalesTab: React.FC = () => {
 
   const resetAllFilters = () => {
     setSearchQuery('');
+    setKindFilter('ALL');
     setStatusFilter('ALL');
     setPeriodFilter(PERIODE_PAR_DEFAUT);
     setSelectedSeller('ALL');
@@ -356,6 +414,32 @@ export const SalesTab: React.FC = () => {
           )}
         </div>
 
+        {/* Sortes de lignes : commandes créées sur la période, versements reçus sur la période. */}
+        <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Type de lignes">
+          {(
+            [
+              { id: 'ALL', label: 'Tout' },
+              { id: 'ORDERS', label: 'Commandes' },
+              { id: 'PAYMENTS', label: 'Versements' },
+            ] as const
+          ).map((k) => (
+            <button
+              key={k.id}
+              id={`btn-sales-kind-${k.id.toLowerCase()}`}
+              type="button"
+              aria-pressed={kindFilter === k.id}
+              onClick={() => setKindFilter(k.id)}
+              className={`min-h-[48px] rounded-xl text-[12px] font-bold transition-all cursor-pointer ${
+                kindFilter === k.id
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white md:bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+
         {/* Statuts : la seule rangée qui défile, et elle l'annonce par son
             dégradé de bord droit. */}
         <div className="filter-pill-row flex items-center gap-1.5 overflow-x-auto scrollbar-none -mx-1 px-1 py-0.5">
@@ -412,21 +496,36 @@ export const SalesTab: React.FC = () => {
       {/* =====================================================================
           RÉSUMÉ DE LA PÉRIODE — une ligne, à la place de la carte blanche
           ===================================================================== */}
-      <div className="h-10 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200/80 flex items-center gap-2 text-[12px] min-w-0">
-        <span className="font-bold text-slate-800 shrink-0">
-          {countLabel(activeSales.length, 'commande')}
-        </span>
-        <span className="text-slate-300 shrink-0">·</span>
-        <span className="text-slate-600 tabular-nums truncate">
-          {formatMoney(totalFilteredSum)} vendus
-        </span>
-        {totalRemainingSum > 0 && (
-          <>
-            <span className="text-slate-300 shrink-0">·</span>
-            <span className="text-[#DC2626] font-bold tabular-nums truncate">
-              {formatMoney(totalRemainingSum)} à recevoir
-            </span>
-          </>
+      <div
+        id="sales-period-summary"
+        className="px-3.5 py-3 rounded-xl bg-[#F8FAFC] border border-slate-200/80 space-y-0.5 min-w-0"
+      >
+        <div className="flex items-baseline justify-between gap-3 min-w-0">
+          <span className="text-[12px] font-bold text-slate-600 shrink-0">Total vendu</span>
+          <span className="text-[19px] font-extrabold text-slate-900 tabular-nums truncate">
+            {activity ? formatMoney(activity.totalVendu) : '…'}
+          </span>
+        </div>
+        <p className="text-[12px] font-bold text-slate-800">
+          {activity
+            ? `${countLabel(activity.nbCommandes, 'commande')} · ${countLabel(activity.nbVersements, 'versement')}`
+            : 'Lecture du serveur…'}
+        </p>
+        {activity && activity.resteSurCommandes > 0 && (
+          <p className="text-[11px] text-slate-500 tabular-nums">
+            Reste à payer sur les commandes {periodFilter === 'today' ? 'du jour' : 'de la période'} :{' '}
+            {formatMoney(activity.resteSurCommandes)}
+          </p>
+        )}
+        {activityStale && (
+          <p className="text-[11px] font-semibold text-amber-800">
+            Pas de connexion : dernier total connu, à confirmer au retour du réseau.
+          </p>
+        )}
+        {versementsEnAttente.length > 0 && (
+          <p className="text-[11px] font-semibold text-amber-800">
+            {countLabel(versementsEnAttente.length, 'versement')} en attente d’envoi, pas encore dans ce total.
+          </p>
         )}
       </div>
 
@@ -448,7 +547,7 @@ export const SalesTab: React.FC = () => {
             </div>
           ))}
         </div>
-      ) : baseSales.length === 0 ? (
+      ) : baseSales.length === 0 && filteredVersements.length === 0 ? (
         /* Aucune commande n'a jamais été enregistrée. */
         <div className="p-10 text-center bg-white rounded-3xl border border-slate-200 space-y-3">
           <Receipt className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
@@ -467,12 +566,14 @@ export const SalesTab: React.FC = () => {
             <span>Enregistrer ma première commande</span>
           </button>
         </div>
-      ) : filteredSales.length === 0 ? (
+      ) : groupedByDay.length === 0 ? (
         /* Des commandes existent, mais pas dans ce filtre. */
         <div className="p-10 text-center bg-white rounded-3xl border border-slate-200 space-y-3">
           <Search className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
           <h3 className="text-base font-extrabold text-slate-800">
-            Aucune commande ne correspond à ce filtre.
+            {kindFilter === 'PAYMENTS'
+              ? 'Aucun versement sur cette période.'
+              : 'Aucune commande ne correspond à ce filtre.'}
           </h3>
           <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
             Vérifie la période, le statut ou les mots de ta recherche.
@@ -489,9 +590,8 @@ export const SalesTab: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {visibleDays.map((dayGroup) => {
-            const dayTotal = dayGroup.sales
-              .filter((s) => !s.isCancelled)
-              .reduce((sum, s) => sum + s.totalAmount, 0);
+            const nbCommandesDuJour = dayGroup.sales.filter((s) => !s.isCancelled).length;
+            const nbVersementsDuJour = dayGroup.versements.filter((v) => !v.isCancelled).length;
 
             return (
               <div key={dayGroup.dateKey}>
@@ -501,18 +601,31 @@ export const SalesTab: React.FC = () => {
                   <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 hidden sm:block" />
                   <span className="text-slate-900 shrink-0">{dayGroup.label}</span>
                   <span className="text-slate-300 shrink-0">·</span>
-                  <span className="text-slate-500 shrink-0">
-                    {countLabel(dayGroup.sales.length, 'commande')}
-                  </span>
-                  <span className="text-slate-300 shrink-0">·</span>
-                  <span className="text-slate-700 tabular-nums truncate">
-                    {formatMoney(dayTotal)}
+                  <span className="text-slate-500 truncate">
+                    {countLabel(nbCommandesDuJour, 'commande')}
+                    {nbVersementsDuJour > 0 ? ` · ${countLabel(nbVersementsDuJour, 'versement')}` : ''}
                   </span>
                 </div>
 
+                {/* Versements reçus ce jour-là : la pastille dit le rang, la
+                    ligne dit de quelle commande il s'agit. Un tap ouvre le reçu. */}
+                {dayGroup.versements.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {dayGroup.versements.map((v) => (
+                      <VersementRow
+                        key={v.id}
+                        versement={v}
+                        showCustomer
+                        onOpenReceipt={setRecuVersement}
+                        onOpenOrder={ouvrirCommande}
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {/* TÉLÉPHONE — des cartes, pas un tableau réduit. Rien n'est
                     hors de l'écran, donc rien ne peut être manqué. */}
-                <div className="md:hidden space-y-2 mt-2">
+                <div className={`md:hidden space-y-2 mt-2 ${dayGroup.sales.length === 0 ? 'hidden' : ''}`}>
                   {dayGroup.sales.map((sale) => (
                     <SaleCard
                       key={sale.id}
@@ -525,7 +638,11 @@ export const SalesTab: React.FC = () => {
                 </div>
 
                 {/* ORDINATEUR — le vrai tableau, inchangé. */}
-                <div className="hidden md:block bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden mt-2">
+                <div
+                  className={`${
+                    dayGroup.sales.length === 0 ? 'hidden' : 'hidden md:block'
+                  } bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden mt-2`}
+                >
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
@@ -880,9 +997,13 @@ export const SalesTab: React.FC = () => {
         </div>
       )}
 
+      {recuVersement && (
+        <VersementReceiptModal versement={recuVersement} onClose={() => setRecuVersement(null)} />
+      )}
+
       {saleOpened && (
         <OrderDetailPanel
-          sale={filteredSales.find((s) => s.id === saleOpened.id) ?? saleOpened}
+          sale={baseSales.find((s) => s.id === saleOpened.id) ?? saleOpened}
           onClose={() => setSaleOpened(null)}
         />
       )}

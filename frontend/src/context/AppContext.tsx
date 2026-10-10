@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { matchPath, type MoreSubTab } from '../utils/routes';
 import {
   Product,
@@ -23,6 +23,7 @@ import {
   StockReceptionLine,
   ReceiptDelivery,
   ReceiptDeliveryChannel,
+  Versement,
 } from '../types';
 import {
   initialProducts,
@@ -57,6 +58,7 @@ import * as expensesApi from '../api/expenses';
 import * as stockApi from '../api/stock';
 import * as usersApi from '../api/users';
 import { ApiError, generateClientUuid } from '../api/client';
+import * as paymentsApi from '../api/payments';
 import {
   buildOptimisticProduct,
   buildOptimisticSale,
@@ -72,10 +74,12 @@ import {
   enqueue,
   listPending,
   markAttempt,
+  pendingForBusiness,
   retryDelayMs,
   type PendingMutation,
 } from '../offline/queue';
 import {
+  belongsToAnotherShop,
   decideAfterFailure,
   isMissingResource,
   isNetworkFailure,
@@ -187,6 +191,55 @@ function apiErrorMessage(error: unknown): string {
   return 'Impossible de joindre le serveur. Réessaie.';
 }
 
+
+/** Ce que « Encaisser » renvoie à l'écran pour afficher sa confirmation. */
+export interface DebtPaymentResult {
+  customerName: string;
+  amount: number;
+  /** Dette restante du client : celle du serveur, ou provisoire hors ligne. */
+  remainingDebt: number;
+  /** Un versement par commande touchée. */
+  versements: Versement[];
+  /** Gardé sur le téléphone : le serveur ne l'a pas encore reçu. */
+  pending: boolean;
+}
+
+/**
+ * Versement pas encore envoyé. Il n'a ni rang, ni commande, ni numéro de
+ * reçu : c'est le serveur qui les attribuera en répartissant le montant.
+ */
+function pendingVersementFrom(
+  clientUuid: string,
+  customerId: string,
+  amount: number,
+  method: PaymentMethod,
+  createdAt: string,
+  customer?: { name?: string; phone?: string }
+): Versement {
+  return {
+    id: clientUuid,
+    clientUuid,
+    numero: null,
+    atOrder: false,
+    orderId: null,
+    orderReference: null,
+    orderDate: null,
+    orderTotal: null,
+    orderClientUuid: null,
+    customerId,
+    customerName: customer?.name ?? null,
+    customerPhone: customer?.phone ?? null,
+    amount,
+    method,
+    createdAt,
+    remainingAfter: null,
+    paidSoFar: null,
+    receiptNumber: null,
+    isCancelled: false,
+    collectedBy: null,
+    isPending: true,
+  };
+}
 
 interface AppContextType {
   // Auth réel (étape 13) — remplace l'ancien onboarding local uniquement.
@@ -326,7 +379,27 @@ interface AppContextType {
 
   addCustomer: (customer: Omit<Customer, 'id' | 'debtAgeDays' | 'lastActivity'>) => Promise<Customer | null>;
   updateCustomerPhone: (customerId: string, phone: string) => Promise<boolean>;
-  recordDebtPayment: (customerId: string, amount: number, paymentMethod: PaymentMethod) => Promise<void>;
+  /**
+   * « Encaisser » depuis « Qui me doit ». Renvoie ce que le serveur a
+   * enregistré (ou, hors ligne, le versement gardé sur le téléphone), ou null
+   * si le serveur a refusé — le message a alors déjà été affiché.
+   */
+  recordDebtPayment: (
+    customerId: string,
+    amount: number,
+    paymentMethod: PaymentMethod
+  ) => Promise<DebtPaymentResult | null>;
+  /** Annule un versement (propriétaire, motif obligatoire). Rien n'est supprimé. */
+  cancelVersement: (paymentId: string, motif: string) => Promise<boolean>;
+  /** Versements gardés sur le téléphone, pas encore envoyés au serveur. */
+  pendingVersements: Versement[];
+  /** Augmente à chaque relecture réussie du serveur : les écrans qui lisent
+   *  un chiffre calculé par le serveur (total vendu…) le relisent alors. */
+  dataVersion: number;
+  /** Ouvre la page Commandes sur le détail d'une commande précise. */
+  openOrder: (saleId: string) => void;
+  orderToOpen: string | null;
+  clearOrderToOpen: () => void;
 
   addExpense: (expense: Omit<Expense, 'id' | 'syncStatus'>) => Promise<Expense | null>;
 
@@ -654,6 +727,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     initialRoute?.debtorsOnly ?? false
   );
   const [customerToFocus, setCustomerToFocus] = useState<string | null>(null);
+  const [orderToOpen, setOrderToOpen] = useState<string | null>(null);
+  const [dataVersion, setDataVersion] = useState(0);
   const [newExpenseRequested, setNewExpenseRequested] = useState(false);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(initialRoute?.modal === 'new-sale');
   const [isNewProductOpen, setIsNewProductOpen] = useState(initialRoute?.modal === 'new-product');
@@ -1054,7 +1129,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Relue ICI, et non avant les appels réseau : le commerçant a pu vendre
       // pendant qu'ils étaient en vol (voir mergePending).
-      const pendingLocalIds = new Set((await listPending()).map((m) => m.localId));
+      const pendingLocalIds = new Set(
+        pendingForBusiness(await listPending(), currentBusinessIdRef.current).map((m) => m.localId)
+      );
 
       const productCategoryName = (id: string | null) =>
         productCategories.find((c) => c.id === id)?.nom ?? NO_CATEGORY_LABEL;
@@ -1147,6 +1224,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         productCategories,
         session: null,
       });
+      setDataVersion((v) => v + 1);
       return true;
     } catch (error) {
       // Hors ligne, l'echec est attendu : l'instantane local prend le relais,
@@ -1208,8 +1286,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await saveIdMap(idMap.current);
   };
 
+  // Boutique ouverte, lisible depuis la file sans dépendre du rendu en cours.
+  const currentBusinessIdRef = useRef<string | null>(null);
+  if (currentBusiness?.id) currentBusinessIdRef.current = currentBusiness.id;
+
+  /** La file de CETTE boutique : celle d'une autre boutique attend son tour, intacte. */
   const refreshPending = async (): Promise<PendingMutation[]> => {
-    const rows = await listPending();
+    const rows = pendingForBusiness(await listPending(), currentBusinessIdRef.current);
     setPendingMutations(rows);
     return rows;
   };
@@ -1348,6 +1431,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
         setSales((prev) => prev.map((s) => (s.clientUuid === m.id ? sale : s)));
         await rememberId(m.localId, order.id);
+        break;
+      }
+
+      case 'DEBT_PAYMENT': {
+        // Le serveur a le dernier mot : il répartit lui-même le montant sur les
+        // commandes impayées, et le rechargement qui suit la file remplace la
+        // dette provisoire affichée par la sienne.
+        try {
+          await paymentsApi.collectCustomerDebt(
+            remapId(m.payload.customerId),
+            m.payload.montant,
+            m.payload.methode,
+            m.id
+          );
+        } catch (error) {
+          // Refus définitif (la dette a été soldée entre-temps depuis un autre
+          // appareil) : rejouer n'y changera rien. Le versement sort de la
+          // file, le commerçant est prévenu, et la relecture du serveur qui
+          // suit remet la vraie dette à l'écran.
+          if (!(error instanceof ApiError) || error.code !== 'PAYMENT_EXCEEDS_REMAINING') throw error;
+          showToast(`${m.label} non enregistré. ${error.message}`, 'warning');
+        }
         break;
       }
 
@@ -1577,6 +1682,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           await dequeue(mutation.id);
           sent += 1;
         } catch (error) {
+          // Commande d'avant l'étiquetage par boutique, que cette boutique ne
+          // peut pas recevoir : on la met de côté au lieu de bloquer la file.
+          if (!mutation.businessId && belongsToAnotherShop(mutation.kind, error)) {
+            await enqueue({ ...mutation, parked: true, lastError: apiErrorMessage(error) });
+            setSales((prev) => prev.filter((s) => s.id !== mutation.localId));
+            showToast(
+              'Une ancienne commande en attente venait d’une autre boutique : elle a été mise de côté.',
+              'warning'
+            );
+            continue;
+          }
           const updated = await markAttempt(mutation.id, apiErrorMessage(error));
           // La regle elle-meme vit dans offline/replayPolicy.ts : garder,
           // bloquer ou jeter est la decision la plus lourde de consequences de
@@ -1664,7 +1780,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return syncSharedSettings(session);
       })
       .catch(() => undefined);
-    const rows = await listPending();
+    const rows = pendingForBusiness(await listPending(), currentBusinessIdRef.current);
     if (rows.length > 0) {
       await replayQueue({ silent: true });
       return false;
@@ -1684,7 +1800,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
     setIsRefreshing(true);
     try {
-      const pendingBefore = (await listPending()).length;
+      const pendingBefore = pendingForBusiness(await listPending(), currentBusinessIdRef.current).length;
       const loaded = await resyncFromServer({ force: true });
       if (loaded) showToast('Données à jour.', 'success');
       else if (pendingBefore > 0) showToast('Envoi de tes modifications en cours, puis mise à jour.', 'info');
@@ -1708,6 +1824,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const queueMutation = (mutation: Omit<PendingMutation, 'createdAt' | 'attempts'>) => {
     const full: PendingMutation = {
       ...mutation,
+      businessId: currentBusinessIdRef.current ?? undefined,
       createdAt: new Date().toISOString(),
       attempts: 0,
     };
@@ -1757,6 +1874,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const bootstrapSession = async (session: authApi.MeResponse) => {
     setCurrentUser(session.user);
     setCurrentBusiness(session.business);
+    currentBusinessIdRef.current = session.business.id;
     const { planStatus, trialDaysLeft, subscriptionDaysLeft, quotaMaxProducts } = computePlanStatus(session.business);
 
     // Les réglages de boutique (téléphone, message du reçu, logo…) sont gardés
@@ -2545,16 +2663,98 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const recordDebtPayment = async (customerId: string, amount: number, paymentMethod: PaymentMethod) => {
+  const recordDebtPayment = async (
+    customerId: string,
+    amount: number,
+    paymentMethod: PaymentMethod
+  ): Promise<DebtPaymentResult | null> => {
     const targetCustomer = customers.find((c) => c.id === customerId);
+    const customerName = targetCustomer?.name ?? 'Client';
+    // Un seul identifiant pour cet encaissement, en ligne comme hors ligne :
+    // s'il part deux fois (réseau coupé pendant la réponse), le serveur n'en
+    // enregistre qu'un.
+    const clientUuid = generateClientUuid();
+
+    if (isNetworkUp()) {
+      try {
+        const res = await paymentsApi.collectCustomerDebt(customerId, amount, paymentMethod, clientUuid);
+        // Tout est relu AVANT la confirmation : liste « Qui me doit », fiche
+        // client, commandes, caisse, et (via dataVersion) le total vendu.
+        await loadRealData(currentUser?.nom ?? 'Vendeur');
+        return {
+          customerName: res.customer.nom,
+          amount,
+          remainingDebt: res.dette,
+          versements: res.versements.map(paymentsApi.toFrontendVersement),
+          pending: false,
+        };
+      } catch (error) {
+        if (!isNetworkFailure(error)) {
+          showToast(apiErrorMessage(error), 'error');
+          return null;
+        }
+        // Réseau coupé en route : on garde le versement sur le téléphone.
+      }
+    }
+
+    const createdAt = new Date().toISOString();
+    const remainingDebt = Math.max(0, (targetCustomer?.totalDebt ?? 0) - amount);
+    queueMutation({
+      id: clientUuid,
+      kind: 'DEBT_PAYMENT',
+      payload: { customerId, montant: amount, methode: paymentMethod },
+      localId: clientUuid,
+      label: `Versement de ${customerName}`,
+      meta: { customerName, customerPhone: targetCustomer?.phone },
+    });
+    setCustomers((prev) =>
+      prev.map((c) =>
+        c.id === customerId
+          ? { ...c, totalDebt: remainingDebt, debtProvisional: true, lastPayment: { at: createdAt, amount } }
+          : c
+      )
+    );
+    return {
+      customerName,
+      amount,
+      remainingDebt,
+      versements: [pendingVersementFrom(clientUuid, customerId, amount, paymentMethod, createdAt, targetCustomer)],
+      pending: true,
+    };
+  };
+
+  const pendingVersements = useMemo(
+    () =>
+      pendingMutations
+        .filter((m) => m.kind === 'DEBT_PAYMENT')
+        .map((m) =>
+          pendingVersementFrom(m.id, m.payload.customerId, m.payload.montant, m.payload.methode, m.createdAt, {
+            name: m.meta?.customerName,
+            phone: m.meta?.customerPhone,
+          })
+        ),
+    [pendingMutations]
+  );
+
+  const cancelVersement = async (paymentId: string, motif: string): Promise<boolean> => {
     try {
-      await customersApi.repayDebt(customerId, amount, paymentMethod);
-      showToast(`Remboursement de ${amount} F noté${targetCustomer ? ` pour ${targetCustomer.name}` : ''}`, 'success');
+      await paymentsApi.cancelVersement(paymentId, motif);
       await loadRealData(currentUser?.nom ?? 'Vendeur');
+      showToast('Versement annulé', 'info');
+      return true;
     } catch (error) {
       showToast(apiErrorMessage(error), 'error');
+      return false;
     }
   };
+
+  const openOrder = (saleId: string) => {
+    setOrderToOpen(saleId);
+    setActiveTab('sales');
+    setActiveMoreSubTab(null);
+  };
+
+  const clearOrderToOpen = () => setOrderToOpen(null);
 
   // Business Action: Cancel Sale — le backend recrée les mouvements de retour,
   // ajuste le stock, la dette client et la caisse dans sa propre transaction
@@ -3125,6 +3325,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addCustomer,
         updateCustomerPhone,
         recordDebtPayment,
+        cancelVersement,
+        pendingVersements,
+        dataVersion,
+        openOrder,
+        orderToOpen,
+        clearOrderToOpen,
         addExpense,
         employees,
         fetchEmployees,

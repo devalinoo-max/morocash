@@ -25,15 +25,15 @@ export interface SaleStatusStyle {
 const STYLES: Record<SaleStatusKey, SaleStatusStyle> = {
   PAID: {
     key: 'PAID',
-    label: 'Payée',
-    longLabel: 'Payée',
+    label: 'Soldé',
+    longLabel: 'Soldé',
     symbol: '✓',
     bg: '#DCFCE7',
     fg: '#166534',
   },
   PARTIAL: {
     key: 'PARTIAL',
-    label: 'Partielle',
+    label: 'Partiel',
     longLabel: 'Payée en partie',
     symbol: '◷',
     bg: '#FFEDD5',
@@ -41,8 +41,8 @@ const STYLES: Record<SaleStatusKey, SaleStatusStyle> = {
   },
   CREDIT: {
     key: 'CREDIT',
-    label: 'À crédit',
-    longLabel: 'À crédit',
+    label: 'Impayé',
+    longLabel: 'Impayé',
     symbol: '⚠',
     bg: '#FEE2E2',
     fg: '#991B1B',

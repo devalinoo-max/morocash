@@ -318,6 +318,7 @@ model User {
   receptions StockReception[]
   counts     StockCount[]
   cashMoves  CashMovement[]
+  paymentsCollected Payment[] @relation("PaymentCollector")
   registersOpened CashRegister[] @relation("RegisterOpener")
   registersClosed CashRegister[] @relation("RegisterCloser")
   pushSubscriptions PushSubscription[]
@@ -527,8 +528,22 @@ model Payment {
   type       PaymentKind
   statut     PaymentState  @default(VALIDE)
   createdAt  DateTime      @default(now())
+  // Un paiement est un « versement » de sa commande. Ces champs sont figés à
+  // l'encaissement : le reçu d'un versement rouvert plus tard affiche les
+  // chiffres du jour du versement, pas la situation actuelle. Nuls seulement
+  // sur d'anciennes lignes sans commande.
+  numero          Int?      // rang dans la commande : 1er, 2e, 3e versement
+  resteApres      Int?      // reste à payer de la commande après ce versement
+  numeroRecu      String?   // REC-AAAAMMJJ-NNNN-Vn, dérivé du numéro de commande
+  userId          String?   // qui a encaissé
+  user            User?     @relation("PaymentCollector", fields: [userId], references: [id])
+  motifAnnulation String?
+  annuleParId     String?
+  annuleLe        DateTime?
 
   cashMovement CashMovement?
+
+  @@index([orderId])
 
   @@index([businessId, createdAt])
   @@index([customerId, statut])

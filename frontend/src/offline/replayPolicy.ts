@@ -67,6 +67,18 @@ export function isMissingResource(error: unknown): boolean {
   );
 }
 
+/**
+ * Le serveur ne connaît ni les produits ni le client de cette commande : elle
+ * a été saisie sous une autre boutique. Rejouer ne servira jamais à rien ici.
+ */
+export function belongsToAnotherShop(kind: PendingKind, error: unknown): boolean {
+  return (
+    kind === 'ORDER_CREATE' &&
+    error instanceof ApiError &&
+    (error.code === 'PRODUCT_NOT_FOUND' || error.code === 'CUSTOMER_REQUIRED')
+  );
+}
+
 export type ReplayDecision =
   /** Reseau coupe : on garde tout et on retentera, avec un delai croissant. */
   | { action: 'RETRY_LATER' }

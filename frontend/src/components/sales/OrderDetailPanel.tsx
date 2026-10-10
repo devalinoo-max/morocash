@@ -1,12 +1,14 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, FileText, MessageCircle, Phone, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import type { PaymentMethod, Sale } from '../../types';
+import type { PaymentMethod, Sale, Versement } from '../../types';
+import { versementLabel, versementsOfSale } from '../../utils/versements';
+import { VersementBadge } from '../payments/VersementRow';
+import { VersementReceiptModal } from '../payments/VersementReceiptModal';
 import { formatMoney, formatPaymentMethod } from '../../utils/formatters';
 import { avatarColor, avatarInitials } from '../../utils/avatar';
 import { saleStatusStyle } from '../../utils/saleStatus';
 import { buildHistory, debtSentence, statusSubtitle } from '../../utils/orderDetail';
-import { paymentMethodColors } from '../../utils/paymentMethods';
 import { buildReceiptMessage, buildReminderMessage, openWhatsApp } from '../../utils/saleMessages';
 import { CancelOrderDialog } from './CancelOrderDialog';
 import { CollectRemainingModal } from './CollectRemainingModal';
@@ -56,7 +58,26 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
     collectSalePayment,
     showToast,
     focusCustomer,
+    cancelVersement,
+    currentUser,
   } = useApp();
+
+  // Les versements de la commande, du 1er au dernier, tels que le serveur les
+  // a numérotés. Annuler l'un d'eux est réservé au propriétaire, avec un motif.
+  const versements = useMemo(() => versementsOfSale(sale), [sale]);
+  const estProprietaire = currentUser?.role === 'OWNER';
+  const [recuOuvert, setRecuOuvert] = useState<Versement | null>(null);
+  const [versementAAnnuler, setVersementAAnnuler] = useState<Versement | null>(null);
+  const [motifAnnulation, setMotifAnnulation] = useState('');
+  const [annulationEnCours, setAnnulationEnCours] = useState(false);
+
+  const confirmerAnnulationVersement = async () => {
+    if (!versementAAnnuler || !motifAnnulation.trim() || annulationEnCours) return;
+    setAnnulationEnCours(true);
+    const ok = await cancelVersement(versementAAnnuler.id, motifAnnulation.trim());
+    setAnnulationEnCours(false);
+    if (ok) setVersementAAnnuler(null);
+  };
 
   const [annulationOuverte, setAnnulationOuverte] = useState(false);
   const [encaissementOuvert, setEncaissementOuvert] = useState(false);
@@ -67,7 +88,6 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
   const nomClient = sale.customerName?.trim() || 'Client non renseigné';
   const client = customers.find((c) => c.id === sale.customerId);
 
-  const paiementsValides = (sale.payments ?? []).filter((p) => !p.isCancelled);
 
   // Ce que le statut veut dire, ce que le client doit au total, ce qui est
   // arrivé à la commande : trois calculs vérifiables hors de cet écran
@@ -316,35 +336,66 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
             </div>
           </section>
 
-          {/* B5 — Ce qui a été payé */}
-          <section className="bg-white rounded-2xl border border-slate-200 p-3">
+          {/* B5 — Historique des paiements : la commande, chaque versement, le reste */}
+          <section id="order-payments" className="bg-white rounded-2xl border border-slate-200 p-3">
             <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Ce qui a été payé
+              Historique des paiements
             </h3>
 
-            {paiementsValides.length === 0 ? (
-              <p className="text-[12px] text-slate-400 py-2">Aucun encaissement pour l’instant.</p>
+            <div className="flex items-center justify-between py-2 text-[12.5px]">
+              <span className="font-semibold text-slate-600">Commande</span>
+              <span className="font-bold text-slate-900 tabular-nums">{formatMoney(sale.totalAmount)}</span>
+            </div>
+
+            {versements.length === 0 ? (
+              <p className="text-[12px] text-slate-400 py-2 border-t border-slate-100">Aucun paiement</p>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {paiementsValides.map((p) => {
-                  const couleurs = paymentMethodColors(p.method);
-                  return (
-                    <div key={p.id} className="py-2 flex items-center gap-2.5 min-w-0">
+              <div className="divide-y divide-slate-100 border-t border-slate-100">
+                {versements.map((v) => (
+                  <div key={v.id} className="py-1 flex items-center gap-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setRecuOuvert(v)}
+                      title="Voir le reçu de ce versement"
+                      className={`flex-1 min-w-0 min-h-[48px] flex items-center gap-2.5 text-left cursor-pointer rounded-lg hover:bg-slate-50 px-1 ${
+                        v.isCancelled ? 'opacity-60' : ''
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <VersementBadge versement={v} />
+                          {v.isCancelled && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-200 text-slate-700">
+                              Annulé
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-[11px] text-slate-500 truncate mt-0.5">
+                          {dateRelative(v.createdAt)} · {formatPaymentMethod(v.method)}
+                        </span>
+                      </span>
                       <span
-                        className="shrink-0 text-[10px] font-bold rounded-full px-2 py-1"
-                        style={{ backgroundColor: couleurs.bg, color: couleurs.fg }}
+                        className={`text-[12.5px] font-bold tabular-nums shrink-0 ${
+                          v.isCancelled ? 'line-through text-slate-400' : 'text-emerald-600'
+                        }`}
                       >
-                        {formatPaymentMethod(p.method)}
+                        {formatMoney(v.amount)}
                       </span>
-                      <span className="text-[11px] text-slate-500 flex-1 min-w-0 truncate">
-                        {dateRelative(p.createdAt)}
-                      </span>
-                      <span className="text-[12.5px] font-bold text-emerald-600 tabular-nums shrink-0">
-                        + {formatMoney(p.amount)}
-                      </span>
-                    </div>
-                  );
-                })}
+                    </button>
+                    {estProprietaire && !v.isCancelled && !annulee && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMotifAnnulation('');
+                          setVersementAAnnuler(v);
+                        }}
+                        className="shrink-0 min-h-[48px] px-2 text-[11px] font-bold text-slate-500 hover:text-[#DC2626] cursor-pointer"
+                      >
+                        Annuler
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -472,6 +523,48 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
           onConfirm={confirmerAnnulation}
         />
       )}
+      {recuOuvert && <VersementReceiptModal versement={recuOuvert} onClose={() => setRecuOuvert(null)} />}
+
+      {versementAAnnuler && (
+        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 p-5 shadow-2xl space-y-3">
+            <h3 className="text-base font-black text-slate-900">Annuler ce versement ?</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {versementLabel(versementAAnnuler.numero)} de {formatMoney(versementAAnnuler.amount)}. Il reste
+              visible, barré. Le reste à payer, la dette du client, le total vendu et la caisse sont recalculés.
+            </p>
+            <label htmlFor="motif-annulation-versement" className="text-xs font-bold text-slate-700 block">
+              Motif (obligatoire)
+            </label>
+            <textarea
+              id="motif-annulation-versement"
+              rows={2}
+              value={motifAnnulation}
+              onChange={(e) => setMotifAnnulation(e.target.value)}
+              placeholder="Erreur de montant, mauvais client…"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-900"
+            />
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setVersementAAnnuler(null)}
+                className="flex-1 h-12 rounded-2xl border border-slate-200 text-sm font-bold text-slate-600 cursor-pointer"
+              >
+                Garder
+              </button>
+              <button
+                type="button"
+                onClick={confirmerAnnulationVersement}
+                disabled={!motifAnnulation.trim() || annulationEnCours}
+                className="flex-1 h-12 rounded-2xl bg-[#DC2626] hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-black cursor-pointer"
+              >
+                {annulationEnCours ? 'Annulation…' : 'Annuler le versement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {encaissementOuvert && (
         <CollectRemainingModal
           sale={sale}

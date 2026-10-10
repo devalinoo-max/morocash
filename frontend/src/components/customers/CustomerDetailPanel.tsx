@@ -1,4 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useApp } from '../../context/AppContext';
+import type { Versement } from '../../types';
+import { versementsOfCustomer } from '../../utils/versements';
+import { VersementRow } from '../payments/VersementRow';
+import { VersementReceiptModal } from '../payments/VersementReceiptModal';
 import { Phone, X, ShoppingBag, Repeat } from 'lucide-react';
 import type { Customer, Sale } from '../../types';
 import { formatMoney } from '../../utils/formatters';
@@ -48,6 +53,22 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
     [sales, customer.id]
   );
   const nbImpayees = commandes.filter((s) => !s.isCancelled && s.remainingAmount > 0).length;
+
+  // Ses paiements : tous ses versements, toutes commandes confondues, du plus
+  // récent au plus ancien. Ceux qui attendent encore l'envoi passent en tête.
+  const { pendingVersements, openOrder } = useApp();
+  const [recuOuvert, setRecuOuvert] = useState<Versement | null>(null);
+  const paiements = useMemo(
+    () => [
+      ...pendingVersements.filter((v) => v.customerId === customer.id),
+      ...versementsOfCustomer(sales, customer.id),
+    ],
+    [pendingVersements, sales, customer.id]
+  );
+  const ouvrirCommande = (orderId: string) => {
+    onClose();
+    openOrder(orderId);
+  };
   const hasDebt = customer.totalDebt > 0;
   const frequence = frequenceAchat(commandes);
 
@@ -94,7 +115,7 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
                   hasDebt ? 'text-rose-800' : 'text-emerald-800'
                 }`}
               >
-                {hasDebt ? 'Montant dû' : 'Solde'}
+                {hasDebt ? (customer.debtProvisional ? 'Il te doit (provisoire)' : 'Il te doit') : 'Solde'}
               </span>
               <div className={`text-lg font-black ${hasDebt ? 'text-rose-700' : 'text-emerald-700'}`}>
                 {hasDebt ? formatMoney(customer.totalDebt) : 'À jour (0 F)'}
@@ -117,6 +138,20 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
 
         {/* Commandes, la plus récente en haut */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <section id="customer-payments" className="space-y-2 pb-2">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Ses paiements</h4>
+            {paiements.length === 0 ? (
+              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200/80 rounded-2xl p-3">
+                Aucun versement pour l’instant.
+              </p>
+            ) : (
+              paiements.map((v) => (
+                <VersementRow key={v.id} versement={v} onOpenReceipt={setRecuOuvert} onOpenOrder={ouvrirCommande} />
+              ))
+            )}
+          </section>
+
+          <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 pt-1">Ses commandes</h4>
           {commandes.length === 0 ? (
             <div className="py-10 text-center text-slate-400 space-y-2">
               <ShoppingBag className="w-9 h-9 mx-auto text-slate-300 stroke-[1.5]" />
@@ -192,6 +227,12 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
           )}
         </div>
       </div>
+
+      {recuOuvert && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <VersementReceiptModal versement={recuOuvert} onClose={() => setRecuOuvert(null)} />
+        </div>
+      )}
     </div>
   );
 };

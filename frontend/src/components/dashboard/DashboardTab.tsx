@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useActivity } from '../../hooks/useActivity';
 import {
   TrendingUp,
   AlertCircle,
@@ -172,7 +173,23 @@ export const DashboardTab: React.FC = () => {
   const previousDepenses = previousExpenses.reduce((acc, e) => acc + e.amount, 0);
   const previousBenefice = previousVendu - computeCostOfGoods(previousSales) - previousDepenses;
   const beneficeDelta = beneficeNetReel - previousBenefice;
-  const venduPercentChange = percentChange(totalVendu, previousVendu);
+  // « Total vendu » affiché = somme des paiements reçus sur la période,
+  // calculée par le serveur : le même chiffre que la page Commandes et que les
+  // entrées de la caisse. `totalVendu` ci-dessus (montant des commandes) ne
+  // sert plus qu'au calcul inchangé de « Ce que tu as gagné ».
+  const { activity } = useActivity(periodRange.start, periodRange.end);
+  const { activity: previousActivity } = useActivity(previousRange.start, previousRange.end);
+  const totalVenduServeur = activity ? activity.totalVendu : null;
+  const venduPercentChange =
+    activity && previousActivity ? percentChange(activity.totalVendu, previousActivity.totalVendu) : null;
+  const ventesDuJourLabel = activity
+    ? `${activity.nbCommandes} commande${activity.nbCommandes > 1 ? 's' : ''} · ${activity.nbVersements} versement${activity.nbVersements > 1 ? 's' : ''}`
+    : 'Lecture du serveur…';
+  // Un tap sur la carte ouvre la liste du jour, là où chaque paiement est visible.
+  const ouvrirListeDuJour = () => {
+    setDetailKind(null);
+    setActiveTab('sales');
+  };
   const depensesPercentChange = percentChange(totalDepenses, previousDepenses);
   const hasAnyDataToCompare = totalVendu > 0 || previousVendu > 0 || totalDepenses > 0 || previousDepenses > 0;
 
@@ -323,7 +340,7 @@ export const DashboardTab: React.FC = () => {
         return {
           title: 'Total vendu',
           subtitle: `${periodLabel} · ventes annulées non comptées`,
-          total: { label: 'Total vendu', value: totalVendu },
+          total: { label: 'Total vendu', value: totalVenduServeur ?? 0 },
           rowsTitle: 'Ventes',
           rows: periodSales.map(saleRow).sort(byDateDesc),
           emptyText: 'Aucune vente sur cette période.',
@@ -602,18 +619,16 @@ export const DashboardTab: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div
               role="button"
-              onClick={() => setDetailKind('VENDU')}
+              onClick={ouvrirListeDuJour}
               className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-indigo-300 transition-all"
             >
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                1. Ventes totales
+                1. Total vendu
               </span>
               <div className="text-2xl font-black text-slate-900">
-                {formatMoneyCompact(totalVendu)}
+                {totalVenduServeur === null ? '…' : formatMoneyCompact(totalVenduServeur)}
               </div>
-              <p className="text-xs text-slate-400">
-                {periodSales.length} vente{periodSales.length > 1 ? 's' : ''} enregistrée{periodSales.length > 1 ? 's' : ''}
-              </p>
+              <p className="text-xs text-slate-400">{ventesDuJourLabel}</p>
             </div>
 
             <div
@@ -845,7 +860,7 @@ export const DashboardTab: React.FC = () => {
         {/* 1. TOTAL VENDU (Barre indigo) */}
         <div
           role="button"
-          onClick={() => setDetailKind('VENDU')}
+          onClick={ouvrirListeDuJour}
           className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-indigo-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
         >
           <div className="p-4 space-y-2">
@@ -864,10 +879,10 @@ export const DashboardTab: React.FC = () => {
               )}
             </div>
             <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatMoneyCompact(totalVendu)}
+              {totalVenduServeur === null ? '…' : formatMoneyCompact(totalVenduServeur)}
             </div>
             <p className="text-xs text-slate-500 font-medium">
-              {periodSales.length} vente{periodSales.length > 1 ? 's' : ''}
+              {ventesDuJourLabel}
               {periodSales.length > 0 &&
                 ` · ${[
                   paidSalesCount > 0 ? `${paidSalesCount} payée${paidSalesCount > 1 ? 's' : ''}` : null,

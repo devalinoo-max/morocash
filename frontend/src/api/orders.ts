@@ -1,6 +1,7 @@
 import { api, generateClientUuid } from './client';
 import { toApiPaymentMethode, toFrontendPaymentMethod, toFrontendPaymentStatus } from './mappers';
 import type { Sale, SaleItem, PaymentMethod } from '../types';
+import type { ApiVersement } from './payments';
 
 export interface ApiOrderItem {
   id: string;
@@ -22,6 +23,12 @@ export interface ApiPayment {
   type: string;
   statut: string;
   createdAt: string;
+  clientUuid?: string;
+  numero?: number | null;
+  resteApres?: number | null;
+  numeroRecu?: string | null;
+  motifAnnulation?: string | null;
+  user?: { nom: string } | null;
 }
 
 export interface ApiOrder {
@@ -46,6 +53,9 @@ export interface ApiOrder {
   coutTotal?: number;
   /** Auteur de la commande (absent sur un serveur plus ancien). */
   user?: { nom: string } | null;
+  /** Payé et reste à payer, calculés par le serveur (absents sur un serveur plus ancien). */
+  paye?: number;
+  reste?: number;
 }
 
 export interface CreateOrderInput {
@@ -86,7 +96,7 @@ export function addOrderPayment(
   methode: PaymentMethod,
   clientUuid = generateClientUuid()
 ) {
-  return api.post<{ status: 'CREATED' | 'DUPLICATE'; payment: ApiPayment }>(
+  return api.post<{ status: 'CREATED' | 'DUPLICATE'; payment: ApiPayment; versement?: ApiVersement }>(
     `/orders/${orderId}/payments`,
     { clientUuid, montant, methode: toApiPaymentMethode(methode) }
   );
@@ -108,7 +118,10 @@ export function toFrontendSale(
   opts: { customerName?: string; customerPhone?: string; sellerName?: string }
 ): Sale {
   const validPayments = order.payments.filter((p) => p.statut === 'VALIDE');
-  const paidAmount = validPayments.reduce((acc, p) => acc + p.montant, 0);
+  // Le serveur fait foi ; le calcul local ne sert que face à un serveur pas
+  // encore à jour, qui n'envoie pas ces deux champs.
+  const paidAmount = order.paye ?? validPayments.reduce((acc, p) => acc + p.montant, 0);
+  const remainingAmount = order.reste ?? Math.max(0, order.total - paidAmount);
   const lastMethode = validPayments.at(-1)?.methode;
   const paymentMethod: PaymentMethod = lastMethode ? toFrontendPaymentMethod(lastMethode) : 'CASH';
 
@@ -125,6 +138,12 @@ export function toFrontendSale(
       method: toFrontendPaymentMethod(p.methode),
       createdAt: p.createdAt,
       isCancelled: p.statut !== 'VALIDE',
+      numero: p.numero ?? null,
+      remainingAfter: p.resteApres ?? null,
+      receiptNumber: p.numeroRecu ?? null,
+      collectedBy: p.user?.nom ?? null,
+      cancelReason: p.motifAnnulation ?? null,
+      clientUuid: p.clientUuid,
     })),
     subtotal: order.sousTotal,
     discount: order.remiseMontant,
@@ -133,7 +152,7 @@ export function toFrontendSale(
     deliveryFee: order.fraisLivraison ?? 0,
     totalAmount: order.total,
     paidAmount,
-    remainingAmount: Math.max(0, order.total - paidAmount),
+    remainingAmount,
     paymentStatus: toFrontendPaymentStatus(order.statutPaiement),
     paymentMethod,
     customerId: order.customerId,

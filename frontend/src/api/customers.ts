@@ -1,6 +1,5 @@
-import { api, generateClientUuid } from './client';
-import { toApiPaymentMethode } from './mappers';
-import type { Customer, PaymentMethod } from '../types';
+import { api } from './client';
+import type { Customer } from '../types';
 
 export interface ApiCustomer {
   id: string;
@@ -11,6 +10,7 @@ export interface ApiCustomer {
   createdAt: string;
   /** Solde calculé par GET /customers (absent sur un serveur plus ancien). */
   solde?: number;
+  dernierVersement?: { date: string; montant: number } | null;
 }
 
 export interface CreateCustomerInput {
@@ -31,12 +31,6 @@ export function updateCustomer(id: string, input: Partial<CreateCustomerInput>) 
   return api.patch<{ customer: unknown }>(`/customers/${id}`, input);
 }
 
-export function repayDebt(customerId: string, montant: number, methode: PaymentMethod) {
-  return api.post<{ status: 'CREATED' | 'DUPLICATE'; payment: unknown }>(
-    `/customers/${customerId}/payments`,
-    { clientUuid: generateClientUuid(), montant, methode: toApiPaymentMethode(methode) }
-  );
-}
 
 /**
  * Solde débiteur exact (spec §7.5 : "calculé, jamais stocké" — pas de champ
@@ -61,6 +55,9 @@ export function toFrontendCustomer(c: ApiCustomer, solde: number): Customer {
     debtAgeDays: solde > 0 ? 1 : 0,
     lastActivity: c.createdAt,
     notes: c.note ?? undefined,
+    lastPayment: c.dernierVersement
+      ? { at: c.dernierVersement.date, amount: c.dernierVersement.montant }
+      : null,
     syncStatus: 'SYNCED',
   };
 }

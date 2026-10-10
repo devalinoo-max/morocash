@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Store, Phone } from 'lucide-react';
 import QRCode from 'qrcode';
-import { Sale, ShopSettings } from '../../types';
+import { Sale, ShopSettings, Versement } from '../../types';
+import { orderLabel, versementDateTime, versementLabel } from '../../utils/versements';
 import { formatMoneyCompact, formatDate, formatPaymentMethod } from '../../utils/formatters';
 import { receiptPhone, receiptVerifyUrl, resolveReceiptMessage, resolveReceiptNotes } from '../../utils/receiptHelpers';
 
@@ -22,7 +23,105 @@ export interface ReceiptViewProps {
   stickyTotal?: boolean;
   /** Dégradé au-dessus du total collé : il reste du contenu plus bas. */
   showBottomFade?: boolean;
+  /**
+   * Mode « versement » : le reçu d'UN paiement, distinct du reçu de la
+   * commande. Tous ses chiffres sont ceux que le serveur a figés le jour du
+   * versement — le rouvrir plus tard affiche la même chose.
+   */
+  versement?: Versement;
 }
+
+/** Corps du reçu en mode versement : qui a payé quoi, sur quelle commande, et ce qu'il reste. */
+const VersementBody: React.FC<{ versement: Versement; showCustomer: boolean; showSeller: boolean }> = ({
+  versement: v,
+  showCustomer,
+  showSeller,
+}) => {
+  const money = formatMoneyCompact;
+  const ligne = 'flex justify-between items-center gap-3';
+  return (
+    <>
+      <div className="space-y-1.5 text-[11px] py-1 border-b border-dashed border-slate-300">
+        <div className="text-center font-extrabold text-[12px] uppercase tracking-wider text-slate-900 pb-1">
+          Reçu de paiement
+        </div>
+        <div className={ligne}>
+          <span className="text-slate-500 shrink-0">N° :</span>
+          {v.isPending || !v.receiptNumber ? (
+            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-extrabold text-[10px]">
+              En attente d’envoi
+            </span>
+          ) : (
+            <span className="font-bold text-slate-900 truncate">{v.receiptNumber}</span>
+          )}
+        </div>
+        {showCustomer && (
+          <div className={`${ligne} bg-slate-50/75 px-1.5 py-0.5 rounded`}>
+            <span className="text-slate-600 font-medium shrink-0">Client :</span>
+            <span className="font-bold text-slate-900 truncate">{v.customerName?.trim() || 'Client'}</span>
+          </div>
+        )}
+        <div className={ligne}>
+          <span className="text-slate-500 shrink-0">Date :</span>
+          <span className="text-slate-700 text-right">{versementDateTime(v.createdAt)}</span>
+        </div>
+        {v.orderReference && (
+          <div className={ligne}>
+            <span className="text-slate-500 shrink-0">Pour :</span>
+            <span className="text-slate-700 font-medium text-right">
+              {orderLabel(v)} · {versementLabel(v.numero)}
+            </span>
+          </div>
+        )}
+        {showSeller && v.collectedBy && (
+          <div className={ligne}>
+            <span className="text-slate-500 shrink-0">Encaissé par :</span>
+            <span className="text-slate-700 font-medium truncate">{v.collectedBy}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1.5 text-[11px]">
+        <div className="flex justify-between gap-3 font-extrabold text-sm text-slate-900 pt-1">
+          <span>PAYÉ CE JOUR :</span>
+          <span className="text-[#4F46E5] tabular-nums whitespace-nowrap">{money(v.amount)}</span>
+        </div>
+        <div className="flex justify-between gap-3 text-slate-700">
+          <span>Mode de paiement :</span>
+          <span className="font-bold text-slate-900">{formatPaymentMethod(v.method)}</span>
+        </div>
+        {v.orderTotal !== null && (
+          <div className="flex justify-between gap-3 text-slate-700 pt-1 border-t border-slate-200/80">
+            <span>Montant de la commande :</span>
+            <span className="font-medium tabular-nums whitespace-nowrap">{money(v.orderTotal)}</span>
+          </div>
+        )}
+        {v.paidSoFar !== null && (
+          <div className="flex justify-between gap-3 text-slate-700">
+            <span>Déjà payé :</span>
+            <span className="font-bold text-slate-900 tabular-nums whitespace-nowrap">{money(v.paidSoFar)}</span>
+          </div>
+        )}
+        {v.remainingAfter !== null &&
+          (v.remainingAfter > 0 ? (
+            <div className="flex justify-between gap-3 font-bold text-rose-700 text-xs bg-rose-50 border border-rose-200/80 p-2 rounded-xl">
+              <span>Reste à payer :</span>
+              <span className="tabular-nums whitespace-nowrap">{money(v.remainingAfter)}</span>
+            </div>
+          ) : (
+            <div className="text-center font-bold text-emerald-700 text-[10.5px] uppercase tracking-wider bg-emerald-50/70 py-1 rounded-lg">
+              ✓ Commande soldée
+            </div>
+          ))}
+        {v.isCancelled && (
+          <div className="text-center font-bold text-slate-600 text-[10.5px] uppercase tracking-wider bg-slate-100 py-1 rounded-lg">
+            Versement annulé{v.cancelReason ? ` — ${v.cancelReason}` : ''}
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
 
 export const ReceiptView: React.FC<ReceiptViewProps> = ({
   sale,
@@ -34,13 +133,22 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   collapseAfter,
   stickyTotal = false,
   showBottomFade = false,
+  versement,
 }) => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [expanded, setExpanded] = useState(false);
 
   // Le QR encode le lien de vérification du reçu ; faute de boutique connue
   // (session pas encore chargée), il retombe sur le numéro du reçu.
-  const qrPayload = receiptVerifyUrl(sale, settings) || sale.reference;
+  const qrPayload = versement
+    ? receiptVerifyUrl({ clientUuid: versement.orderClientUuid ?? '' }, settings) ||
+      versement.receiptNumber ||
+      ''
+    : receiptVerifyUrl(sale, settings) || sale.reference;
+  const qrCaption = versement ? versement.receiptNumber ?? '' : sale.reference;
+  // Reçu de commande rouvert après d'autres versements : « Payé » veut dire
+  // tout ce qui a été reçu depuis, pas seulement le jour de la commande.
+  const paidLater = (sale.payments ?? []).filter((p) => !p.isCancelled).length > 1;
 
   useEffect(() => {
     let isMounted = true;
@@ -156,6 +264,10 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
         )}
       </div>
 
+      {versement ? (
+        <VersementBody versement={versement} showCustomer={showCustomer} showSeller={showSeller} />
+      ) : (
+        <>
       {/* 2. N°, client, date, vendeur */}
       <div className="space-y-1.5 text-[11px] py-1 border-b border-dashed border-slate-300">
         <div className="flex justify-between items-center gap-3">
@@ -257,7 +369,7 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
           </div>
 
           <div className="flex justify-between gap-3 text-slate-700">
-            <span>Payé ({formatPaymentMethod(sale.paymentMethod)}) :</span>
+            <span>{paidLater ? 'Payé à ce jour :' : `Payé (${formatPaymentMethod(sale.paymentMethod)}) :`}</span>
             <span className="font-bold text-slate-900 tabular-nums whitespace-nowrap">{money(sale.paidAmount)}</span>
           </div>
 
@@ -282,6 +394,9 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
           </p>
         )}
 
+        </>
+      )}
+
       {/* 5. Custom Footer Message + notes libres (nota bene, conditions…) */}
       {showMessage && (message || notes.length > 0) && (
         <div className="pt-2 text-[10px] text-slate-500 border-t border-dashed border-slate-300 space-y-1">
@@ -299,10 +414,10 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
         <div className="pt-2 text-center flex flex-col items-center justify-center border-t border-dashed border-slate-200">
           <img
             src={qrCodeDataUrl}
-            alt={`QR ${sale.reference}`}
+            alt={`QR ${qrCaption}`}
             className="w-20 h-20 rounded p-0.5 bg-white border border-slate-200 shadow-2xs"
           />
-          <span className="text-[9px] text-slate-400 mt-0.5">Scanne pour vérifier ce reçu · {sale.reference}</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">Scanne pour vérifier ce reçu{qrCaption ? ` · ${qrCaption}` : ''}</span>
         </div>
       )}
 
