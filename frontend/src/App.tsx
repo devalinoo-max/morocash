@@ -37,6 +37,7 @@ import { NewSaleModal } from './components/pos/NewSaleModal';
 import { ReceiptModal } from './components/pos/ReceiptModal';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
+import { InstallAppButton } from './components/pwa/InstallAppButton';
 import { InstallBanner, useInstallBanner } from './components/pwa/InstallBanner';
 import { PwaUpdateToast } from './components/pwa/PwaUpdateToast';
 import { PushReminder } from './components/pwa/PushReminder';
@@ -280,6 +281,7 @@ const MainLayout: React.FC = () => {
           />
         </Suspense>
         <NewSaleModal />
+        <InstallAppButton variant="floating" />
         <PwaUpdateToast />
       </div>
     );
@@ -462,15 +464,9 @@ const MainLayout: React.FC = () => {
             {/* Sur téléphone, 24 px de vide sous la barre haute repoussaient le
                 premier produit hors de l'écran : 12 px suffisent, l'ordinateur
                 garde sa respiration. */}
-            {/* Sous le contenu : la place de la barre du bas sur téléphone
-                (la bannière d'installation la réserve elle-même quand elle est
-                là), 64 px sur ordinateur pour que rien ne passe sous la bulle
-                d'aide. */}
-            <main
-              className={`flex-1 min-h-0 px-4 sm:px-6 pt-3 md:pt-6 ${
-                installBanner.visible ? 'pb-4' : 'pb-28'
-              } md:pb-16 overflow-y-auto`}
-            >
+            {/* Sous le contenu : la place de la barre du bas sur téléphone,
+                64 px sur ordinateur pour que rien ne passe sous la bulle d'aide. */}
+            <main className="flex-1 min-h-0 px-4 sm:px-6 pt-3 md:pt-6 pb-28 md:pb-16 overflow-y-auto">
               <div className="max-w-[1460px] mx-auto">
                 {renderActiveView()}
               </div>
@@ -488,6 +484,8 @@ const MainLayout: React.FC = () => {
       {/* Modales globales */}
       <NewSaleModal />
       <ReceiptModal />
+      {/* Téléphone : bouton flottant « Installer l'application ». */}
+      <InstallAppButton variant="floating" />
       <PwaUpdateToast />
       {/* Invitation à activer les notifications, tous les 3 jours. */}
       <PushReminder />

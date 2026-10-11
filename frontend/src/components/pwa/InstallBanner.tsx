@@ -75,9 +75,9 @@ export function useInstallBanner(eligible: boolean): InstallBannerState {
 }
 
 /**
- * La barre d'installation. Elle occupe sa place dans la page (elle ne recouvre
- * rien) : juste au-dessus de la barre du bas sur téléphone, en une ligne
- * compacte en bas à gauche du contenu sur ordinateur.
+ * La barre d'installation, sur ordinateur seulement (le téléphone garde son
+ * bouton flottant, voir InstallAppButton). Elle occupe sa place dans la page :
+ * une ligne compacte en bas à gauche du contenu, qui ne recouvre rien.
  */
 export const InstallBanner: React.FC<{ banner: InstallBannerState }> = ({ banner }) => {
   const [showIosSteps, setShowIosSteps] = useState(false);
@@ -91,10 +91,9 @@ export const InstallBanner: React.FC<{ banner: InstallBannerState }> = ({ banner
 
   return (
     <>
-      {/* 76 px sous la barre sur téléphone : la navigation du bas (68 px) + 8 px. */}
-      <div id="install-banner" className="shrink-0 px-3 pt-2 pb-[76px] md:px-6 md:pt-0 md:pb-4 md:flex md:justify-start">
+      <div id="install-banner" className="hidden md:flex md:justify-start shrink-0 px-6 pb-4">
         <div
-          className="h-14 w-full md:w-auto bg-white flex items-center gap-2 pl-3"
+          className="h-14 bg-white flex items-center gap-2 pl-3"
           style={{ border: '1px solid #E5E7EB', borderRadius: 12 }}
         >
           <img

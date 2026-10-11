@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronDown, ChevronLeft, MessageCircleMore, SendHorizontal, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { HelpIntent, HelpTarget, matchHelpIntent } from './helpIntents';
 
 // Choix « Masqué » de l'utilisateur, gardé d'une visite à l'autre.
@@ -89,6 +90,11 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
     attemptNewSale,
     openNewExpense,
   } = useApp();
+  // Sur téléphone, le bouton « Installer l'application » occupe le même coin :
+  // la bulle se place au-dessus de lui tant qu'il est affiché.
+  const { canPromptInstall, isIosManualInstall, isInstalled } = useInstallPrompt();
+  const installButtonShown = !isInstalled && (canPromptInstall || isIosManualInstall);
+
   // Trois états : Déployé (pilule, par défaut sur ordinateur), Réduit (bulle
   // ronde, par défaut sur téléphone) et Masqué (onglet sur le bord droit).
   const [hiddenChoice, setHiddenChoice] = useState(readHiddenChoice);
@@ -202,9 +208,11 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
   )}`;
 
   // Position : au-dessus de la barre du bas sur téléphone, dans le coin sur
-  // ordinateur ; au-dessus de la bannière d'installation quand elle est là
-  // (de bas en haut : navigation, bannière, bulle).
-  const position = aboveInstallBanner ? 'bottom-[9.25rem] md:bottom-[5.5rem]' : 'bottom-20 md:bottom-6';
+  // ordinateur ; un cran plus haut quand le bouton d'installation (téléphone)
+  // ou la bannière d'installation (ordinateur) est là.
+  const position = `${installButtonShown ? 'bottom-[8.5rem]' : 'bottom-20'} ${
+    aboveInstallBanner ? 'md:bottom-[5.5rem]' : 'md:bottom-6'
+  }`;
 
   return (
     <>
