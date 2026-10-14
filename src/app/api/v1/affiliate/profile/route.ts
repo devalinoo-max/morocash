@@ -2,11 +2,13 @@ import { affiliateNameSchema, getAffiliateDashboard, updateAffiliateName } from 
 import { requireAffiliate } from '@/server/modules/affiliation/session';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 /** Prénom de l'affilié : demandé aux comptes créés avant que ce champ existe. */
 export async function POST(request: Request) {
   try {
     const affiliate = await requireAffiliate();
+    await assertCsrf();
     const body = await request.json().catch(() => null);
     const parsed = affiliateNameSchema.safeParse(body);
     if (!parsed.success) {

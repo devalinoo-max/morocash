@@ -85,8 +85,8 @@ export const LossModal: React.FC<LossModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl sm:rounded-mc shadow-2xl border border-mc-line w-full max-w-lg my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="bg-gradient-to-r from-rose-600 to-red-700 px-6 py-4 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -94,7 +94,7 @@ export const LossModal: React.FC<LossModalProps> = ({
               <ShieldAlert className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black tracking-tight">
+              <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
                 Perdu ou volé
               </h2>
               <p className="text-xs text-rose-100 font-medium">
@@ -128,7 +128,7 @@ export const LossModal: React.FC<LossModalProps> = ({
               <select
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-rose-500 focus:outline-none"
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-mc-line rounded-xl text-xs font-bold text-mc-ink focus:bg-white focus:border-rose-500 focus:outline-none"
               >
                 {physicalProducts.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -149,7 +149,7 @@ export const LossModal: React.FC<LossModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-sm cursor-pointer"
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-sm cursor-pointer"
                 >
                   −
                 </button>
@@ -158,17 +158,17 @@ export const LossModal: React.FC<LossModalProps> = ({
                   min="1"
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                  className="w-full text-center font-black text-sm text-slate-900 focus:outline-none"
+                  className="w-full text-center font-extrabold text-sm text-mc-ink focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => q + 1)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-sm cursor-pointer"
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-sm cursor-pointer"
                 >
                   +
                 </button>
               </div>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-mc-soft font-medium">
                 {selectedProduct?.unit || 'unités'}
               </span>
             </div>
@@ -177,12 +177,12 @@ export const LossModal: React.FC<LossModalProps> = ({
           {/* Stock Impact Visual Pill */}
           <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200/60 flex items-center justify-between text-xs">
             <div className="space-y-0.5">
-              <span className="text-[11px] font-semibold text-slate-500">Variation stock :</span>
-              <div className="flex items-center gap-2 font-black text-slate-800">
+              <span className="text-[11px] font-semibold text-mc-soft">Variation stock :</span>
+              <div className="flex items-center gap-2 font-extrabold text-mc-ink">
                 <span>{stockAvant} {selectedProduct?.unit || 'u'}</span>
                 <span className="text-rose-500">→</span>
                 <span className="text-rose-700">{stockApres} {selectedProduct?.unit || 'u'}</span>
-                <span className="text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded text-[10px] font-black">
+                <span className="text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded text-[10px] font-extrabold">
                   −{quantity}
                 </span>
               </div>
@@ -190,8 +190,8 @@ export const LossModal: React.FC<LossModalProps> = ({
 
             {!isVendeur && (
               <div className="text-right">
-                <span className="text-[11px] font-semibold text-slate-500">Valeur de la perte :</span>
-                <p className="font-black text-rose-700">{formatFCFA(valeurPerte)}</p>
+                <span className="text-[11px] font-semibold text-mc-soft">Valeur de la perte :</span>
+                <p className="font-extrabold text-rose-700">{formatFCFA(valeurPerte)}</p>
               </div>
             )}
           </div>
@@ -199,7 +199,7 @@ export const LossModal: React.FC<LossModalProps> = ({
           {/* Motif (Mandatory) */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Motif du constat <span className="text-rose-500 font-black">*</span>
+              Motif du constat <span className="text-rose-500 font-extrabold">*</span>
             </label>
             <input
               type="text"
@@ -207,7 +207,7 @@ export const LossModal: React.FC<LossModalProps> = ({
               value={motif}
               onChange={(e) => setMotif(e.target.value)}
               placeholder="Ex: Disparition constatée à la fermeture"
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-rose-500 focus:outline-none"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-mc-line rounded-xl text-xs font-semibold text-mc-ink placeholder:text-slate-400 focus:bg-white focus:border-rose-500 focus:outline-none"
             />
             {/* Quick motif pills */}
             <div className="flex flex-wrap gap-1.5 mt-2">
@@ -234,7 +234,7 @@ export const LossModal: React.FC<LossModalProps> = ({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Informations utiles sur les circonstances..."
-              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-rose-500 focus:outline-none"
+              className="w-full px-3.5 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs text-mc-ink focus:bg-white focus:border-rose-500 focus:outline-none"
             />
           </div>
 
@@ -264,7 +264,7 @@ export const LossModal: React.FC<LossModalProps> = ({
                 </div>
               </div>
             ) : (
-              <label className="border-2 border-dashed border-slate-200 hover:border-rose-400 rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer bg-slate-50/50 hover:bg-rose-50/30 transition-all">
+              <label className="border-2 border-dashed border-mc-line hover:border-rose-400 rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer bg-slate-50/50 hover:bg-rose-50/30 transition-all">
                 <UploadCloud className="w-4 h-4 text-slate-400" />
                 <span className="text-xs font-bold text-slate-600">
                   Ajouter une photo ou un document
@@ -280,17 +280,17 @@ export const LossModal: React.FC<LossModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-mc-line flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="px-4 py-2.5 border border-mc-line rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white rounded-xl text-xs font-black shadow-md shadow-rose-700/20 transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white rounded-xl text-xs font-extrabold shadow-md shadow-rose-700/20 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
               Enregistrer la perte

@@ -36,7 +36,7 @@ interface ForgotPinFlowProps {
 type Step = 'CHANNEL' | 'CODE' | 'SHOP' | 'NEW_PIN';
 type Canal = ResetTarget['canal'];
 
-const ONBOARDING_INDIGO = '#4F46E5';
+const ONBOARDING_INDIGO = '#5B4BF0';
 const RESEND_DELAY_S = 60;
 
 /** « 0708091098 » → « 07 ** ** ** 98 ». */
@@ -187,7 +187,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
       <button
         type="button"
         onClick={back}
-        className="flex items-center gap-1 text-xs font-bold text-slate-500 cursor-pointer"
+        className="flex items-center gap-1 text-xs font-bold text-mc-soft cursor-pointer"
       >
         <ArrowLeft className="w-3.5 h-3.5" /> Retour
       </button>
@@ -201,8 +201,8 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
       {step === 'CHANNEL' && (
         <form onSubmit={handleRequest} className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Mot de passe oublié ?</h2>
-            <p className="text-xs text-slate-500">On t'envoie un code pour en choisir un nouveau.</p>
+            <h2 className="text-lg font-extrabold text-mc-ink tracking-tight">Mot de passe oublié ?</h2>
+            <p className="text-xs text-mc-soft">On t'envoie un code pour en choisir un nouveau.</p>
           </div>
 
           <div role="radiogroup" aria-label="Recevoir le code" className="grid grid-cols-2 p-1.5 bg-slate-100 rounded-xl text-xs font-bold">
@@ -222,7 +222,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
                   setErrorMessage(null);
                 }}
                 className={`py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  canal === value ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                  canal === value ? 'bg-white text-mc-ink shadow-xs' : 'text-mc-soft hover:text-slate-700'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" /> {label}
@@ -235,13 +235,13 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
               <label htmlFor="forgot-phone" className="text-xs font-bold text-slate-700 block mb-1">
                 Numéro WhatsApp
               </label>
-              <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4F46E5] focus-within:border-[#4F46E5] transition-all">
+              <div className="flex rounded-xl border border-mc-line overflow-hidden focus-within:ring-2 focus-within:ring-[#5B4BF0] focus-within:border-[#5B4BF0] transition-all">
                 {/* Indicatif affiché comme à la connexion : le numéro est enregistré sans indicatif. */}
                 <select
                   aria-label="Indicatif pays"
                   value={country.code}
                   onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
-                  className="bg-slate-50 pl-3 pr-1 py-2.5 text-xs font-bold text-slate-600 border-r border-slate-200 shrink-0 cursor-pointer outline-none"
+                  className="bg-slate-50 pl-3 pr-1 py-2.5 text-xs font-bold text-slate-600 border-r border-mc-line shrink-0 cursor-pointer outline-none"
                 >
                   {COUNTRIES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -256,7 +256,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
                   value={telephone}
                   onChange={(e) => setTelephone(e.target.value.replace(/\D/g, ''))}
                   placeholder="0708091011"
-                  className="w-full min-w-0 px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none font-mono"
+                  className="w-full min-w-0 px-3 py-2.5 text-sm font-semibold text-mc-ink outline-none font-mono"
                 />
               </div>
             </div>
@@ -272,7 +272,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="boutique@exemple.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-mc-line text-sm font-semibold text-mc-ink focus:ring-2 focus:ring-[#5B4BF0] focus:border-[#5B4BF0] outline-none"
               />
               <p className="text-[11px] text-slate-400 mt-1">{emailHint}</p>
             </div>
@@ -281,13 +281,13 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
           <SubmitButton disabled={isSubmitting}>{isSubmitting ? 'Envoi du code…' : 'Recevoir le code'}</SubmitButton>
 
           {SUPPORT_WHATSAPP && (
-            <p className="text-center text-[11px] text-slate-500">
+            <p className="text-center text-[11px] text-mc-soft">
               Plus accès à ces deux moyens ?{' '}
               <a
                 href={`https://wa.me/${SUPPORT_WHATSAPP}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-bold text-[#4F46E5] hover:underline"
+                className="font-bold text-[#5B4BF0] hover:underline"
               >
                 Contacter le support sur WhatsApp
               </a>
@@ -299,9 +299,9 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
       {step === 'CODE' && (
         <form onSubmit={handleVerify} className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Saisis le code reçu</h2>
+            <h2 className="text-lg font-extrabold text-mc-ink tracking-tight">Saisis le code reçu</h2>
             {sentMessage && <p className="text-xs font-semibold text-slate-700">{sentMessage}</p>}
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-mc-soft">
               {canal === 'WHATSAPP'
                 ? `Code envoyé par WhatsApp au ${maskPhone(telephone.trim())}`
                 : `Code envoyé par e-mail à ${maskEmail(email.trim().toLowerCase())}`}
@@ -319,7 +319,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
             type="button"
             disabled={isSubmitting || resendIn > 0}
             onClick={() => void sendCode()}
-            className="w-full text-center text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-center text-[11px] font-bold text-mc-soft hover:text-mc-ink cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {resendIn > 0 ? `Renvoyer le code (dans ${resendIn} s)` : 'Renvoyer le code'}
           </button>
@@ -328,7 +328,7 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
 
       {step === 'SHOP' && (
         <div className="space-y-3">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-mc-soft">
             Ce numéro est utilisé dans plusieurs boutiques. Pour laquelle veux-tu changer le mot de passe ?
           </p>
           {businesses.map((b) => (
@@ -339,9 +339,9 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
                 setBusinessId(b.businessId);
                 setStep('NEW_PIN');
               }}
-              className="w-full p-3.5 rounded-xl border border-slate-200 text-left text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer flex items-center gap-2"
+              className="w-full p-3.5 rounded-xl border border-mc-line text-left text-sm font-bold text-mc-ink hover:bg-slate-50 cursor-pointer flex items-center gap-2"
             >
-              <Store className="w-4 h-4 text-indigo-500" /> {b.businessNom}
+              <Store className="w-4 h-4 text-mc-primary" /> {b.businessNom}
             </button>
           ))}
         </div>
@@ -350,8 +350,8 @@ export const ForgotPinFlow: React.FC<ForgotPinFlowProps> = ({
       {step === 'NEW_PIN' && (
         <form onSubmit={handleConfirm} className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Choisis ton nouveau mot de passe</h2>
-            <p className="text-xs text-slate-500 flex items-start gap-1.5">
+            <h2 className="text-lg font-extrabold text-mc-ink tracking-tight">Choisis ton nouveau mot de passe</h2>
+            <p className="text-xs text-mc-soft flex items-start gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-px" />
               <span>{newPinHint}</span>
             </p>

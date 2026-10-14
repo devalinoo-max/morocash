@@ -87,7 +87,7 @@ import {
   mergePending,
 } from '../offline/replayPolicy';
 import { findCustomerByNameAndPhone, findProductByName, isServerId } from '../offline/recovery';
-import { loadIdMap, loadSnapshot, saveIdMap, saveSnapshot } from '../offline/cache';
+import { loadIdMap, clearSnapshot, loadSnapshot, saveIdMap, saveSnapshot } from '../offline/cache';
 import { CACHE_STORE, QUEUE_STORE, idbClear } from '../offline/idb';
 import { NO_CATEGORY_LABEL } from '../api/categories';
 import { hasSessionHint, markSessionEnded, markSessionStarted } from '../utils/session';
@@ -1112,6 +1112,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         apiReceptions,
         apiCounts,
         apiStockMovements,
+        apiUsers,
       ] = await Promise.all([
         productsApi.listProducts(),
         customersApi.listCustomers(),
@@ -1125,7 +1126,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         stockApi.listReceptions().catch(() => []),
         stockApi.listCounts().catch(() => []),
         stockApi.listMovements(),
+        // Noms de l'équipe : qui a ouvert et fermé la caisse.
+        usersApi.listEmployees().catch(() => [] as usersApi.ApiEmployee[]),
       ]);
+
+      const userNameById = new Map(apiUsers.map((u) => [u.id, u.nom]));
+      const toCashSession = (r: cashApi.ApiCashRegister) =>
+        cashApi.toFrontendCashSession(r, {
+          openedBy: userNameById.get(r.ouverteParId),
+          closedBy: r.fermeeParId ? userNameById.get(r.fermeeParId) : undefined,
+        });
 
       // Relue ICI, et non avant les appels réseau : le commerçant a pu vendre
       // pendant qu'ils étaient en vol (voir mergePending).
@@ -1181,7 +1191,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // /cash/history est réservé OWNER/ACCOUNTANT (FORBIDDEN_ROLE pour un
       // SELLER) — on retombe sur la seule caisse courante dans ce cas.
       const registers = registersResult ?? (currentRegister ? [currentRegister] : []);
-      setCashSessions(registers.map((r) => cashApi.toFrontendCashSession(r, {})));
+      setCashSessions(registers.map(toCashSession));
 
       // Catégories accessibles à tous les rôles (non sensibles en elles-mêmes) —
       // sert à afficher un nom de catégorie lisible sur chaque dépense.
@@ -1216,7 +1226,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         customers: serverCustomers,
         sales: serverSales,
         expenses: serverExpenses,
-        cashSessions: registers.map((r) => cashApi.toFrontendCashSession(r, {})),
+        cashSessions: registers.map(toCashSession),
         cashMovements: apiMovements.map((m) => cashApi.toFrontendCashMovement(m, userName)),
         stockMovements: frontendStockMovements,
         stockReceptions: apiReceptions.map((r) => stockApi.toFrontendStockReception(r, userName)),
@@ -2045,12 +2055,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  /**
+   * Vide ce que l'appareil garde de la boutique à la déconnexion : l'écran,
+   * la copie locale (localStorage) et l'instantané hors ligne. Sans ça les
+   * clients, leurs téléphones et les ventes restaient lisibles sur un
+   * téléphone partagé, et s'affichaient un instant sous la boutique suivante.
+   * La file d'attente n'est PAS touchée : une vente saisie hors ligne et pas
+   * encore envoyée repartira à la prochaine connexion de sa boutique.
+   */
+  const purgeSessionData = () => {
+    setProducts(initialProducts);
+    setCustomers(initialCustomers);
+    setSales(initialSales);
+    setExpenses(initialExpenses);
+    setCashSessions(initialCashSessions);
+    setCashMovements(initialCashMovements);
+    setStockMovements(initialStockMovements);
+    setStockReceptions(initialStockReceptions);
+    setStockCounts(initialStockCounts);
+    setCart([]);
+    setEmployees([]);
+    void clearSnapshot().catch(() => undefined);
+  };
+
   const logoutUser = async () => {
     try {
       await authApi.logout();
     } catch {
       // On déconnecte localement même si l'appel serveur échoue (session déjà expirée, réseau...).
     }
+    purgeSessionData();
     markSessionEnded();
     setCurrentUser(null);
     setCurrentBusiness(null);
@@ -2064,6 +2098,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       showToast(apiErrorMessage(error), 'error');
       return false;
     }
+    purgeSessionData();
     markSessionEnded();
     setCurrentUser(null);
     setCurrentBusiness(null);

@@ -74,14 +74,14 @@ export const LabelSelectionModal: React.FC<LabelSelectionModalProps> = ({ isOpen
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-14 shrink-0 px-4 flex items-center gap-2.5 border-b border-slate-100">
-          <div className="w-[34px] h-[34px] rounded-[10px] bg-[#4F46E5] text-white flex items-center justify-center shrink-0">
+          <div className="w-[34px] h-[34px] rounded-[10px] bg-[#5B4BF0] text-white flex items-center justify-center shrink-0">
             <Tag className="w-[18px] h-[18px]" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 id="label-selection-title" className="text-[15px] font-[750] text-slate-900 leading-tight">
+            <h3 id="label-selection-title" className="text-[15px] font-[750] text-mc-ink leading-tight">
               Étiquettes
             </h3>
-            <p className="text-[11px] text-slate-500 leading-tight">Coche les produits à imprimer</p>
+            <p className="text-[11px] text-mc-soft leading-tight">Coche les produits à imprimer</p>
           </div>
           <button
             type="button"
@@ -101,22 +101,22 @@ export const LabelSelectionModal: React.FC<LabelSelectionModalProps> = ({ isOpen
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Chercher un produit"
-              className="w-full h-10 pl-9 pr-3 rounded-full bg-slate-50 border border-slate-200 text-[16px] sm:text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+              className="w-full h-10 pl-9 pr-3 rounded-full bg-slate-50 border border-mc-line text-[16px] sm:text-[13px] font-medium text-mc-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#5B4BF0]"
             />
           </div>
           <label className="flex items-center justify-between gap-2 py-1 cursor-pointer select-none">
-            <span className="flex items-center gap-2 text-[13px] font-bold text-slate-800">
+            <span className="flex items-center gap-2 text-[13px] font-bold text-mc-ink">
               <input
                 id="checkbox-labels-select-all"
                 type="checkbox"
                 checked={allVisibleChecked}
                 onChange={toggleAll}
                 disabled={visible.length === 0}
-                className="w-4 h-4 rounded accent-[#4F46E5] cursor-pointer"
+                className="w-4 h-4 rounded accent-[#5B4BF0] cursor-pointer"
               />
               Tout sélectionner
             </span>
-            <span className="text-[12px] font-semibold text-slate-500 tabular-nums">
+            <span className="text-[12px] font-semibold text-mc-soft tabular-nums">
               {checked.size} / {products.length}
             </span>
           </label>
@@ -124,7 +124,7 @@ export const LabelSelectionModal: React.FC<LabelSelectionModalProps> = ({ isOpen
 
         <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
           {visible.length === 0 ? (
-            <p className="p-8 text-center text-[13px] text-slate-500">
+            <p className="p-8 text-center text-[13px] text-mc-soft">
               {products.length === 0 ? 'Ton catalogue est vide.' : 'Aucun produit ne correspond.'}
             </p>
           ) : (
@@ -132,18 +132,18 @@ export const LabelSelectionModal: React.FC<LabelSelectionModalProps> = ({ isOpen
               <label
                 key={p.id}
                 className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer transition-colors ${
-                  checked.has(p.id) ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
+                  checked.has(p.id) ? 'bg-mc-primary-tint' : 'hover:bg-slate-50'
                 }`}
               >
                 <input
                   type="checkbox"
                   checked={checked.has(p.id)}
                   onChange={() => toggle(p.id)}
-                  className="w-4 h-4 rounded accent-[#4F46E5] cursor-pointer shrink-0"
+                  className="w-4 h-4 rounded accent-[#5B4BF0] cursor-pointer shrink-0"
                 />
                 <span className="flex-1 min-w-0">
-                  <span className="block text-[13px] font-bold text-slate-900 truncate">{p.name}</span>
-                  <span className="block text-[11px] text-slate-500 truncate">
+                  <span className="block text-[13px] font-bold text-mc-ink truncate">{p.name}</span>
+                  <span className="block text-[11px] text-mc-soft truncate">
                     {formatMoney(p.salePrice)}
                     {p.category ? ` · ${p.category}` : ''}
                   </span>
@@ -159,7 +159,7 @@ export const LabelSelectionModal: React.FC<LabelSelectionModalProps> = ({ isOpen
             type="button"
             disabled={checked.size === 0}
             onClick={() => onConfirm(products.filter((p) => checked.has(p.id)).map((p) => p.id))}
-            className="w-full h-12 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-[14px] font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
+            className="w-full h-12 rounded-full bg-mc-primary hover:bg-[#3B2FC9] text-white text-[14px] font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
           >
             <Printer className="w-4 h-4" />
             <span>

@@ -36,6 +36,7 @@ export function BusinessActionsModal({
 
   useEffect(() => {
     if (mode !== 'reset-pin') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des données à l'affichage : l'état « en cours » doit être posé avant l'appel réseau
     setIsLoadingUsers(true);
     adminApi
       .get<{ users: AdminBusinessUser[] }>(`/businesses/${business.id}/users`)
@@ -45,7 +46,7 @@ export function BusinessActionsModal({
       })
       .catch((err) => setError(adminErrorMessage(err)))
       .finally(() => setIsLoadingUsers(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [mode, business.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {

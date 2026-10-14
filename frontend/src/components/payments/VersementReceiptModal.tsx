@@ -75,14 +75,14 @@ export const VersementReceiptModal: React.FC<VersementReceiptModalProps> = ({ ve
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-14 shrink-0 px-4 flex items-center gap-2.5 border-b border-slate-100">
-          <div className="w-[34px] h-[34px] rounded-[10px] bg-[#4F46E5] text-white flex items-center justify-center shrink-0">
+          <div className="w-[34px] h-[34px] rounded-[10px] bg-[#5B4BF0] text-white flex items-center justify-center shrink-0">
             <Receipt className="w-[18px] h-[18px]" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 id="versement-receipt-title" className="text-[15px] font-[750] text-slate-900 leading-tight">
+            <h3 id="versement-receipt-title" className="text-[15px] font-[750] text-mc-ink leading-tight">
               Reçu de paiement
             </h3>
-            <p className="text-[10.5px] text-slate-500 truncate leading-tight mt-0.5">
+            <p className="text-[10.5px] text-mc-soft truncate leading-tight mt-0.5">
               {current.isPending
                 ? 'En attente d’envoi'
                 : `${versementLabel(current.numero)} · ${current.receiptNumber ?? ''}`}
@@ -104,7 +104,7 @@ export const VersementReceiptModal: React.FC<VersementReceiptModalProps> = ({ ve
           </div>
         </div>
 
-        <div className="shrink-0 px-4 pt-2.5 pb-4 border-t border-slate-200 bg-white space-y-2">
+        <div className="shrink-0 px-4 pt-2.5 pb-4 border-t border-mc-line bg-white space-y-2">
           <button
             type="button"
             onClick={() => shareVersementsOnWhatsApp([current], settings)}
@@ -116,7 +116,7 @@ export const VersementReceiptModal: React.FC<VersementReceiptModalProps> = ({ ve
           <button
             type="button"
             onClick={() => window.print()}
-            className="w-full h-12 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            className="w-full h-12 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-mc-line rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <Printer className="w-4 h-4 text-slate-600" />
             <span>Imprimer</span>

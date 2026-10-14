@@ -1,10 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { DateRangeInputs, DATE_RANGE_LABEL } from '../common/DateRangeInputs';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import {
-  Receipt,
   Search,
-  Calendar,
   MoreHorizontal,
   Eye,
   MessageCircle,
@@ -13,14 +11,16 @@ import {
   FileText,
   Banknote,
   X,
-  ArrowRight,
   Plus,
   SlidersHorizontal,
+  Download,
+  BarChart3,
+  ChevronDown,
 } from 'lucide-react';
-import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters';
+import { formatMoney, formatDate, formatPaymentMethod, formatShortDate } from '../../utils/formatters';
 import { Sale, Versement } from '../../types';
 import { useActivity } from '../../hooks/useActivity';
-import { VersementRow } from '../payments/VersementRow';
+import { VersementBadge, VersementRow } from '../payments/VersementRow';
 import { VersementReceiptModal } from '../payments/VersementReceiptModal';
 import { countLabel } from '../../utils/plural';
 import { useIncrementalList } from '../../hooks/useIncrementalList';
@@ -40,9 +40,85 @@ import {
   type PeriodFilter,
   type StatusFilter,
 } from '../../utils/salesFilters';
+import { LOCKED_BTN_CLASS } from '../../utils/paywall';
+import {
+  ChartsSkeleton,
+  EmptyState,
+  KpiCard,
+  MC_EASE,
+  PASTILLES_STATUT,
+  Segmented,
+  TrialPill,
+  previousInterval,
+  staggerParent,
+  variationPct,
+} from './SalesKit';
+import type { DayBar } from './SalesCharts';
 
-/** Le commerçant vient voir sa journée, pas son mois. */
-const PERIODE_PAR_DEFAUT: PeriodFilter = 'today';
+// recharts est lourd et ne sert qu'aux deux graphiques : il se charge après la
+// liste, pas avant.
+const SalesCharts = lazy(() => import('./SalesCharts'));
+
+/** Sept jours : le matin, « aujourd'hui » est vide alors que les ventes de la veille comptent encore. */
+const PERIODE_PAR_DEFAUT: PeriodFilter = '7days';
+
+/** Graphiques affichés ou repliés : le choix du commerçant, gardé sur l'appareil. */
+const CLE_GRAPHIQUES = 'morocash_sales_charts_open';
+const CLE_VERSEMENTS = 'morocash_sales_versements_shown';
+
+/** Une ligne de la liste : une commande, et les versements reçus pour elle ce jour-là. */
+type LigneCommande = { sale: Sale; versements: Versement[] };
+
+/**
+ * Le titre posé au-dessus d'une commande qui vient de recevoir un versement :
+ * son rang, le montant, le mode et l'heure. Un tap ouvre le reçu du versement.
+ */
+const BandeauVersements: React.FC<{
+  versements: Versement[];
+  onOpenReceipt: (versement: Versement) => void;
+}> = ({ versements, onOpenReceipt }) => (
+  <>
+    {versements.map((v) => (
+      <button
+        key={v.id}
+        type="button"
+        onClick={() => onOpenReceipt(v)}
+        title="Voir le reçu de ce versement"
+        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer ${
+          v.isCancelled ? 'opacity-60' : ''
+        }`}
+      >
+        {/* Une phrase, pas des abréviations : « Paiement reçu : 4 000 F ». Le
+            rang du versement vient après, pour qui veut le détail. */}
+        <span className="min-w-0 flex-1 flex items-center gap-2">
+          <span className="min-w-0 truncate text-[12px] font-semibold text-mc-primary-dark">
+            {v.isCancelled ? 'Paiement annulé : ' : 'Paiement reçu : '}
+            <span className={`font-extrabold tabular-nums ${v.isCancelled ? 'line-through' : ''}`}>
+              {formatMoney(v.amount)}
+            </span>
+            {' · '}
+            {formatPaymentMethod(v.method)}
+            {' · '}
+            {new Date(v.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <VersementBadge versement={v} />
+        </span>
+        <span className="shrink-0 text-[12px] font-bold text-mc-primary">
+          <span className="hidden sm:inline">Voir le reçu </span>
+          <span className="sm:hidden">Reçu </span>›
+        </span>
+      </button>
+    ))}
+  </>
+);
+
+const LIBELLES_PERIODE: Record<PeriodFilter, string> = {
+  today: "aujourd'hui",
+  '7days': 'sur 7 jours',
+  '30days': 'sur 30 jours',
+  thisMonth: 'ce mois',
+  custom: 'sur la période choisie',
+};
 
 export const SalesTab: React.FC = () => {
   const {
@@ -60,10 +136,50 @@ export const SalesTab: React.FC = () => {
     pendingVersements,
     orderToOpen,
     clearOrderToOpen,
+    isWriteLocked,
+    setActiveTab,
+    setActiveMoreSubTab,
+    setCustomersDebtorsFilter,
   } = useApp();
 
-  // Tout · Commandes · Versements : les deux sortes de lignes de la liste.
-  const [kindFilter, setKindFilter] = useState<'ALL' | 'ORDERS' | 'PAYMENTS'>('ALL');
+  const [exportOuvert, setExportOuvert] = useState(false);
+
+  const [graphiquesOuverts, setGraphiquesOuverts] = useState(() => {
+    try {
+      return localStorage.getItem(CLE_GRAPHIQUES) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const basculerGraphiques = () =>
+    setGraphiquesOuverts((ouverts) => {
+      try {
+        localStorage.setItem(CLE_GRAPHIQUES, ouverts ? '0' : '1');
+      } catch {
+        // Stockage indisponible : le choix ne sera simplement pas retenu.
+      }
+      return !ouverts;
+    });
+
+  // Versements affichés ou non dans la liste : un interrupteur, dont le choix
+  // est gardé sur l'appareil. « Versements seuls » vient de la carte du haut.
+  const [versementsAffiches, setVersementsAffiches] = useState(() => {
+    try {
+      return localStorage.getItem(CLE_VERSEMENTS) !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const [versementsSeuls, setVersementsSeuls] = useState(false);
+  const afficherVersements = (affiches: boolean) => {
+    setVersementsAffiches(affiches);
+    if (!affiches) setVersementsSeuls(false);
+    try {
+      localStorage.setItem(CLE_VERSEMENTS, affiches ? '1' : '0');
+    } catch {
+      // Stockage indisponible : le choix ne sera simplement pas retenu.
+    }
+  };
   const [recuVersement, setRecuVersement] = useState<Versement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,6 +258,60 @@ export const SalesTab: React.FC = () => {
   // et un versement sur une vieille commande y compte le jour où il arrive.
   const { activity, stale: activityStale } = useActivity(dateInterval.start, dateInterval.end);
 
+  // Même lecture serveur, sur la période juste avant : la base des pastilles
+  // de variation. Pas de base, pas de pastille.
+  const intervalleAvant = useMemo(
+    () => previousInterval(periodFilter, dateInterval),
+    [periodFilter, dateInterval]
+  );
+  const { activity: activityAvant } = useActivity(intervalleAvant.start, intervalleAvant.end);
+
+  const libellePeriode = LIBELLES_PERIODE[periodFilter];
+
+  // « Qui me doit » : ce que tous les clients doivent à ce jour, toutes périodes confondues.
+  const { totalDu, nbDebiteurs } = useMemo(() => {
+    const debiteurs = customers.filter((c) => c.totalDebt > 0);
+    return {
+      totalDu: debiteurs.reduce((somme, c) => somme + c.totalDebt, 0),
+      nbDebiteurs: debiteurs.length,
+    };
+  }, [customers]);
+
+  // Les 7 derniers jours, aujourd'hui compris, quelle que soit la période
+  // affichée : montant des commandes du jour, et ce qui reste à payer dessus.
+  const barres7Jours = useMemo<DayBar[]>(() => {
+    const maintenant = new Date();
+    const cleDuJour = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const jours = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - (6 - i));
+      const court = d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '');
+      return {
+        cle: cleDuJour(d),
+        label: court.charAt(0).toUpperCase() + court.slice(1),
+        fullLabel: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }),
+        total: 0,
+        paye: 0,
+        reste: 0,
+      };
+    });
+    const parCle = new Map(jours.map((j) => [j.cle, j]));
+    for (const s of baseSales) {
+      if (s.isCancelled) continue;
+      const jour = parCle.get(cleDuJour(new Date(s.createdAt)));
+      if (!jour) continue;
+      const reste = Math.min(Math.max(s.remainingAmount, 0), s.totalAmount);
+      jour.total += s.totalAmount;
+      jour.reste += reste;
+      jour.paye += s.totalAmount - reste;
+    }
+    return jours;
+  }, [baseSales]);
+
+  const repartitionStatuts = useMemo(
+    () => ({ paid: statusCounts.PAID, partial: statusCounts.PARTIAL, credit: statusCounts.CREDIT }),
+    [statusCounts]
+  );
+
   const versementsEnAttente = useMemo(
     () =>
       pendingVersements.filter((v) => {
@@ -154,7 +324,7 @@ export const SalesTab: React.FC = () => {
   // Lignes « versement » de la liste. Le filtre de statut ne concerne que les
   // commandes : dès qu'il est actif, seules les commandes restent.
   const filteredVersements = useMemo(() => {
-    if (kindFilter === 'ORDERS' || statusFilter !== 'ALL') return [];
+    if (!versementsAffiches || statusFilter !== 'ALL') return [];
     const q = searchQuery.trim().toLowerCase();
     return [...versementsEnAttente, ...(activity?.versements ?? [])].filter((v) => {
       if (selectedSeller !== 'ALL' && v.collectedBy !== selectedSeller) return false;
@@ -163,9 +333,9 @@ export const SalesTab: React.FC = () => {
         (champ) => Boolean(champ) && String(champ).toLowerCase().includes(q)
       );
     });
-  }, [activity, versementsEnAttente, kindFilter, statusFilter, selectedSeller, searchQuery]);
+  }, [activity, versementsEnAttente, versementsAffiches, statusFilter, selectedSeller, searchQuery]);
 
-  const shownSales = kindFilter === 'PAYMENTS' ? [] : filteredSales;
+  const shownSales = versementsSeuls ? [] : filteredSales;
 
   // Arrivée depuis une ligne de versement ou la fiche client : on ouvre la
   // commande demandée, quelle que soit la période affichée.
@@ -185,7 +355,10 @@ export const SalesTab: React.FC = () => {
   // Un réglage avancé actif doit rester visible depuis la liste : sinon le
   // commerçant cherche pourquoi il manque des commandes.
   const reglagesAvancesActifs =
-    selectedSeller !== 'ALL' || periodFilter === 'custom' || statusFilter === 'CANCELLED';
+    selectedSeller !== 'ALL' ||
+    periodFilter === 'custom' ||
+    statusFilter === 'CANCELLED' ||
+    versementsSeuls;
 
   // Point 9: GROUPE PAR JOUR
   const groupedByDay = useMemo(() => {
@@ -228,8 +401,42 @@ export const SalesTab: React.FC = () => {
       if (ligne.versement) groups.get(dayKey)!.versements.push(ligne.versement);
     }
 
-    return Array.from(groups.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
-  }, [shownSales, filteredVersements]);
+    // Dans chaque journée, une commande qui a reçu un versement ce jour-là
+    // monte en haut, avec le rang du versement en titre — même si la commande
+    // date d'un autre jour. Le paiement fait à la commande n'est pas un
+    // « nouveau » versement : il ne déplace rien. Un versement dont la commande
+    // n'est pas connue ici (pas encore envoyé, commande non chargée) garde sa
+    // propre ligne.
+    const commandesParId = new Map(baseSales.map((s) => [s.id, s]));
+    return Array.from(groups.values())
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+      .map((groupe) => {
+        const duJour = new Set(groupe.sales.map((s) => s.id));
+        const avecVersement = new Map<string, LigneCommande>();
+        const orphelins: Versement[] = [];
+        const parHeure = [...groupe.versements].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        for (const v of parHeure) {
+          const commande = v.orderId ? commandesParId.get(v.orderId) : undefined;
+          if (!commande) orphelins.push(v);
+          else if (v.atOrder && duJour.has(commande.id)) continue;
+          else if (avecVersement.has(commande.id)) avecVersement.get(commande.id)!.versements.push(v);
+          else avecVersement.set(commande.id, { sale: commande, versements: [v] });
+        }
+        // Du plus récent au moins récent : ce qui compte est le dernier
+        // événement du jour sur la commande — sa création, ou son dernier
+        // versement. Un versement fait donc remonter sa commande, sans passer
+        // devant une commande créée après lui.
+        const dernierEvenement = (l: LigneCommande) =>
+          [duJour.has(l.sale.id) ? l.sale.createdAt : '', ...l.versements.map((v) => v.createdAt)].reduce((a, b) =>
+            a > b ? a : b
+          );
+        const lignes: LigneCommande[] = [
+          ...avecVersement.values(),
+          ...groupe.sales.filter((s) => !avecVersement.has(s.id)).map((sale) => ({ sale, versements: [] as Versement[] })),
+        ].sort((a, b) => dernierEvenement(b).localeCompare(dernierEvenement(a)));
+        return { ...groupe, lignes, orphelins };
+      });
+  }, [shownSales, filteredVersements, baseSales]);
 
   // L'historique s'affiche par journées, une poignée à la fois : un an de
   // commandes, ce sont des milliers de lignes de tableau construites d'un coup
@@ -243,7 +450,7 @@ export const SalesTab: React.FC = () => {
 
   const resetAllFilters = () => {
     setSearchQuery('');
-    setKindFilter('ALL');
+    setVersementsSeuls(false);
     setStatusFilter('ALL');
     setPeriodFilter(PERIODE_PAR_DEFAUT);
     setSelectedSeller('ALL');
@@ -340,476 +547,601 @@ export const SalesTab: React.FC = () => {
 
   const chargementInitial = !hasLoadedOnce && baseSales.length === 0;
 
+
   return (
     <div
       id="sales-tab-content"
-      className="space-y-3 md:space-y-5 pb-20 max-w-[1440px] mx-auto animate-in fade-in duration-200"
+      className="font-jakarta text-mc-ink pb-20 max-w-[1440px] mx-auto"
     >
-      {/* =====================================================================
-          FILTRES — période, statut, recherche
-          La carte blanche « Mes commandes » et son gros bouton Exporter ont
-          disparu : elles coûtaient environ 270 px, soit six commandes qu'il
-          fallait aller chercher au défilement sur une page ouverte dix fois
-          par jour.
-          ===================================================================== */}
-      <div className="md:bg-white md:p-5 md:rounded-2xl md:border md:border-slate-200/80 md:shadow-xs space-y-2.5">
-        {/* Recherche */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cherche un client, un produit, un n°…"
-            className="w-full h-10 pl-10 pr-4 rounded-full bg-white md:bg-slate-50 border border-slate-200 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white transition-all"
-          />
-        </div>
+      <MotionConfig reducedMotion="user">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, ease: MC_EASE }}
+          className="space-y-4 md:space-y-6"
+        >
+          {/* =================================================================
+              EN-TÊTE — titre, pastille d'essai, exporter, nouvelle commande
+              Sur téléphone le titre est déjà dans la barre haute : seules la
+              pastille et les deux actions restent ici.
+              ================================================================= */}
+          <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <div className="min-w-0 hidden md:block">
+              <div className="flex items-center gap-3">
+                <h1 className="text-[28px] font-extrabold tracking-tight leading-tight">
+                  Mes commandes
+                </h1>
+                <TrialPill />
+              </div>
+              <p className="text-[14px] text-mc-soft">
+                Ce que tu as vendu, ce qu’on t’a versé, et ce qu’on te doit encore.
+              </p>
+            </div>
+            <div className="md:hidden">
+              <TrialPill />
+            </div>
 
-        {/* Période : quatre raccourcis de largeur égale, jamais coupés, puis la
-            plage de dates — visible ici, plus seulement dans les filtres avancés. */}
-        <div className="grid grid-cols-4 gap-1.5">
-          {(
-            [
-              { id: 'today', label: "Aujourd'hui" },
-              { id: '7days', label: '7 jours' },
-              { id: '30days', label: '30 jours' },
-              { id: 'thisMonth', label: 'Ce mois' },
-            ] as const
-          ).map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPeriodFilter(p.id)}
-              className={`h-[38px] rounded-xl text-[11.5px] font-bold transition-all cursor-pointer ${
-                periodFilter === p.id
-                  ? 'bg-[#4F46E5] text-white shadow-xs'
-                  : 'bg-white md:bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            id="btn-sales-period-range"
-            type="button"
-            onClick={() => setPeriodFilter('custom')}
-            className={`h-[38px] px-3.5 rounded-xl text-[11.5px] font-bold transition-all cursor-pointer ${
-              periodFilter === 'custom'
-                ? 'bg-[#4F46E5] text-white shadow-xs'
-                : 'bg-white md:bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            {DATE_RANGE_LABEL}
-          </button>
-          {periodFilter === 'custom' && (
-            <DateRangeInputs
-              id="sales-range"
-              start={customStart}
-              end={customEnd}
-              onStartChange={setCustomStart}
-              onEndChange={setCustomEnd}
-            />
-          )}
-        </div>
+            <div className="hidden md:flex items-center gap-2 ml-auto">
+              <div className="relative">
+                <button
+                  id="btn-sales-export"
+                  aria-label="Exporter"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={exportOuvert}
+                  disabled={filteredSales.length === 0}
+                  onClick={() => setExportOuvert((ouvert) => !ouvert)}
+                  className="h-10 px-4 rounded-full border border-mc-line bg-white text-[14px] font-semibold text-mc-ink inline-flex items-center gap-2 cursor-pointer hover:border-mc-primary hover:text-mc-primary transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exporter</span>
+                </button>
+                {exportOuvert && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setExportOuvert(false)} />
+                    <div
+                      role="menu"
+                      className="absolute right-0 mt-2 w-56 z-40 bg-white rounded-2xl border border-mc-line shadow-mc-hover p-1.5"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setExportOuvert(false);
+                          handleExportExcel();
+                        }}
+                        className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-[14px] font-semibold text-mc-ink hover:bg-mc-bg cursor-pointer text-left"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-mc-success" />
+                        Excel (.csv)
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setExportOuvert(false);
+                          handleExportPDF();
+                        }}
+                        className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-[14px] font-semibold text-mc-ink hover:bg-mc-bg cursor-pointer text-left"
+                      >
+                        <FileText className="w-4 h-4 text-mc-primary" />
+                        Imprimer / PDF
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
 
-        {/* Sortes de lignes : commandes créées sur la période, versements reçus sur la période. */}
-        <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Type de lignes">
-          {(
-            [
-              { id: 'ALL', label: 'Tout' },
-              { id: 'ORDERS', label: 'Commandes' },
-              { id: 'PAYMENTS', label: 'Versements' },
-            ] as const
-          ).map((k) => (
-            <button
-              key={k.id}
-              id={`btn-sales-kind-${k.id.toLowerCase()}`}
-              type="button"
-              aria-pressed={kindFilter === k.id}
-              onClick={() => setKindFilter(k.id)}
-              className={`min-h-[48px] rounded-xl text-[12px] font-bold transition-all cursor-pointer ${
-                kindFilter === k.id
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white md:bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              {k.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Statuts : la seule rangée qui défile, et elle l'annonce par son
-            dégradé de bord droit. */}
-        <div className="filter-pill-row flex items-center gap-1.5 overflow-x-auto scrollbar-none -mx-1 px-1 py-0.5">
-          {(
-            [
-              { id: 'ALL', label: `Toutes (${statusCounts.ALL})` },
-              { id: 'PAID', label: `Payées (${statusCounts.PAID})` },
-              { id: 'PARTIAL', label: `Payées en partie (${statusCounts.PARTIAL})` },
-              { id: 'CREDIT', label: `Pas payées (${statusCounts.CREDIT})` },
-            ] as const
-          ).map((st) => {
-            const active = statusFilter === st.id;
-            return (
               <button
-                key={st.id}
+                id="btn-sales-new-order"
                 type="button"
-                onClick={() => setStatusFilter(st.id)}
-                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[11.5px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  active
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-white md:bg-slate-100 border border-slate-200 md:border-transparent text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
+                onClick={attemptNewSale}
+                className={`h-10 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-[14px] font-bold inline-flex items-center gap-1.5 shadow-mc-card cursor-pointer transition-all duration-200 active:scale-[0.97] ${
+                  isWriteLocked ? LOCKED_BTN_CLASS : ''
                 }`}
               >
-                {st.label}
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span className="sm:hidden">Commande</span>
+                <span className="hidden sm:inline">Nouvelle commande</span>
               </button>
-            );
-          })}
-        </div>
-
-        {/* Les réglages rares — vendeur, période libre, commandes annulées —
-            vivent derrière « Filtres avancés » dans le menu « ⋯ » de la barre
-            haute. Affichés en permanence, ils coûtaient deux rangées à un
-            écran qui doit d'abord montrer des commandes. Une pastille
-            récapitule ici ceux qui sont actifs, pour qu'un filtre oublié ne
-            reste jamais invisible. */}
-        {reglagesAvancesActifs && (
-          <button
-            type="button"
-            onClick={() => setFiltresAvancesOuverts(true)}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-[#4F46E5] hover:underline cursor-pointer"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            {[
-              selectedSeller !== 'ALL' ? `Vendu par ${selectedSeller}` : null,
-              periodFilter === 'custom' ? 'Période libre' : null,
-              statusFilter === 'CANCELLED' ? 'Commandes annulées' : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </button>
-        )}
-      </div>
-
-      {/* =====================================================================
-          RÉSUMÉ DE LA PÉRIODE — une ligne, à la place de la carte blanche
-          ===================================================================== */}
-      <div
-        id="sales-period-summary"
-        className="px-3.5 py-3 rounded-xl bg-[#F8FAFC] border border-slate-200/80 space-y-0.5 min-w-0"
-      >
-        <div className="flex items-baseline justify-between gap-3 min-w-0">
-          <span className="text-[12px] font-bold text-slate-600 shrink-0">Total vendu</span>
-          <span className="text-[19px] font-extrabold text-slate-900 tabular-nums truncate">
-            {activity ? formatMoney(activity.totalVendu) : '…'}
-          </span>
-        </div>
-        <p className="text-[12px] font-bold text-slate-800">
-          {activity
-            ? `${countLabel(activity.nbCommandes, 'commande')} · ${countLabel(activity.nbVersements, 'versement')}`
-            : 'Lecture du serveur…'}
-        </p>
-        {activity && activity.resteSurCommandes > 0 && (
-          <p className="text-[11px] text-slate-500 tabular-nums">
-            Reste à payer sur les commandes {periodFilter === 'today' ? 'du jour' : 'de la période'} :{' '}
-            {formatMoney(activity.resteSurCommandes)}
-          </p>
-        )}
-        {activityStale && (
-          <p className="text-[11px] font-semibold text-amber-800">
-            Pas de connexion : dernier total connu, à confirmer au retour du réseau.
-          </p>
-        )}
-        {versementsEnAttente.length > 0 && (
-          <p className="text-[11px] font-semibold text-amber-800">
-            {countLabel(versementsEnAttente.length, 'versement')} en attente d’envoi, pas encore dans ce total.
-          </p>
-        )}
-      </div>
-
-      {/* =====================================================================
-          LA LISTE
-          ===================================================================== */}
-      {chargementInitial ? (
-        /* Trois cartes en squelette : une roue au milieu de l'écran ne dit pas
-           ce qui arrive, ces gabarits si. */
-        <div className="space-y-2" aria-busy="true" aria-label="Chargement des commandes">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-white border border-slate-200 rounded-[14px] p-3 animate-pulse">
-              <div className="flex items-center gap-2.5">
-                <div className="w-[34px] h-[34px] rounded-full bg-slate-200 shrink-0" />
-                <div className="h-3.5 bg-slate-200 rounded flex-1 max-w-[45%]" />
-                <div className="h-4 w-20 bg-slate-200 rounded" />
-              </div>
-              <div className="mt-2.5 pl-[44px] h-3 bg-slate-100 rounded max-w-[60%]" />
             </div>
-          ))}
-        </div>
-      ) : baseSales.length === 0 && filteredVersements.length === 0 ? (
-        /* Aucune commande n'a jamais été enregistrée. */
-        <div className="p-10 text-center bg-white rounded-3xl border border-slate-200 space-y-3">
-          <Receipt className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
-          <h3 className="text-base font-extrabold text-slate-800">
-            Aucune commande pour l’instant.
-          </h3>
-          <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-            Dès que tu enregistres une vente, elle apparaît ici avec son montant et son statut.
-          </p>
-          <button
-            type="button"
-            onClick={attemptNewSale}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Enregistrer ma première commande</span>
-          </button>
-        </div>
-      ) : groupedByDay.length === 0 ? (
-        /* Des commandes existent, mais pas dans ce filtre. */
-        <div className="p-10 text-center bg-white rounded-3xl border border-slate-200 space-y-3">
-          <Search className="w-12 h-12 mx-auto text-slate-300 stroke-[1.5]" />
-          <h3 className="text-base font-extrabold text-slate-800">
-            {kindFilter === 'PAYMENTS'
-              ? 'Aucun versement sur cette période.'
-              : 'Aucune commande ne correspond à ce filtre.'}
-          </h3>
-          <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-            Vérifie la période, le statut ou les mots de ta recherche.
-          </p>
-          <button
-            type="button"
-            onClick={resetAllFilters}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
-          >
-            <span>Voir toutes les commandes</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {visibleDays.map((dayGroup) => {
-            const nbCommandesDuJour = dayGroup.sales.filter((s) => !s.isCancelled).length;
-            const nbVersementsDuJour = dayGroup.versements.filter((v) => !v.isCancelled).length;
+          </header>
 
-            return (
-              <div key={dayGroup.dateKey}>
-                {/* Séparateur de journée, collant en haut au défilement :
-                    on sait toujours quel jour on est en train de lire. */}
-                <div className="sticky top-0 z-20 h-8 px-3 -mx-1 bg-[#F8FAFC] border-y border-slate-200/80 flex items-center gap-1.5 text-[11.5px] font-bold min-w-0">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 hidden sm:block" />
-                  <span className="text-slate-900 shrink-0">{dayGroup.label}</span>
-                  <span className="text-slate-300 shrink-0">·</span>
-                  <span className="text-slate-500 truncate">
-                    {countLabel(nbCommandesDuJour, 'commande')}
-                    {nbVersementsDuJour > 0 ? ` · ${countLabel(nbVersementsDuJour, 'versement')}` : ''}
-                  </span>
-                </div>
+          {/* =================================================================
+              FILTRES — deux sélecteurs segmentés (période, statut), la sorte
+              de lignes, la recherche. Les réglages rares restent derrière le
+              bouton « Filtres ».
+              ================================================================= */}
+          <div className="space-y-3">
+            <div className="flex flex-col xl:flex-row xl:items-center gap-3">
+              <Segmented<PeriodFilter>
+                id="btn-sales-period"
+                label="Période"
+                value={periodFilter}
+                onChange={setPeriodFilter}
+                options={
+                  [
+                    { id: 'today', label: "Aujourd'hui" },
+                    { id: '7days', label: '7 jours' },
+                    { id: '30days', label: '30 jours' },
+                    { id: 'thisMonth', label: 'Ce mois' },
+                  ] as const
+                }
+              />
+              <Segmented<StatusFilter>
+                id="btn-sales-status"
+                label="Statut"
+                tone="ink"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={
+                  [
+                    { id: 'ALL', label: 'Toutes', count: statusCounts.ALL },
+                    { id: 'PAID', label: 'Payées', count: statusCounts.PAID },
+                    { id: 'PARTIAL', label: 'En partie', count: statusCounts.PARTIAL },
+                    { id: 'CREDIT', label: 'Pas payées', count: statusCounts.CREDIT },
+                  ] as const
+                }
+              />
+            </div>
 
-                {/* Versements reçus ce jour-là : la pastille dit le rang, la
-                    ligne dit de quelle commande il s'agit. Un tap ouvre le reçu. */}
-                {dayGroup.versements.length > 0 && (
-                  <div className="space-y-2 mt-2">
-                    {dayGroup.versements.map((v) => (
-                      <VersementRow
-                        key={v.id}
-                        versement={v}
-                        showCustomer
-                        onOpenReceipt={setRecuVersement}
-                        onOpenOrder={ouvrirCommande}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* TÉLÉPHONE — des cartes, pas un tableau réduit. Rien n'est
-                    hors de l'écran, donc rien ne peut être manqué. */}
-                <div className={`md:hidden space-y-2 mt-2 ${dayGroup.sales.length === 0 ? 'hidden' : ''}`}>
-                  {dayGroup.sales.map((sale) => (
-                    <SaleCard
-                      key={sale.id}
-                      sale={sale}
-                      showSeller={sellerNames.length > 1}
-                      onOpen={setSaleOpened}
-                      onMenu={setSaleForActions}
-                    />
-                  ))}
-                </div>
-
-                {/* ORDINATEUR — le vrai tableau, inchangé. */}
-                <div
-                  className={`${
-                    dayGroup.sales.length === 0 ? 'hidden' : 'hidden md:block'
-                  } bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden mt-2`}
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="relative flex-1 min-w-0">
+                <Search className="w-4 h-4 text-mc-soft absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cherche un client, un produit, un n°…"
+                  className="w-full h-11 pl-11 pr-4 rounded-full bg-white border border-mc-line text-[14px] font-medium text-mc-ink placeholder:text-mc-soft/70 focus:outline-none focus:ring-2 focus:ring-mc-primary transition-all"
+                />
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  id="btn-sales-advanced-filters"
+                  type="button"
+                  onClick={() => setFiltresAvancesOuverts(true)}
+                  aria-label="Filtres avancés"
+                  title="Filtres avancés : période libre, vendeur, commandes annulées"
+                  className={`relative shrink-0 w-11 h-11 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-200 active:scale-[0.97] ${
+                    reglagesAvancesActifs
+                      ? 'bg-mc-primary-tint border-mc-primary text-mc-primary'
+                      : 'bg-white border-mc-line text-mc-soft hover:text-mc-ink'
+                  }`}
                 >
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider h-10 bg-white">
-                          <th className="py-2.5 px-4">N°</th>
-                          <th className="py-2.5 px-3">Date &amp; heure</th>
-                          <th className="py-2.5 px-4">Client</th>
-                          <th className="py-2.5 px-3">Vendu par</th>
-                          <th className="py-2.5 px-4">Articles</th>
-                          <th className="py-2.5 px-4 text-right">Total</th>
-                          <th className="py-2.5 px-4 text-right">Reste à payer</th>
-                          <th className="py-2.5 px-3 text-center">Statut</th>
-                          <th className="py-2.5 px-3 text-center">⋯</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                        {dayGroup.sales.map((sale) => {
+                  <SlidersHorizontal className="w-4 h-4" />
+                  {reglagesAvancesActifs && (
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-mc-primary ring-2 ring-white" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Un réglage avancé actif reste écrit en toutes lettres : sinon le
+                commerçant cherche pourquoi il manque des commandes. */}
+            {reglagesAvancesActifs && (
+              <button
+                type="button"
+                onClick={() => setFiltresAvancesOuverts(true)}
+                className="flex items-center gap-1.5 text-[12px] font-bold text-mc-primary hover:underline cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                {[
+                  selectedSeller !== 'ALL' ? `Vendu par ${selectedSeller}` : null,
+                  periodFilter === 'custom'
+                    ? `Du ${formatShortDate(dateInterval.start)} au ${formatShortDate(dateInterval.end)}`
+                    : null,
+                  statusFilter === 'CANCELLED' ? 'Commandes annulées' : null,
+                  versementsSeuls ? 'Versements seulement' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </button>
+            )}
+          </div>
+
+          {/* =================================================================
+              KPI — Total vendu, Commandes, Versements, Qui me doit
+              Les trois premiers viennent du serveur, pour la période choisie.
+              « Qui me doit » est le total dû par tous les clients, à ce jour.
+              ================================================================= */}
+          <motion.div
+            id="sales-period-summary"
+            variants={staggerParent}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 xl:grid-cols-4 gap-2 md:gap-4"
+          >
+            <KpiCard
+              compact
+              featured
+              label="Total vendu"
+              value={activity ? activity.totalVendu : null}
+              format={formatMoney}
+              variation={variationPct(activity?.totalVendu, activityAvant?.totalVendu)}
+              hint={libellePeriode}
+              onOpen={() => {
+                setActiveTab('more');
+                setActiveMoreSubTab('reports');
+              }}
+              openLabel="Voir mes chiffres"
+            />
+            <KpiCard
+              compact
+              label="Commandes"
+              value={activity ? activity.nbCommandes : null}
+              variation={variationPct(activity?.nbCommandes, activityAvant?.nbCommandes)}
+              hint={
+                activity && activity.resteSurCommandes > 0
+                  ? `Reste à payer ${formatMoney(activity.resteSurCommandes)}`
+                  : undefined
+              }
+              onOpen={() => afficherVersements(false)}
+              openLabel="N’afficher que les commandes"
+            />
+            <KpiCard
+              compact
+              label="Versements"
+              value={activity ? activity.nbVersements : null}
+              variation={variationPct(activity?.nbVersements, activityAvant?.nbVersements)}
+              hint={
+                versementsEnAttente.length > 0
+                  ? `${versementsEnAttente.length} en attente d’envoi`
+                  : undefined
+              }
+              onOpen={() => {
+                afficherVersements(true);
+                setVersementsSeuls(true);
+              }}
+              openLabel="N’afficher que les versements"
+            />
+            <KpiCard
+              compact
+              label="Qui me doit"
+              value={chargementInitial ? null : totalDu}
+              format={formatMoney}
+              hint={nbDebiteurs > 0 ? countLabel(nbDebiteurs, 'client') : 'Personne ne te doit rien'}
+              onOpen={() => {
+                setCustomersDebtorsFilter(true);
+                setActiveTab('customers');
+              }}
+              openLabel="Voir qui me doit"
+            />
+          </motion.div>
+
+          {(activityStale || versementsEnAttente.length > 0) && (
+            <div className="px-4 py-3 rounded-2xl bg-mc-warning-bg text-[12px] font-semibold text-[#92400E] space-y-0.5">
+              {activityStale && (
+                <p>Pas de connexion : dernier total connu, à confirmer au retour du réseau.</p>
+              )}
+              {versementsEnAttente.length > 0 && (
+                <p>
+                  {countLabel(versementsEnAttente.length, 'versement')} en attente d’envoi, pas
+                  encore dans le total.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* =================================================================
+              GRAPHIQUES — chargés à part : recharts ne pèse pas sur l'ouverture
+              ================================================================= */}
+          {/* Repliés par défaut : on vient ici pour les commandes, et les deux
+              graphiques les repoussaient d'un écran entier. Le choix est gardé
+              sur l'appareil. */}
+          {!chargementInitial && baseSales.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button
+                  id="btn-sales-toggle-charts"
+                  type="button"
+                  aria-expanded={graphiquesOuverts}
+                  onClick={basculerGraphiques}
+                  className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-white border border-mc-line text-[14px] font-semibold text-mc-ink cursor-pointer hover:border-mc-primary hover:text-mc-primary transition-all duration-200 active:scale-[0.97]"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span>{graphiquesOuverts ? 'Masquer les graphiques' : 'Voir les graphiques'}</span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform duration-200 ${graphiquesOuverts ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {/* Versements dans la liste : affichés ou non, d'un seul geste. */}
+                <label
+                  htmlFor="btn-sales-versements"
+                  className="inline-flex items-center gap-2.5 h-10 pl-4 pr-2.5 rounded-full bg-white border border-mc-line text-[14px] font-semibold text-mc-ink cursor-pointer"
+                >
+                  <span>Versements</span>
+                  <input
+                    id="btn-sales-versements"
+                    type="checkbox"
+                    className="mc-switch"
+                    checked={versementsAffiches}
+                    onChange={(e) => afficherVersements(e.target.checked)}
+                  />
+                </label>
+              </div>
+              {graphiquesOuverts && (
+                <Suspense fallback={<ChartsSkeleton />}>
+                  <SalesCharts days={barres7Jours} status={repartitionStatuts} periodLabel={libellePeriode} />
+                </Suspense>
+              )}
+            </div>
+          )}
+
+          {/* =================================================================
+              LA LISTE
+              ================================================================= */}
+          {chargementInitial ? (
+            <div className="space-y-2" aria-busy="true" aria-label="Chargement des commandes">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white border border-mc-line rounded-2xl p-4 flex items-center gap-3"
+                >
+                  <div className="w-10 h-10 rounded-full mc-shimmer shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 rounded-full mc-shimmer max-w-[40%]" />
+                    <div className="h-3 rounded-full mc-shimmer max-w-[25%]" />
+                  </div>
+                  <div className="h-4 w-24 rounded-full mc-shimmer" />
+                </div>
+              ))}
+            </div>
+          ) : baseSales.length === 0 && filteredVersements.length === 0 ? (
+            /* Aucune commande n'a jamais été enregistrée. */
+            <EmptyState
+              title="Aucune commande pour l’instant"
+              text="Dès que tu enregistres une vente, elle apparaît ici avec son montant et son statut."
+              actionLabel="Enregistrer ma première commande"
+              onAction={attemptNewSale}
+              withPlus
+            />
+          ) : groupedByDay.length === 0 ? (
+            /* Des commandes existent, mais pas dans ce filtre. */
+            <EmptyState
+              title={
+                versementsSeuls
+                  ? 'Aucun versement sur cette période'
+                  : 'Aucune commande ne correspond à ce filtre'
+              }
+              text="Vérifie la période, le statut ou les mots de ta recherche."
+              actionLabel="Voir toutes les commandes"
+              onAction={resetAllFilters}
+            />
+          ) : (
+            <div className="space-y-6">
+              {visibleDays.map((dayGroup) => {
+                const nbCommandesDuJour = dayGroup.sales.filter((s) => !s.isCancelled).length;
+                const nbVersementsDuJour = dayGroup.versements.filter((v) => !v.isCancelled).length;
+
+                return (
+                  <section key={dayGroup.dateKey}>
+                    {/* Séparateur de journée, collant en haut au défilement :
+                        on sait toujours quel jour on est en train de lire. */}
+                    <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-[#F4F4F8]/95 backdrop-blur-sm flex items-baseline gap-2 min-w-0">
+                      <h2 className="text-[16px] font-bold text-mc-ink shrink-0">{dayGroup.label}</h2>
+                      <span className="text-[12px] font-medium text-mc-soft truncate">
+                        {countLabel(nbCommandesDuJour, 'commande')}
+                        {nbVersementsDuJour > 0 ? ` · ${countLabel(nbVersementsDuJour, 'versement')}` : ''}
+                      </span>
+                    </div>
+
+                    {/* TÉLÉPHONE — des cartes. Rien n'est hors de l'écran, donc
+                        rien ne peut être manqué. */}
+                    <div className={`md:hidden space-y-2 mt-2 ${dayGroup.lignes.length === 0 ? 'hidden' : ''}`}>
+                      {dayGroup.lignes.map(({ sale, versements }) => (
+                        <div
+                          key={sale.id}
+                          className={versements.length > 0 ? 'rounded-[20px] bg-mc-primary-tint p-1' : ''}
+                        >
+                          <BandeauVersements versements={versements} onOpenReceipt={setRecuVersement} />
+                          <SaleCard
+                            sale={sale}
+                            showSeller={sellerNames.length > 1}
+                            onOpen={setSaleOpened}
+                            onMenu={setSaleForActions}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ORDINATEUR — une ligne par commande, qui se soulève au
+                        survol. Mêmes colonnes que l'ancien tableau. */}
+                    <div className={dayGroup.lignes.length === 0 ? 'hidden' : 'hidden md:block mt-2'}>
+                      <div className="flex items-center gap-4 px-4 pb-2 text-[12px] font-semibold text-mc-soft">
+                        <span className="flex-1 min-w-0">Client</span>
+                        <span className="hidden lg:block w-[22%]">Articles</span>
+                        <span className="hidden xl:block w-28">Vendu par</span>
+                        <span className="w-28 text-right">Total</span>
+                        <span className="w-28 text-right">Reste à payer</span>
+                        <span className="w-20 text-center">Statut</span>
+                        <span className="w-8" />
+                      </div>
+
+                      <div className="space-y-2">
+                        {dayGroup.lignes.map(({ sale, versements }) => {
                           const isCancelled = !!sale.isCancelled;
                           const statut = saleStatusStyle(sale);
+                          const pastille = PASTILLES_STATUT[statut.key];
                           const hasCustomer =
                             !!sale.customerName && sale.customerName !== 'Client de passage';
                           const firstItemName = sale.items[0]?.name || 'Article';
                           const otherItemsCount = Math.max(0, sale.items.length - 1);
 
                           return (
-                            <tr
+                            <div
                               key={sale.id}
+                              className={versements.length > 0 ? 'rounded-[20px] bg-mc-primary-tint p-1' : ''}
+                            >
+                            <BandeauVersements versements={versements} onOpenReceipt={setRecuVersement} />
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={() => setSaleOpened(sale)}
-                              className={`h-[44px] hover:bg-slate-50/90 transition-colors cursor-pointer ${
-                                isCancelled ? 'bg-slate-50/50 opacity-60' : ''
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setSaleOpened(sale);
+                                }
+                              }}
+                              className={`mc-lift flex items-center gap-4 px-4 py-3 bg-white border border-mc-line rounded-2xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-mc-primary ${
+                                isCancelled ? 'opacity-60' : ''
                               }`}
                             >
-                              <td className="py-2 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
-                                <div className="flex items-center gap-1.5">
-                                  <span className={isCancelled ? 'line-through text-slate-400' : ''}>
-                                    {sale.reference}
-                                  </span>
-                                  {sale.syncStatus === 'PENDING_SYNC' && (
-                                    <span
-                                      title="Enregistrée sur cet appareil, pas encore envoyée"
-                                      className="px-1.5 rounded text-[9.5px] font-extrabold bg-amber-100 text-amber-900"
-                                    >
-                                      En attente
-                                    </span>
-                                  )}
-                                  {sale.syncStatus === 'SYNC_ERROR' && (
-                                    <span
-                                      title="Le serveur a refusé cet envoi — rien n’est perdu, réessaie depuis la bande du bas"
-                                      className="px-1.5 rounded text-[9.5px] font-extrabold bg-rose-100 text-rose-900"
-                                    >
-                                      À renvoyer
-                                    </span>
-                                  )}
+                              {/* Client, puis n° et heure dessous */}
+                              <div className="flex-1 min-w-0 flex items-center gap-3">
+                                <div
+                                  className="w-10 h-10 rounded-full text-white font-bold text-[14px] flex items-center justify-center shrink-0"
+                                  style={{
+                                    backgroundColor: hasCustomer
+                                      ? avatarColor(sale.customerName!)
+                                      : '#C3C7DB',
+                                  }}
+                                  aria-hidden="true"
+                                >
+                                  {hasCustomer ? avatarInitials(sale.customerName) : '?'}
                                 </div>
-                              </td>
-
-                              <td className="py-2 px-3 text-slate-500 whitespace-nowrap">
-                                {formatShortDate(sale.createdAt)}
-                              </td>
-
-                              <td className="py-2 px-4 whitespace-nowrap">
-                                {hasCustomer ? (
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-6 h-6 rounded-full text-white font-bold text-[10px] flex items-center justify-center shrink-0"
-                                      style={{ backgroundColor: avatarColor(sale.customerName!) }}
-                                    >
-                                      {avatarInitials(sale.customerName)}
-                                    </div>
-                                    <span className="font-extrabold text-slate-900">
+                                <div className="min-w-0">
+                                  {hasCustomer ? (
+                                    <p className="text-[14px] font-bold text-mc-ink truncate">
                                       {sale.customerName}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <span className="italic text-slate-400">Client non renseigné</span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSaleForCustomerAssign(sale);
-                                      }}
-                                      className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] hover:text-indigo-800 text-[11px] font-bold transition-all cursor-pointer"
+                                    </p>
+                                  ) : (
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-[14px] italic text-mc-soft truncate">
+                                        Client non renseigné
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSaleForCustomerAssign(sale);
+                                        }}
+                                        className="shrink-0 px-2.5 py-0.5 rounded-full bg-mc-primary-tint hover:bg-[#DAD6FC] text-mc-primary-dark text-[12px] font-bold transition-colors cursor-pointer"
+                                      >
+                                        Attribuer un client
+                                      </button>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5 text-[12px] text-mc-soft min-w-0">
+                                    <span
+                                      className={`font-mono shrink-0 ${isCancelled ? 'line-through' : ''}`}
                                     >
-                                      Attribuer un client
-                                    </button>
+                                      {sale.reference}
+                                    </span>
+                                    <span className="shrink-0">·</span>
+                                    <span className="truncate">{formatShortDate(sale.createdAt)}</span>
+                                    {sale.syncStatus === 'PENDING_SYNC' && (
+                                      <span
+                                        title="Enregistrée sur cet appareil, pas encore envoyée"
+                                        className="shrink-0 px-2 rounded-full text-[11px] font-bold bg-mc-warning-bg text-[#B45309]"
+                                      >
+                                        En attente
+                                      </span>
+                                    )}
+                                    {sale.syncStatus === 'SYNC_ERROR' && (
+                                      <span
+                                        title="Le serveur a refusé cet envoi — rien n’est perdu, réessaie depuis la bande du bas"
+                                        className="shrink-0 px-2 rounded-full text-[11px] font-bold bg-mc-danger-bg text-[#DC2626]"
+                                      >
+                                        À renvoyer
+                                      </span>
+                                    )}
                                   </div>
-                                )}
-                              </td>
+                                </div>
+                              </div>
 
-                              <td className="py-2 px-3 text-slate-500 whitespace-nowrap">
-                                {sale.sellerName}
-                              </td>
-
-                              <td className="py-2 px-4 text-slate-700 whitespace-nowrap max-w-[240px] truncate">
+                              <div className="hidden lg:block w-[22%] min-w-0 text-[14px] text-mc-ink truncate">
                                 <span className="font-semibold">{firstItemName}</span>
                                 {otherItemsCount > 0 && (
-                                  <span className="text-slate-400 font-medium ml-1">
+                                  <span className="text-mc-soft ml-1">
                                     +{otherItemsCount} {otherItemsCount > 1 ? 'autres' : 'autre'}
                                   </span>
                                 )}
-                              </td>
+                              </div>
 
-                              <td className="py-2 px-4 text-right font-black text-slate-900 tabular-nums whitespace-nowrap">
-                                <span className={isCancelled ? 'line-through text-slate-400' : ''}>
-                                  {formatMoney(sale.totalAmount)}
-                                </span>
-                              </td>
+                              <div className="hidden xl:block w-28 text-[12px] text-mc-soft truncate">
+                                {sale.sellerName}
+                              </div>
 
-                              <td className="py-2 px-4 text-right tabular-nums whitespace-nowrap font-bold">
+                              <div
+                                className={`w-28 text-right text-[16px] font-extrabold tabular-nums whitespace-nowrap ${
+                                  isCancelled ? 'line-through text-mc-soft' : 'text-mc-ink'
+                                }`}
+                              >
+                                {formatMoney(sale.totalAmount)}
+                              </div>
+
+                              <div className="w-28 text-right text-[14px] tabular-nums whitespace-nowrap">
                                 {isCancelled ? (
-                                  <span className="text-slate-400 font-normal">—</span>
+                                  <span className="text-mc-soft">—</span>
                                 ) : sale.remainingAmount > 0 ? (
-                                  <span className="text-[#DC2626] font-black">
+                                  <span className="font-bold text-[#DC2626]">
                                     {formatMoney(sale.remainingAmount)}
                                   </span>
                                 ) : (
-                                  <span className="text-slate-400 font-normal">0 F</span>
+                                  <span className="text-mc-soft">0 F</span>
                                 )}
-                              </td>
+                              </div>
 
-                              <td className="py-2 px-3 text-center whitespace-nowrap">
+                              <div className="w-20 text-center">
                                 <span
-                                  className="inline-block rounded-full text-[10px] font-extrabold"
-                                  style={{
-                                    backgroundColor: statut.bg,
-                                    color: statut.fg,
-                                    padding: '3px 9px',
-                                  }}
+                                  className="inline-block px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap"
+                                  style={{ backgroundColor: pastille.bg, color: pastille.fg }}
                                 >
                                   {statut.label}
                                 </span>
-                              </td>
+                              </div>
 
-                              <td className="py-2 px-3 text-center whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  aria-label="Actions sur cette commande"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSaleForActions(sale);
-                                  }}
-                                  className="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 inline-flex items-center justify-center cursor-pointer transition-all"
-                                >
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
+                              <button
+                                type="button"
+                                aria-label="Actions sur cette commande"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSaleForActions(sale);
+                                }}
+                                className="w-8 h-8 shrink-0 rounded-full hover:bg-mc-bg text-mc-soft hover:text-mc-ink inline-flex items-center justify-center cursor-pointer transition-colors"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </div>
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                      </div>
+                    </div>
+                    {/* Versements sans commande connue sur cet appareil (pas encore
+                        envoyés, ou commande non chargée) : ils gardent leur ligne. */}
+                    {dayGroup.orphelins.length > 0 && (
+                      <div className="space-y-2 mt-3">
+                        {dayGroup.orphelins.map((v) => (
+                          <VersementRow
+                            key={v.id}
+                            versement={v}
+                            showCustomer
+                            inline
+                            onOpenReceipt={setRecuVersement}
+                            onOpenOrder={ouvrirCommande}
+                          />
+                        ))}
+                      </div>
+                    )}
 
-          <ListSentinel
-            sentinelRef={daysSentinelRef}
-            hasMore={hasMoreDays}
-            shown={visibleDays.length}
-            total={groupedByDay.length}
-            label="journées"
-          />
-        </div>
-      )}
+                  </section>
+                );
+              })}
+
+              <ListSentinel
+                sentinelRef={daysSentinelRef}
+                hasMore={hasMoreDays}
+                shown={visibleDays.length}
+                total={groupedByDay.length}
+                label="journées"
+              />
+            </div>
+          )}
+        </motion.div>
+      </MotionConfig>
 
       {/* =====================================================================
           FEUILLE D'ACTIONS — mêmes gestes depuis la liste et depuis le détail
@@ -821,10 +1153,10 @@ export const SalesTab: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl p-2 pb-4 sm:pb-2 animate-in slide-in-from-bottom sm:zoom-in-95"
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-mc border border-mc-line shadow-2xl p-2 pb-4 sm:pb-2 animate-in slide-in-from-bottom sm:zoom-in-95"
           >
             <div className="px-3 py-2.5 border-b border-slate-100 min-w-0">
-              <p className="text-xs font-black text-slate-900 truncate">
+              <p className="text-xs font-extrabold text-mc-ink truncate">
                 {saleForActions.customerName || 'Client non renseigné'}
               </p>
               <p className="text-[11px] text-slate-400 truncate">
@@ -838,9 +1170,9 @@ export const SalesTab: React.FC = () => {
                 setSelectedSaleForReceipt(saleForActions);
                 setSaleForActions(null);
               }}
-              className="w-full px-3.5 py-3 text-left text-[13px] font-bold text-slate-700 hover:bg-indigo-50 rounded-xl flex items-center gap-2.5 cursor-pointer"
+              className="w-full px-3.5 py-3 text-left text-[13px] font-bold text-slate-700 hover:bg-mc-primary-tint rounded-xl flex items-center gap-2.5 cursor-pointer"
             >
-              <Eye className="w-4 h-4 text-indigo-500" />
+              <Eye className="w-4 h-4 text-mc-primary" />
               Voir le reçu
             </button>
 
@@ -863,9 +1195,9 @@ export const SalesTab: React.FC = () => {
                   setSaleToCollect(saleForActions);
                   setSaleForActions(null);
                 }}
-                className="w-full px-3.5 py-3 text-left text-[13px] font-bold text-slate-700 hover:bg-indigo-50 rounded-xl flex items-center gap-2.5 cursor-pointer"
+                className="w-full px-3.5 py-3 text-left text-[13px] font-bold text-slate-700 hover:bg-mc-primary-tint rounded-xl flex items-center gap-2.5 cursor-pointer"
               >
-                <Banknote className="w-4 h-4 text-[#4F46E5]" />
+                <Banknote className="w-4 h-4 text-[#5B4BF0]" />
                 Encaisser le reste ({formatMoney(saleForActions.remainingAmount)})
               </button>
             )}
@@ -897,15 +1229,15 @@ export const SalesTab: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl p-5 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 max-h-[90vh] overflow-y-auto"
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-mc border border-mc-line shadow-2xl p-5 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-base font-black text-slate-900">Filtres avancés</h3>
+              <h3 className="text-base font-extrabold text-mc-ink">Filtres avancés</h3>
               <button
                 type="button"
                 onClick={() => setFiltresAvancesOuverts(false)}
                 aria-label="Fermer"
-                className="w-8 h-8 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+                className="w-8 h-8 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-mc-soft cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -920,7 +1252,7 @@ export const SalesTab: React.FC = () => {
                   id="filtre-vendeur"
                   value={selectedSeller}
                   onChange={(e) => setSelectedSeller(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
+                  className="w-full bg-slate-50 border border-mc-line rounded-xl px-3 py-2.5 font-bold text-mc-ink text-[13px] focus:outline-none focus:ring-2 focus:ring-[#5B4BF0] cursor-pointer"
                 >
                   <option value="ALL">Tous les vendeurs</option>
                   {sellerNames.map((name) => (
@@ -934,8 +1266,8 @@ export const SalesTab: React.FC = () => {
 
             <div className="space-y-1.5">
               <span className="text-xs font-bold text-slate-700">Période libre</span>
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-[12px] min-w-0">
-                <span className="text-slate-500 shrink-0">Du</span>
+              <div className="flex items-center gap-2 bg-slate-50 border border-mc-line rounded-xl p-2.5 text-[12px] min-w-0">
+                <span className="text-mc-soft shrink-0">Du</span>
                 <input
                   type="date"
                   value={customStart}
@@ -943,9 +1275,9 @@ export const SalesTab: React.FC = () => {
                     setCustomStart(e.target.value);
                     setPeriodFilter('custom');
                   }}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer min-w-0 flex-1"
+                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer min-w-0 flex-1"
                 />
-                <span className="text-slate-500 shrink-0">au</span>
+                <span className="text-mc-soft shrink-0">au</span>
                 <input
                   type="date"
                   value={customEnd}
@@ -953,7 +1285,7 @@ export const SalesTab: React.FC = () => {
                     setCustomEnd(e.target.value);
                     setPeriodFilter('custom');
                   }}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer min-w-0 flex-1"
+                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer min-w-0 flex-1"
                 />
               </div>
             </div>
@@ -966,8 +1298,8 @@ export const SalesTab: React.FC = () => {
               onClick={() => setStatusFilter(statusFilter === 'CANCELLED' ? 'ALL' : 'CANCELLED')}
               className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border text-[13px] font-bold transition-all cursor-pointer ${
                 statusFilter === 'CANCELLED'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                  ? 'border-slate-900 bg-mc-ink text-white'
+                  : 'border-mc-line text-slate-700 hover:bg-slate-50'
               }`}
             >
               <span>Voir les commandes annulées</span>
@@ -981,14 +1313,14 @@ export const SalesTab: React.FC = () => {
                   resetAllFilters();
                   setFiltresAvancesOuverts(false);
                 }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl border border-mc-line text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
               >
                 Tout réinitialiser
               </button>
               <button
                 type="button"
                 onClick={() => setFiltresAvancesOuverts(false)}
-                className="flex-1 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-black shadow-xs cursor-pointer"
+                className="flex-1 py-2.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-extrabold shadow-xs cursor-pointer"
               >
                 Voir les commandes
               </button>
@@ -1032,13 +1364,13 @@ export const SalesTab: React.FC = () => {
           ===================================================================== */}
       {saleForCustomerAssign && (
         <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 max-h-[85vh] flex flex-col">
+          <div className="bg-white rounded-mc border border-mc-line max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100">
               <div className="min-w-0">
-                <h3 className="text-base font-black text-slate-900 truncate">
+                <h3 className="text-base font-extrabold text-mc-ink truncate">
                   Attribuer un client à {saleForCustomerAssign.reference}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-mc-soft">
                   Sélectionne un client enregistré dans ton carnet
                 </p>
               </div>
@@ -1046,7 +1378,7 @@ export const SalesTab: React.FC = () => {
                 type="button"
                 onClick={() => setSaleForCustomerAssign(null)}
                 aria-label="Fermer"
-                className="w-8 h-8 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+                className="w-8 h-8 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-mc-soft cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1059,7 +1391,7 @@ export const SalesTab: React.FC = () => {
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
                 placeholder="Rechercher par nom ou numéro…"
-                className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white"
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-mc-line text-xs font-medium text-mc-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#5B4BF0] focus:bg-white"
               />
             </div>
 
@@ -1080,15 +1412,15 @@ export const SalesTab: React.FC = () => {
                       );
                       setSaleForCustomerAssign(null);
                     }}
-                    className="w-full py-2.5 px-2 flex items-center justify-between gap-2 text-left hover:bg-indigo-50/50 rounded-xl transition-colors cursor-pointer group"
+                    className="w-full py-2.5 px-2 flex items-center justify-between gap-2 text-left hover:bg-mc-primary-tint rounded-xl transition-colors cursor-pointer group"
                   >
                     <div className="min-w-0">
-                      <div className="text-xs font-extrabold text-slate-900 group-hover:text-[#4F46E5] truncate">
+                      <div className="text-xs font-extrabold text-mc-ink group-hover:text-[#5B4BF0] truncate">
                         {cust.name}
                       </div>
-                      <div className="text-[11px] text-slate-500">{cust.phone}</div>
+                      <div className="text-[11px] text-mc-soft">{cust.phone}</div>
                     </div>
-                    <span className="text-[11px] font-bold text-[#4F46E5] opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <span className="text-[11px] font-bold text-[#5B4BF0] opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       Choisir →
                     </span>
                   </button>

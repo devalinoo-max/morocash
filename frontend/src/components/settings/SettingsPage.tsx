@@ -22,6 +22,7 @@ import {
   Eye,
   Info,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import { CategoriesManager } from './CategoriesManager';
 import { ShopLogoUploader } from './ShopLogoUploader';
@@ -97,13 +98,13 @@ export const SettingsPage: React.FC = () => {
   // Vendeur: only "Mon compte"
   // Comptable: "Mon compte" and "Mes catégories"
   const allSections = [
-    { id: 'boutique', label: 'Ma boutique', icon: Store, allowedRoles: ['OWNER'] },
-    { id: 'recus', label: 'Mes reçus', icon: Receipt, allowedRoles: ['OWNER'] },
-    { id: 'etiquettes', label: 'Mes étiquettes', icon: Tag, allowedRoles: ['OWNER'] },
-    { id: 'vente', label: 'Ma façon de vendre', icon: ShoppingBag, allowedRoles: ['OWNER'] },
-    { id: 'affichage', label: 'Mon affichage', icon: Monitor, allowedRoles: ['OWNER'] },
-    { id: 'categories', label: 'Mes catégories', icon: FolderTree, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-    { id: 'compte', label: 'Mon compte', icon: UserCheck, allowedRoles: ['OWNER', 'SELLER', 'ACCOUNTANT'] },
+    { id: 'boutique', label: 'Ma boutique', desc: 'Nom, logo, téléphone, adresse', icon: Store, allowedRoles: ['OWNER'] },
+    { id: 'recus', label: 'Mes reçus', desc: 'Ce qui s’affiche sur tes reçus', icon: Receipt, allowedRoles: ['OWNER'] },
+    { id: 'etiquettes', label: 'Mes étiquettes', desc: 'Format et couleur', icon: Tag, allowedRoles: ['OWNER'] },
+    { id: 'vente', label: 'Ma façon de vendre', desc: 'Remises, stock, caisse', icon: ShoppingBag, allowedRoles: ['OWNER'] },
+    { id: 'affichage', label: 'Mon affichage', desc: 'Ce que tu vois à l’accueil', icon: Monitor, allowedRoles: ['OWNER'] },
+    { id: 'categories', label: 'Mes catégories', desc: 'Produits et dépenses', icon: FolderTree, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
+    { id: 'compte', label: 'Mon compte', desc: 'Nom, mot de passe, appareils', icon: UserCheck, allowedRoles: ['OWNER', 'SELLER', 'ACCOUNTANT'] },
   ];
 
   const visibleSections = useMemo(() => {
@@ -275,13 +276,18 @@ export const SettingsPage: React.FC = () => {
     showToast('Téléchargement de la sauvegarde lancé', 'success');
   };
 
-  // Smooth scroll to section
-  const scrollToSection = (sectionId: string) => {
+  // Sur téléphone, la liste des rubriques s'affiche d'abord ; on n'entre dans
+  // une rubrique qu'en la touchant. Sur ordinateur, liste et rubrique sont
+  // côte à côte et cet état ne sert pas.
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const openSection = (sectionId: string) => {
     setActiveSection(sectionId);
-    const el = document.getElementById(`section-${sectionId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setMobileOpen(true);
+    // La rubrique s'ouvre par son début, pas au milieu de la précédente.
+    requestAnimationFrame(() => {
+      document.getElementById('settings-page')?.scrollIntoView({ block: 'start' });
+    });
   };
 
   // Inline "Enregistré" badge component
@@ -296,110 +302,113 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div id="settings-page" className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <span>Réglages</span>
-            <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200/80 uppercase tracking-wider">
-              {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'}
-            </span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Sauvegarde automatique à la sortie de chaque champ. Aucune validation manuelle requise.
-          </p>
-        </div>
-
-        {/* Development reset button (Only visible if NODE_ENV !== 'production') */}
-        {process.env.NODE_ENV !== 'production' && (
-          <div className="text-right">
-            <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded border border-amber-200">
+    <div id="settings-page" className="w-full max-w-7xl mx-auto md:px-2 lg:px-4 md:py-4 space-y-4 md:space-y-6 font-jakarta text-mc-ink scroll-mt-4">
+      {/* En-tête. Sur téléphone le titre est déjà dans la barre haute. */}
+      <div className={`${mobileOpen ? 'hidden lg:block' : ''}`}>
+        <div className="hidden md:flex items-center gap-3">
+          <h1 className="text-[28px] font-extrabold tracking-tight leading-tight">Réglages</h1>
+          <span className="text-[12px] font-bold px-3 py-1 rounded-full bg-mc-primary-tint text-mc-primary-dark">
+            {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'}
+          </span>
+          {process.env.NODE_ENV !== 'production' && (
+            <span className="text-[12px] text-[#B45309] font-bold bg-mc-warning-bg px-3 py-1 rounded-full">
               Environnement de dev
             </span>
-          </div>
-        )}
+          )}
+        </div>
+        <p className="text-[14px] text-mc-soft flex items-center gap-1.5">
+          <Check className="w-4 h-4 text-mc-success shrink-0" />
+          Tout s’enregistre tout seul, dès que tu changes quelque chose.
+        </p>
       </div>
 
-      {/* Main Layout: Anchors Navigation + Sections Content */}
-      <div className="flex flex-col lg:flex-row items-start gap-8">
-        {/* Mobile Horizontal Scrolling Tabs */}
-        <div className="lg:hidden w-full overflow-x-auto pb-2 scrollbar-none flex items-center gap-2 sticky top-14 bg-slate-50/95 backdrop-blur-xs z-20 py-2 border-b border-slate-200">
-          {visibleSections.map((sec) => {
-            const Icon = sec.icon;
-            const isActive = activeSection === sec.id;
-            return (
-              <button
-                key={sec.id}
-                onClick={() => scrollToSection(sec.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{sec.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Desktop Sticky Sidebar Anchors */}
-        <aside className="hidden lg:block w-64 shrink-0 sticky top-20 space-y-1">
-          <div className="p-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
-            <div className="px-3 py-2 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-              Sections
-            </div>
+      {/* Une seule rubrique à l'écran à la fois.
+          Ordinateur : la liste à gauche, la rubrique choisie à droite.
+          Téléphone : d'abord la liste, puis la rubrique avec un retour en haut. */}
+      <div className="flex flex-col lg:flex-row items-start gap-4 lg:gap-6">
+        <nav
+          aria-label="Rubriques des réglages"
+          className={`${mobileOpen ? 'hidden lg:block' : 'block'} w-full lg:w-72 shrink-0 lg:sticky lg:top-4`}
+        >
+          <div className="p-2 bg-white rounded-mc border border-mc-line shadow-mc-card space-y-1">
             {visibleSections.map((sec) => {
               const Icon = sec.icon;
               const isActive = activeSection === sec.id;
               return (
                 <button
                   key={sec.id}
-                  onClick={() => scrollToSection(sec.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-left ${
-                    isActive
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                  type="button"
+                  onClick={() => openSection(sec.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`relative w-full min-h-[60px] flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left cursor-pointer transition-colors active:scale-[0.99] ${
+                    isActive ? 'lg:text-white' : 'hover:bg-mc-bg'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                    <span className="truncate">{sec.label}</span>
-                  </div>
-                  <ChevronRight className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-slate-300'}`} />
+                  {isActive && (
+                    <motion.span
+                      layoutId="reglages-pastille"
+                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                      className="hidden lg:block absolute inset-0 rounded-2xl bg-mc-primary"
+                    />
+                  )}
+                  <span
+                    className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-mc-primary-tint text-mc-primary ${
+                      isActive ? 'lg:bg-white/20 lg:text-white' : ''
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </span>
+                  <span className="relative z-10 flex-1 min-w-0">
+                    <span className="block text-[16px] lg:text-[14px] font-bold truncate">{sec.label}</span>
+                    <span
+                      className={`block text-[12px] truncate text-mc-soft ${isActive ? 'lg:text-white/75' : ''}`}
+                    >
+                      {sec.desc}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    className={`relative z-10 w-5 h-5 shrink-0 text-mc-soft ${isActive ? 'lg:text-white/70' : ''}`}
+                  />
                 </button>
               );
             })}
           </div>
-        </aside>
+        </nav>
 
-        {/* Sections Content Column */}
-        <div className="flex-1 w-full space-y-10">
+        {/* La rubrique ouverte */}
+        <div className={`${mobileOpen ? 'block' : 'hidden'} lg:block flex-1 w-full min-w-0 space-y-4`}>
+          {/* Retour à la liste — téléphone seulement */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            className="lg:hidden inline-flex items-center gap-1.5 h-11 pr-4 pl-2 -ml-2 rounded-full text-[16px] font-bold text-mc-primary cursor-pointer active:scale-[0.97]"
+          >
+            <ChevronRight className="w-5 h-5 rotate-180" />
+            <span>Tous les réglages</span>
+          </button>
           {/* ========================================================================= */}
           {/* SECTION 1: MA BOUTIQUE (OWNER ONLY) */}
           {/* ========================================================================= */}
-          {isOwner && (
+          {isOwner && activeSection === 'boutique' && (
             <section
               id="section-boutique"
-              className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6 scroll-mt-24"
+              className="bg-white rounded-mc border border-mc-line p-4 md:p-8 shadow-mc-card space-y-6"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-mc-line">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center shrink-0">
                     <Store className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-black text-slate-900">Ma boutique</h2>
-                    <p className="text-xs text-slate-400 font-medium">Identité visuelle, coordonnées et coordonnées de contact</p>
+                    <h2 className="text-[20px] font-extrabold text-mc-ink">Ma boutique</h2>
+                    <p className="text-[12px] text-mc-soft font-medium">Nom, logo et coordonnées de ta boutique</p>
                   </div>
                 </div>
               </div>
 
               {/* 1. Logo uploader */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 block">Logo de la boutique</label>
+                <label className="text-[14px] font-semibold text-mc-ink block">Logo de la boutique</label>
                 <ShopLogoUploader
                   logoUrl={settings.logoUrl}
                   logoTransparentUrl={settings.logoTransparentUrl}
@@ -418,7 +427,7 @@ export const SettingsPage: React.FC = () => {
               {/* 2. Nom de la boutique */}
               <div className="space-y-1.5 pt-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">
+                  <label className="text-[14px] font-semibold text-mc-ink">
                     Nom de la boutique <span className="text-rose-500">*</span>
                   </label>
                   <SavedBadge fieldKey="shopName" />
@@ -428,14 +437,14 @@ export const SettingsPage: React.FC = () => {
                   defaultValue={settings.shopName}
                   onBlur={(e) => handleFieldSave('shopName', e.target.value.trim() || 'Ma Boutique', 'shopName')}
                   placeholder="Ex: Boutique Étoile d’Afrique"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                  className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                 />
               </div>
 
               {/* 3. Type d'activité */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Type d'activité</label>
+                  <label className="text-[14px] font-semibold text-mc-ink">Type d'activité</label>
                   <SavedBadge fieldKey="activityType" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -470,17 +479,17 @@ export const SettingsPage: React.FC = () => {
                         }}
                         className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                            ? 'border-mc-primary bg-mc-primary-tint/60 ring-2 ring-mc-primary/20'
+                            : 'border-mc-line hover:border-slate-300 bg-white'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className={`text-sm font-bold ${isSelected ? 'text-indigo-900' : 'text-slate-900'}`}>
+                          <span className={`text-sm font-bold ${isSelected ? 'text-mc-primary-dark' : 'text-mc-ink'}`}>
                             {item.title}
                           </span>
-                          {isSelected && <Check className="w-4 h-4 text-indigo-600" />}
+                          {isSelected && <Check className="w-4 h-4 text-mc-primary" />}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{item.desc}</p>
+                        <p className="text-[12px] text-mc-soft mt-1 leading-relaxed">{item.desc}</p>
                       </button>
                     );
                   })}
@@ -492,7 +501,7 @@ export const SettingsPage: React.FC = () => {
                 {/* Ville ou quartier */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">Ville ou quartier</label>
+                    <label className="text-[14px] font-semibold text-mc-ink">Ville ou quartier</label>
                     <SavedBadge fieldKey="city" />
                   </div>
                   <input
@@ -500,15 +509,15 @@ export const SettingsPage: React.FC = () => {
                     defaultValue={settings.city}
                     onBlur={(e) => handleFieldSave('city', e.target.value.trim(), 'city')}
                     placeholder="Ex: Abidjan (Cocody)"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                    className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                   />
                 </div>
 
                 {/* Téléphone (reçus) */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">
-                      Numéro de téléphone <span className="text-[10px] text-slate-400 font-normal">(sur les reçus)</span>
+                    <label className="text-[14px] font-semibold text-mc-ink">
+                      Numéro de téléphone <span className="text-[12px] text-mc-soft font-normal">(sur les reçus)</span>
                     </label>
                     <SavedBadge fieldKey="telephone" />
                   </div>
@@ -521,15 +530,15 @@ export const SettingsPage: React.FC = () => {
                       handleFieldSave('ownerPhone', val, 'ownerPhone');
                     }}
                     placeholder="Ex: +225 07 08 09 10 11"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                    className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                   />
                 </div>
 
                 {/* WhatsApp */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">
-                      Numéro WhatsApp <span className="text-[10px] text-slate-400 font-normal">(si différent)</span>
+                    <label className="text-[14px] font-semibold text-mc-ink">
+                      Numéro WhatsApp <span className="text-[12px] text-mc-soft font-normal">(si différent)</span>
                     </label>
                     <SavedBadge fieldKey="whatsapp" />
                   </div>
@@ -538,15 +547,15 @@ export const SettingsPage: React.FC = () => {
                     defaultValue={settings.whatsapp || ''}
                     onBlur={(e) => handleFieldSave('whatsapp', e.target.value.trim(), 'whatsapp')}
                     placeholder="Ex: +225 05 06 07 08 09"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                    className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                   />
                 </div>
 
                 {/* Adresse */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">
-                      Adresse <span className="text-[10px] text-slate-400 font-normal">(facultatif, sur les reçus)</span>
+                    <label className="text-[14px] font-semibold text-mc-ink">
+                      Adresse <span className="text-[12px] text-mc-soft font-normal">(facultatif, sur les reçus)</span>
                     </label>
                     <SavedBadge fieldKey="adresse" />
                   </div>
@@ -555,7 +564,7 @@ export const SettingsPage: React.FC = () => {
                     defaultValue={settings.adresse || ''}
                     onBlur={(e) => handleFieldSave('adresse', e.target.value.trim(), 'adresse')}
                     placeholder="Ex: Rue des Jardins, en face de la pharmacie"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                    className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                   />
                 </div>
               </div>
@@ -565,25 +574,25 @@ export const SettingsPage: React.FC = () => {
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <span>Devise</span>
-                    <span className="text-[10px] text-slate-400 font-normal">(non modifiable)</span>
+                    <span className="text-[12px] text-mc-soft font-normal">(non modifiable)</span>
                   </label>
                   <input
                     type="text"
                     value="Franc CFA (FCFA)"
                     disabled
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-sm font-bold cursor-not-allowed"
+                    className="w-full px-4 py-2.5 rounded-xl border border-mc-line bg-slate-100 text-mc-soft text-sm font-bold cursor-not-allowed"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">Fuseau horaire</label>
+                    <label className="text-[14px] font-semibold text-mc-ink">Fuseau horaire</label>
                     <SavedBadge fieldKey="fuseauHoraire" />
                   </div>
                   <select
                     defaultValue={settings.fuseauHoraire || 'Africa/Abidjan'}
                     onChange={(e) => handleFieldSave('fuseauHoraire', e.target.value, 'fuseauHoraire')}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                    className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                   >
                     {TIMEZONES.map((tz) => (
                       <option key={tz.value} value={tz.value}>
@@ -599,19 +608,19 @@ export const SettingsPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* SECTION 2: MES REÇUS (OWNER ONLY) */}
           {/* ========================================================================= */}
-          {isOwner && (
+          {isOwner && activeSection === 'recus' && (
             <section
               id="section-recus"
-              className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6 scroll-mt-24"
+              className="bg-white rounded-mc border border-mc-line p-4 md:p-8 shadow-mc-card space-y-6"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-mc-line">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center shrink-0">
                     <Receipt className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-black text-slate-900">Mes reçus</h2>
-                    <p className="text-xs text-slate-400 font-medium">Contenu imprimé et partagé aux clients après chaque vente</p>
+                    <h2 className="text-[20px] font-extrabold text-mc-ink">Mes reçus</h2>
+                    <p className="text-[12px] text-mc-soft font-medium">Contenu imprimé et partagé aux clients après chaque vente</p>
                   </div>
                 </div>
               </div>
@@ -619,8 +628,8 @@ export const SettingsPage: React.FC = () => {
               {/* Message personnalisé */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">
-                    Message personnalisé <span className="text-[10px] text-slate-400 font-normal">(en bas de chaque reçu)</span>
+                  <label className="text-[14px] font-semibold text-mc-ink">
+                    Message personnalisé <span className="text-[12px] text-mc-soft font-normal">(en bas de chaque reçu)</span>
                   </label>
                   <SavedBadge fieldKey="receiptMessage" />
                 </div>
@@ -636,7 +645,7 @@ export const SettingsPage: React.FC = () => {
                     )
                   }
                   placeholder={`Ex: Merci pour votre confiance ! À bientôt chez ${settings.shopName || 'ma boutique'}.`}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                  className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                 />
               </div>
 
@@ -673,16 +682,16 @@ export const SettingsPage: React.FC = () => {
                     return (
                       <label
                         key={item.key}
-                        className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50/80 cursor-pointer transition-colors"
+                        className="flex items-center justify-between gap-3 min-h-[52px] px-4 py-2.5 rounded-2xl border border-mc-line hover:bg-mc-bg/60 cursor-pointer transition-colors"
                       >
-                        <span className="text-xs font-bold text-slate-800">{item.label}</span>
+                        <span className="text-[14px] font-semibold text-mc-ink">{item.label}</span>
                         <div className="flex items-center gap-2">
                           <SavedBadge fieldKey={`receipt_${item.key}`} />
                           <input
                             type="checkbox"
                             checked={isChecked}
                             onChange={(e) => handleReceiptFieldSave(item.key, e.target.checked)}
-                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            className="mc-switch"
                           />
                         </div>
                       </label>
@@ -692,7 +701,7 @@ export const SettingsPage: React.FC = () => {
                   {/* Texte du reçu imprimé : taille et graisse */}
                   <div className="pt-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-700">Taille du texte</label>
+                      <label className="text-[14px] font-semibold text-mc-ink">Taille du texte</label>
                       <SavedBadge fieldKey="receipt_tailleTexte" />
                     </div>
                     <div className="grid grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
@@ -704,7 +713,7 @@ export const SettingsPage: React.FC = () => {
                             type="button"
                             onClick={() => handleReceiptFieldSave('tailleTexte', t.id)}
                             className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              isSel ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                              isSel ? 'bg-white text-mc-ink shadow-xs' : 'text-slate-600 hover:text-mc-ink'
                             }`}
                           >
                             {t.label}
@@ -712,41 +721,41 @@ export const SettingsPage: React.FC = () => {
                         );
                       })}
                     </div>
-                    <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50/80 cursor-pointer transition-colors">
-                      <span className="text-xs font-bold text-slate-800">Texte en gras</span>
+                    <label className="flex items-center justify-between gap-3 min-h-[52px] px-4 py-2.5 rounded-2xl border border-mc-line hover:bg-mc-bg/60 cursor-pointer transition-colors">
+                      <span className="text-[14px] font-semibold text-mc-ink">Texte en gras</span>
                       <div className="flex items-center gap-2">
                         <SavedBadge fieldKey="receipt_texteGras" />
                         <input
                           type="checkbox"
                           checked={settings.receiptSettings?.texteGras === true}
                           onChange={(e) => handleReceiptFieldSave('texteGras', e.target.checked)}
-                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          className="mc-switch"
                         />
                       </div>
                     </label>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-mc-soft">
                       S'applique au reçu imprimé et au PDF. Utile si l'imprimante imprime pâle.
                     </p>
                   </div>
                 </div>
 
                 {/* Right: Live mini receipt preview */}
-                <div className="lg:col-span-5 bg-slate-50 p-4 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                <div className="lg:col-span-5 bg-slate-50 p-4 rounded-2xl border border-mc-line flex flex-col justify-between">
                   <div className="space-y-3">
                     <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block">
                       Aperçu en direct
                     </span>
 
                     <div
-                      className={`bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono text-[11px] text-slate-800 space-y-2.5 ${
+                      className={`bg-white p-4 rounded-xl border border-mc-line shadow-xs font-mono text-[11px] text-mc-ink space-y-2.5 ${
                         settings.receiptSettings?.texteGras ? 'font-bold' : ''
                       }`}
                       style={{ zoom: textSizeFactor(settings.receiptSettings?.tailleTexte) }}
                     >
                       {/* Logo & header */}
-                      <div className="text-center pb-2 border-b border-dashed border-slate-200">
+                      <div className="text-center pb-2 border-b border-dashed border-mc-line">
                         {settings.receiptSettings?.showLogo !== false && (
-                          <div className="w-8 h-8 mx-auto mb-1 rounded bg-slate-900 text-white flex items-center justify-center overflow-hidden">
+                          <div className="w-8 h-8 mx-auto mb-1 rounded bg-mc-ink text-white flex items-center justify-center overflow-hidden">
                             {settings.logoUrl ? (
                               <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                             ) : (
@@ -761,14 +770,14 @@ export const SettingsPage: React.FC = () => {
                           <div className="text-[10px] text-slate-400 font-sans">{settings.adresse}</div>
                         )}
                         {settings.receiptSettings?.showPhone !== false && (
-                          <div className="text-[10px] text-slate-500 font-sans">
+                          <div className="text-[10px] text-mc-soft font-sans">
                             Tel : {receiptPhone(settings) || '—'}
                           </div>
                         )}
                       </div>
 
                       {/* Meta */}
-                      <div className="space-y-1 text-[10.5px] pb-2 border-b border-dashed border-slate-200">
+                      <div className="space-y-1 text-[10.5px] pb-2 border-b border-dashed border-mc-line">
                         <div className="flex justify-between">
                           <span className="text-slate-400">N° :</span>
                           <span className="font-bold">{settings.receiptSettings?.prefix || 'CMD'}-2026-0042</span>
@@ -788,14 +797,14 @@ export const SettingsPage: React.FC = () => {
                       </div>
 
                       {/* Items */}
-                      <div className="space-y-1 text-[10.5px] pb-2 border-b border-dashed border-slate-200">
+                      <div className="space-y-1 text-[10.5px] pb-2 border-b border-dashed border-mc-line">
                         <div className="flex justify-between">
                           <span>1x Riz Parfumé 5kg</span>
                           <span className="font-bold">4 500 F</span>
                         </div>
                         <div className="flex justify-between font-bold text-xs pt-1 border-t border-slate-100">
                           <span>TOTAL PAYÉ</span>
-                          <span className="text-indigo-600 font-sans">4 500 FCFA</span>
+                          <span className="text-mc-primary font-sans">4 500 FCFA</span>
                         </div>
                       </div>
 
@@ -822,7 +831,7 @@ export const SettingsPage: React.FC = () => {
                 {/* Format d'envoi */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">Format d'envoi par défaut</label>
+                    <label className="text-[14px] font-semibold text-mc-ink">Format d'envoi par défaut</label>
                     <SavedBadge fieldKey="receipt_defaultFormat" />
                   </div>
                   <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-xl">
@@ -834,7 +843,7 @@ export const SettingsPage: React.FC = () => {
                           type="button"
                           onClick={() => handleReceiptFieldSave('defaultFormat', fmt)}
                           className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            isSel ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                            isSel ? 'bg-white text-mc-ink shadow-xs' : 'text-slate-600 hover:text-mc-ink'
                           }`}
                         >
                           {fmt === 'TEXT' ? 'Texte' : fmt === 'IMAGE' ? 'Image' : 'PDF'}
@@ -847,7 +856,7 @@ export const SettingsPage: React.FC = () => {
                 {/* Préfixe numérotation */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700">Numérotation des commandes</label>
+                    <label className="text-[14px] font-semibold text-mc-ink">Numérotation des commandes</label>
                     <SavedBadge fieldKey="receipt_prefix" />
                   </div>
                   <div className="flex items-center gap-3">
@@ -856,10 +865,10 @@ export const SettingsPage: React.FC = () => {
                       defaultValue={settings.receiptSettings?.prefix || 'CMD'}
                       onBlur={(e) => handleReceiptFieldSave('prefix', e.target.value.trim().toUpperCase() || 'CMD')}
                       maxLength={6}
-                      className="w-28 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm font-mono font-bold uppercase focus:ring-2 focus:ring-indigo-500"
+                      className="w-28 px-3 py-2 rounded-xl border border-mc-line bg-white text-mc-ink text-sm font-mono font-bold uppercase focus:ring-2 focus:ring-mc-primary"
                     />
-                    <span className="text-xs text-slate-500">
-                      Prochain numéro : <strong className="text-slate-900 font-mono">{settings.receiptSettings?.prefix || 'CMD'}-2026-0043</strong>
+                    <span className="text-xs text-mc-soft">
+                      Prochain numéro : <strong className="text-mc-ink font-mono">{settings.receiptSettings?.prefix || 'CMD'}-2026-0043</strong>
                     </span>
                   </div>
                 </div>
@@ -868,7 +877,7 @@ export const SettingsPage: React.FC = () => {
               {/* Format d'impression par défaut */}
               <div className="space-y-2 pt-4 border-t border-slate-100">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Format d'impression par défaut</label>
+                  <label className="text-[14px] font-semibold text-mc-ink">Format d'impression par défaut</label>
                   <SavedBadge fieldKey="receipt_formatImpression" />
                 </div>
                 <DefaultPrintFormatSetting onSaved={() => triggerSavedFeedback('receipt_formatImpression')} />
@@ -879,19 +888,19 @@ export const SettingsPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* SECTION 3: MES ÉTIQUETTES (OWNER ONLY) */}
           {/* ========================================================================= */}
-          {isOwner && (
+          {isOwner && activeSection === 'etiquettes' && (
             <section
               id="section-etiquettes"
-              className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6 scroll-mt-24"
+              className="bg-white rounded-mc border border-mc-line p-4 md:p-8 shadow-mc-card space-y-6"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-mc-line">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center shrink-0">
                     <Tag className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-black text-slate-900">Mes étiquettes</h2>
-                    <p className="text-xs text-slate-400 font-medium">Réglages par défaut mémorisés pour l'impression de codes-barres</p>
+                    <h2 className="text-[20px] font-extrabold text-mc-ink">Mes étiquettes</h2>
+                    <p className="text-[12px] text-mc-soft font-medium">Réglages par défaut mémorisés pour l'impression de codes-barres</p>
                   </div>
                 </div>
               </div>
@@ -899,7 +908,7 @@ export const SettingsPage: React.FC = () => {
               {/* Format de planche par défaut */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Format de planche par défaut</label>
+                  <label className="text-[14px] font-semibold text-mc-ink">Format de planche par défaut</label>
                   <SavedBadge fieldKey="label_format" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -918,8 +927,8 @@ export const SettingsPage: React.FC = () => {
                         onClick={() => handleLabelFieldSave('format', f.id)}
                         className={`p-3 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer ${
                           isSel
-                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-950 ring-2 ring-indigo-500/20'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            ? 'border-mc-primary bg-mc-primary-tint/60 text-mc-primary-dark ring-2 ring-mc-primary/20'
+                            : 'border-mc-line bg-white text-slate-700 hover:border-slate-300'
                         }`}
                       >
                         {f.name}
@@ -932,7 +941,7 @@ export const SettingsPage: React.FC = () => {
               {/* Couleur du ticket */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Couleur de l'étiquette</label>
+                  <label className="text-[14px] font-semibold text-mc-ink">Couleur de l'étiquette</label>
                   <SavedBadge fieldKey="label_variante" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -948,8 +957,8 @@ export const SettingsPage: React.FC = () => {
                         onClick={() => handleLabelFieldSave('variante', v.id)}
                         className={`p-3 rounded-xl border text-left text-xs transition-all cursor-pointer flex items-center gap-3 ${
                           isSel
-                            ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
+                            ? 'border-mc-primary bg-mc-primary-tint/60 ring-2 ring-mc-primary/20'
+                            : 'border-mc-line bg-white hover:border-slate-300'
                         }`}
                       >
                         <span
@@ -958,15 +967,15 @@ export const SettingsPage: React.FC = () => {
                           aria-hidden="true"
                         />
                         <span>
-                          <span className="flex items-center gap-1.5 font-bold text-slate-900">
+                          <span className="flex items-center gap-1.5 font-bold text-mc-ink">
                             {v.name}
                             {v.id === DEFAULT_LABEL_VARIANT && (
-                              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] font-bold text-mc-primary bg-mc-primary-tint px-1.5 py-0.5 rounded">
                                 Recommandée
                               </span>
                             )}
                           </span>
-                          <span className="block text-[11px] text-slate-500">{v.desc}</span>
+                          <span className="block text-[11px] text-mc-soft">{v.desc}</span>
                         </span>
                       </button>
                     );
@@ -982,7 +991,7 @@ export const SettingsPage: React.FC = () => {
                     showToast("Génération d'une page d'essai d'étiquettes...", 'info');
                     window.print();
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-mc-ink hover:bg-[#1E2140] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Imprimer une page d'essai</span>
@@ -994,35 +1003,35 @@ export const SettingsPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* SECTION 4: MA FAÇON DE VENDRE (OWNER ONLY) */}
           {/* ========================================================================= */}
-          {isOwner && (
+          {isOwner && activeSection === 'vente' && (
             <section
               id="section-vente"
-              className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6 scroll-mt-24"
+              className="bg-white rounded-mc border border-mc-line p-4 md:p-8 shadow-mc-card space-y-6"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-mc-line">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center shrink-0">
                     <ShoppingBag className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-black text-slate-900">Ma façon de vendre</h2>
-                    <p className="text-xs text-slate-400 font-medium">Règles métier, plafonds vendeurs, gestion des stocks et de la caisse</p>
+                    <h2 className="text-[20px] font-extrabold text-mc-ink">Ma façon de vendre</h2>
+                    <p className="text-[12px] text-mc-soft font-medium">Règles métier, plafonds vendeurs, gestion des stocks et de la caisse</p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-5">
                 {/* 1. Remise maximale qu'un vendeur peut accorder */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2">
+                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-900">
+                        <label className="text-[14px] font-bold text-mc-ink">
                           Remise maximale qu'un vendeur peut accorder
                         </label>
                         <SavedBadge fieldKey="remiseMaxVendeur" />
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                         Au-delà, ton vendeur devra te demander son accord pour valider. (0 % = remises interdites aux vendeurs)
                       </p>
                     </div>
@@ -1036,7 +1045,7 @@ export const SettingsPage: React.FC = () => {
                           const val = Math.min(100, Math.max(0, parseInt(e.target.value, 10) || 0));
                           handleFieldSave('remiseMaxVendeur', val, 'remiseMaxVendeur');
                         }}
-                        className="w-24 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-indigo-500"
+                        className="w-24 px-3 py-2 rounded-xl border border-mc-line bg-white text-mc-ink font-bold text-sm text-right focus:ring-2 focus:ring-mc-primary"
                       />
                       <span className="text-sm font-bold text-slate-600">%</span>
                     </div>
@@ -1044,15 +1053,15 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 {/* 2. Autoriser la vente quand le stock est à zéro */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between gap-4">
+                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-900">
+                      <label className="text-[14px] font-bold text-mc-ink">
                         Autoriser la vente quand le stock est à zéro
                       </label>
                       <SavedBadge fieldKey="autoriserStockNegatif" />
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                       Recommandé. Tu vends souvent au comptoir avant d'avoir noté ton entrée de stock dans l'application.
                     </p>
                   </div>
@@ -1060,21 +1069,21 @@ export const SettingsPage: React.FC = () => {
                     type="checkbox"
                     checked={settings.autoriserStockNegatif !== false}
                     onChange={(e) => handleFieldSave('autoriserStockNegatif', e.target.checked, 'autoriserStockNegatif')}
-                    className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                    className="mc-switch"
                   />
                 </div>
 
                 {/* 3. Écart de comptage qui demande une explication */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2">
+                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-900">
+                        <label className="text-[14px] font-bold text-mc-ink">
                           À partir de combien d'unités manquantes veux-tu une explication ?
                         </label>
                         <SavedBadge fieldKey="seuilEcartComptage" />
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                         Défaut : 5 unités. Lors du comptage, si l'écart dépasse ce seuil, une note explicative est demandée.
                       </p>
                     </div>
@@ -1088,7 +1097,7 @@ export const SettingsPage: React.FC = () => {
                           const val = Math.max(1, parseInt(e.target.value, 10) || 5);
                           handleFieldSave('seuilEcartComptage', val, 'seuilEcartComptage');
                         }}
-                        className="w-24 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-indigo-500"
+                        className="w-24 px-3 py-2 rounded-xl border border-mc-line bg-white text-mc-ink font-bold text-sm text-right focus:ring-2 focus:ring-mc-primary"
                       />
                       <span className="text-xs font-bold text-slate-600">unités</span>
                     </div>
@@ -1096,15 +1105,15 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 {/* 4. Dépense automatique à chaque réception de marchandise */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between gap-4">
+                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-900">
+                      <label className="text-[14px] font-bold text-mc-ink">
                         Créer une dépense automatique à chaque réception de marchandise
                       </label>
                       <SavedBadge fieldKey="depenseAutoReception" />
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                       Ne décoche que si tu notes tes achats de stock manuellement dans le carnet des dépenses.
                     </p>
                   </div>
@@ -1112,21 +1121,21 @@ export const SettingsPage: React.FC = () => {
                     type="checkbox"
                     checked={settings.depenseAutoReception !== false}
                     onChange={(e) => handleFieldSave('depenseAutoReception', e.target.checked, 'depenseAutoReception')}
-                    className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                    className="mc-switch"
                   />
                 </div>
 
                 {/* 5. Fond de caisse habituel */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2">
+                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-900">
+                        <label className="text-[14px] font-bold text-mc-ink">
                           Fond de caisse habituel
                         </label>
                         <SavedBadge fieldKey="fondCaisseHabituel" />
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                         Montant proposé par défaut chaque matin à l'ouverture de la caisse.
                       </p>
                     </div>
@@ -1140,7 +1149,7 @@ export const SettingsPage: React.FC = () => {
                           const val = Math.max(0, parseInt(e.target.value, 10) || 0);
                           handleFieldSave('fondCaisseHabituel', val, 'fondCaisseHabituel');
                         }}
-                        className="w-32 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm text-right focus:ring-2 focus:ring-indigo-500"
+                        className="w-32 px-3 py-2 rounded-xl border border-mc-line bg-white text-mc-ink font-bold text-sm text-right focus:ring-2 focus:ring-mc-primary"
                       />
                       <span className="text-xs font-bold text-slate-600">FCFA</span>
                     </div>
@@ -1148,15 +1157,15 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 {/* 6. Mode de caisse */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-900">
+                      <label className="text-[14px] font-bold text-mc-ink">
                         Mode de caisse
                       </label>
                       <SavedBadge fieldKey="cashRegisterMode" />
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                       Libre : tu encaisses directement, sans jamais ouvrir/fermer ta caisse. Stricte : tu dois l'ouvrir le matin et la fermer le soir avant de pouvoir encaisser un paiement.
                     </p>
                   </div>
@@ -1166,8 +1175,8 @@ export const SettingsPage: React.FC = () => {
                       onClick={() => handleCashRegisterModeSave('LIBRE')}
                       className={`p-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
                         (settings.cashRegisterMode ?? 'LIBRE') === 'LIBRE'
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          ? 'bg-mc-ink text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-mc-line hover:bg-slate-100'
                       }`}
                     >
                       Libre (recommandé)
@@ -1177,8 +1186,8 @@ export const SettingsPage: React.FC = () => {
                       onClick={() => handleCashRegisterModeSave('STRICT')}
                       className={`p-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
                         settings.cashRegisterMode === 'STRICT'
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          ? 'bg-mc-ink text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-mc-line hover:bg-slate-100'
                       }`}
                     >
                       Stricte (ouverture/fermeture)
@@ -1188,15 +1197,15 @@ export const SettingsPage: React.FC = () => {
 
                 {/* 7. Rappel fermeture caisse — pertinent seulement en mode Stricte */}
                 {settings.cashRegisterMode === 'STRICT' && (
-                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-900">
+                        <label className="text-[14px] font-bold text-mc-ink">
                           Me rappeler de fermer ma caisse le soir
                         </label>
                         <SavedBadge fieldKey="rappelFermetureCaisse" />
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                         Notification d'alerte pour clôturer les espèces avant de quitter la boutique.
                       </p>
                     </div>
@@ -1205,7 +1214,7 @@ export const SettingsPage: React.FC = () => {
                         type="time"
                         defaultValue={settings.rappelFermetureCaisse || '20:00'}
                         onBlur={(e) => handleFieldSave('rappelFermetureCaisse', e.target.value, 'rappelFermetureCaisse')}
-                        className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:ring-2 focus:ring-indigo-500"
+                        className="px-3 py-2 rounded-xl border border-mc-line bg-white text-mc-ink font-bold text-sm focus:ring-2 focus:ring-mc-primary"
                       />
                     </div>
                   </div>
@@ -1217,19 +1226,19 @@ export const SettingsPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* SECTION 5: MON AFFICHAGE (OWNER ONLY) */}
           {/* ========================================================================= */}
-          {isOwner && (
+          {isOwner && activeSection === 'affichage' && (
             <section
               id="section-affichage"
-              className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6 scroll-mt-24"
+              className="bg-white rounded-mc border border-mc-line p-4 md:p-8 shadow-mc-card space-y-6"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-mc-line">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center shrink-0">
                     <Monitor className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-black text-slate-900">Mon affichage</h2>
-                    <p className="text-xs text-slate-400 font-medium">Préférences visuelles de l'accueil et du tableau de bord</p>
+                    <h2 className="text-[20px] font-extrabold text-mc-ink">Mon affichage</h2>
+                    <p className="text-[12px] text-mc-soft font-medium">Préférences visuelles de l'accueil et du tableau de bord</p>
                   </div>
                 </div>
               </div>
@@ -1237,7 +1246,7 @@ export const SettingsPage: React.FC = () => {
               {/* Mode Tableau de bord : Simple | Détaillé */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Vue du tableau de bord</label>
+                  <label className="text-[14px] font-semibold text-mc-ink">Vue du tableau de bord</label>
                   <SavedBadge fieldKey="dashboardMode" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1261,17 +1270,17 @@ export const SettingsPage: React.FC = () => {
                         onClick={() => handleFieldSave('dashboardMode', mode.id, 'dashboardMode')}
                         className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                           isSel
-                            ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                            ? 'border-mc-primary bg-mc-primary-tint/60 ring-2 ring-mc-primary/20'
+                            : 'border-mc-line hover:border-slate-300 bg-white'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className={`text-sm font-bold ${isSel ? 'text-indigo-900' : 'text-slate-900'}`}>
+                          <span className={`text-sm font-bold ${isSel ? 'text-mc-primary-dark' : 'text-mc-ink'}`}>
                             {mode.title}
                           </span>
-                          {isSel && <Check className="w-4 h-4 text-indigo-600" />}
+                          {isSel && <Check className="w-4 h-4 text-mc-primary" />}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{mode.desc}</p>
+                        <p className="text-[12px] text-mc-soft mt-1 leading-relaxed">{mode.desc}</p>
                       </button>
                     );
                   })}
@@ -1281,7 +1290,7 @@ export const SettingsPage: React.FC = () => {
               {/* Période affichée par défaut */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Période affichée par défaut</label>
+                  <label className="text-[14px] font-semibold text-mc-ink">Période affichée par défaut</label>
                   <SavedBadge fieldKey="periodeParDefaut" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-slate-100 rounded-xl">
@@ -1298,7 +1307,7 @@ export const SettingsPage: React.FC = () => {
                         type="button"
                         onClick={() => handleFieldSave('periodeParDefaut', p.id, 'periodeParDefaut')}
                         className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          isSel ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                          isSel ? 'bg-white text-mc-ink shadow-xs' : 'text-slate-600 hover:text-mc-ink'
                         }`}
                       >
                         {p.label}
@@ -1310,12 +1319,12 @@ export const SettingsPage: React.FC = () => {
 
               {/* Comparer avec la période précédente */}
               <div className="pt-2">
-                <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 cursor-pointer">
+                <label className="flex items-center justify-between p-3.5 rounded-xl border border-mc-line bg-slate-50/50 cursor-pointer">
                   <div>
-                    <span className="text-xs font-bold text-slate-800 block">
+                    <span className="text-xs font-bold text-mc-ink block">
                       Comparer automatiquement avec la période précédente
                     </span>
-                    <span className="text-[11px] text-slate-500 block mt-0.5">
+                    <span className="text-[11px] text-mc-soft block mt-0.5">
                       Affiche l'écart (en plus ou en moins) par rapport à la veille ou la semaine dernière.
                     </span>
                   </div>
@@ -1325,7 +1334,7 @@ export const SettingsPage: React.FC = () => {
                       type="checkbox"
                       checked={settings.comparerParDefaut !== false}
                       onChange={(e) => handleFieldSave('comparerParDefaut', e.target.checked, 'comparerParDefaut')}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                      className="mc-switch"
                     />
                   </div>
                 </label>
@@ -1333,9 +1342,9 @@ export const SettingsPage: React.FC = () => {
 
               {/* Langue */}
               <div className="space-y-1.5 pt-2">
-                <label className="text-xs font-bold text-slate-700 block">Langue de l'application</label>
+                <label className="text-[14px] font-semibold text-mc-ink block">Langue de l'application</label>
                 <div className="flex items-center gap-3">
-                  <div className="px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
+                  <div className="px-3 py-2 rounded-xl bg-mc-primary-tint text-mc-primary-dark text-xs font-bold">
                     Français (Actif)
                   </div>
                   <span className="text-xs text-slate-400 italic">
@@ -1349,19 +1358,19 @@ export const SettingsPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* SECTION 6: MES CATÉGORIES (OWNER + ACCOUNTANT) */}
           {/* ========================================================================= */}
-          {(isOwner || isAccountant) && (
+          {(isOwner || isAccountant) && activeSection === 'categories' && (
             <section
               id="section-categories"
-              className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6 scroll-mt-24"
+              className="bg-white rounded-mc border border-mc-line p-4 md:p-8 shadow-mc-card space-y-6"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-mc-line">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center shrink-0">
                     <FolderTree className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-black text-slate-900">Mes catégories</h2>
-                    <p className="text-xs text-slate-400 font-medium">Organisation de vos articles et classification des dépenses</p>
+                    <h2 className="text-[20px] font-extrabold text-mc-ink">Mes catégories</h2>
+                    <p className="text-[12px] text-mc-soft font-medium">Organisation de vos articles et classification des dépenses</p>
                   </div>
                 </div>
               </div>
@@ -1373,18 +1382,19 @@ export const SettingsPage: React.FC = () => {
           {/* ========================================================================= */}
           {/* SECTION 7: MON COMPTE (VISIBLE TO ALL ROLES) */}
           {/* ========================================================================= */}
+          {activeSection === 'compte' && (
           <section
             id="section-compte"
-            className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6 scroll-mt-24"
+            className="bg-white rounded-mc border border-mc-line p-4 md:p-8 shadow-mc-card space-y-6"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-4 border-b border-mc-line">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div className="w-11 h-11 rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center shrink-0">
                   <UserCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base sm:text-lg font-black text-slate-900">Mon compte</h2>
-                  <p className="text-xs text-slate-400 font-medium">Profil personnel, sécurité du mot de passe et gestion des sessions</p>
+                  <h2 className="text-[20px] font-extrabold text-mc-ink">Mon compte</h2>
+                  <p className="text-[12px] text-mc-soft font-medium">Profil personnel, sécurité du mot de passe et gestion des sessions</p>
                 </div>
               </div>
             </div>
@@ -1393,20 +1403,20 @@ export const SettingsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Mon nom</label>
+                  <label className="text-[14px] font-semibold text-mc-ink">Mon nom</label>
                   <SavedBadge fieldKey="ownerName" />
                 </div>
                 <input
                   type="text"
                   defaultValue={settings.ownerName}
                   onBlur={(e) => handleFieldSave('ownerName', e.target.value.trim(), 'ownerName')}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                  className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">
+                  <label className="text-[14px] font-semibold text-mc-ink">
                     Mon numéro de téléphone <span className="text-[10px] text-slate-400">(utilisé pour te connecter)</span>
                   </label>
                   <SavedBadge fieldKey="ownerPhone" />
@@ -1415,7 +1425,7 @@ export const SettingsPage: React.FC = () => {
                   type="tel"
                   defaultValue={settings.ownerPhone}
                   onBlur={(e) => handleFieldSave('ownerPhone', e.target.value.trim(), 'ownerPhone')}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                  className="w-full h-12 px-4 rounded-2xl border border-mc-line bg-white text-mc-ink text-[16px] md:text-[14px] focus:ring-2 focus:ring-mc-primary focus:border-mc-primary outline-hidden font-medium"
                 />
               </div>
             </div>
@@ -1423,7 +1433,7 @@ export const SettingsPage: React.FC = () => {
             {/* Changer mon mot de passe */}
             <div className="pt-4 border-t border-slate-100">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-indigo-600" />
+                <KeyRound className="w-4 h-4 text-mc-primary" />
                 <span>Changer mon mot de passe</span>
               </h3>
 
@@ -1436,7 +1446,7 @@ export const SettingsPage: React.FC = () => {
                     value={pinCurrent}
                     onChange={(e) => setPinCurrent(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-center font-mono font-bold tracking-widest"
+                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-sm text-center font-mono font-bold tracking-widest"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1447,7 +1457,7 @@ export const SettingsPage: React.FC = () => {
                     value={pinNew}
                     onChange={(e) => setPinNew(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="••••"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-center font-mono font-bold tracking-widest"
+                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-sm text-center font-mono font-bold tracking-widest"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1459,12 +1469,12 @@ export const SettingsPage: React.FC = () => {
                       value={pinConfirm}
                       onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••"
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm text-center font-mono font-bold tracking-widest"
+                      className="flex-1 px-3 py-2 rounded-xl border border-mc-line text-sm text-center font-mono font-bold tracking-widest"
                     />
                     <button
                       type="submit"
                       disabled={!pinCurrent || !pinNew || !pinConfirm}
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shrink-0"
+                      className="px-4 py-2 rounded-xl bg-mc-primary hover:bg-mc-primary-dark disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shrink-0"
                     >
                       Modifier
                     </button>
@@ -1489,11 +1499,11 @@ export const SettingsPage: React.FC = () => {
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
                   Version de l'application
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                   Compare-la entre les téléphones : la plus récente est la bonne.
                 </p>
               </div>
-              <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200 shrink-0">
+              <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-mc-line shrink-0">
                 {APP_VERSION_LABEL}
               </span>
             </div>
@@ -1528,10 +1538,10 @@ export const SettingsPage: React.FC = () => {
                       className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50"
                     >
                       <div className="flex items-center gap-3">
-                        <Smartphone className={`w-4 h-4 ${s.isCurrent ? 'text-indigo-600' : 'text-slate-400'}`} />
+                        <Smartphone className={`w-4 h-4 ${s.isCurrent ? 'text-mc-primary' : 'text-slate-400'}`} />
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">
+                            <span className="text-[14px] font-bold text-mc-ink">
                               {describeSession(s.userAgent)}
                             </span>
                             {s.isCurrent && (
@@ -1550,7 +1560,7 @@ export const SettingsPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => revokeMySession(s.id)}
-                          className="text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
+                          className="text-xs font-bold text-mc-soft hover:text-rose-600 transition-colors cursor-pointer"
                         >
                           Déconnecter
                         </button>
@@ -1570,8 +1580,8 @@ export const SettingsPage: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Télécharger toutes mes données</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <h4 className="text-[14px] font-bold text-mc-ink">Télécharger toutes mes données</h4>
+                  <p className="text-[12px] text-mc-soft mt-0.5 leading-relaxed">
                     Télécharge un export complet (articles, ventes, clients, dépenses, historique) au format JSON & Excel.
                     Disponible en permanence même en cas de compte en lecture seule.
                   </p>
@@ -1579,7 +1589,7 @@ export const SettingsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleExportAllData}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-bold shadow-2xs transition-colors cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-mc-ink text-xs font-bold shadow-2xs transition-colors cursor-pointer shrink-0"
                 >
                   <Download className="w-4 h-4 text-slate-600" />
                   <span>Télécharger mes données</span>
@@ -1589,7 +1599,7 @@ export const SettingsPage: React.FC = () => {
               {/* Fermer mon compte — réservé au propriétaire : ça ferme toute la boutique */}
               <div className="pt-3 border-t border-rose-200/60">
                 {!isOwner ? (
-                  <div className="flex items-center gap-2.5 text-slate-500">
+                  <div className="flex items-center gap-2.5 text-mc-soft">
                     <Lock className="w-3.5 h-3.5 shrink-0" />
                     <p className="text-[11px]">
                       Seul le propriétaire de la boutique peut fermer le compte. Contacte-le si nécessaire.
@@ -1600,7 +1610,7 @@ export const SettingsPage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div>
                         <h4 className="text-xs font-bold text-rose-700">Fermer mon compte</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 max-w-xl">
+                        <p className="text-[11px] text-mc-soft mt-0.5 max-w-xl">
                           Tes données seront gardées pendant 90 jours. Tu pourras les récupérer pendant ce temps en te reconnectant.
                           Après 90 jours, elles seront effacées définitivement.
                         </p>
@@ -1649,7 +1659,7 @@ export const SettingsPage: React.FC = () => {
                               setDeleteStep(0);
                               setDeleteConfirmationText('');
                             }}
-                            className="px-3 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-bold cursor-pointer"
+                            className="px-3 py-2 rounded-xl text-mc-soft hover:bg-slate-100 text-xs font-bold cursor-pointer"
                           >
                             Annuler
                           </button>
@@ -1659,7 +1669,7 @@ export const SettingsPage: React.FC = () => {
 
                     {deleteStep === 2 && (
                       <div className="mt-3 p-4 rounded-xl bg-rose-600 text-white space-y-2 animate-in fade-in duration-200">
-                        <p className="text-xs font-black">
+                        <p className="text-xs font-extrabold">
                           Étape 2 sur 2 : Confirmation finale
                         </p>
                         <p className="text-[11px] text-rose-100">
@@ -1690,16 +1700,17 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
           </section>
+          )}
         </div>
       </div>
 
       {/* Confirmation modal for switching to SERVICES mode */}
       {pendingActivityType && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-mc p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 text-amber-600">
               <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-base font-black text-slate-900">Changer de mode d'activité</h3>
+              <h3 className="text-base font-extrabold text-mc-ink">Changer de mode d'activité</h3>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
               Le mode <strong>Services</strong> masque tout le stock et les alertes d'inventaire. Tes produits ne seront pas supprimés et pourront être réactivés à tout moment.
@@ -1719,7 +1730,7 @@ export const SettingsPage: React.FC = () => {
                   setPendingActivityType(null);
                   showToast('Mode Services activé', 'success');
                 }}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold shadow-xs cursor-pointer"
               >
                 Confirmer le changement
               </button>
@@ -1756,9 +1767,9 @@ const ReceiptNotesEditor: React.FC<{
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-slate-700">
+        <label className="text-[14px] font-semibold text-mc-ink">
           Notes et mentions{' '}
-          <span className="text-[10px] text-slate-400 font-normal">
+          <span className="text-[12px] text-mc-soft font-normal">
             (sous le message — nota bene, conditions, garantie…)
           </span>
         </label>
@@ -1776,13 +1787,13 @@ const ReceiptNotesEditor: React.FC<{
                 key={`note-${index}-${note}`}
                 onBlur={(e) => remplacer(index, e.target.value)}
                 placeholder="Ex: Aucun échange après 7 jours."
-                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden font-medium"
+                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-mc-line bg-white text-mc-ink text-sm focus:ring-2 focus:ring-mc-primary outline-hidden font-medium"
               />
               <button
                 type="button"
                 onClick={() => onChange(notes.filter((_, i) => i !== index))}
                 aria-label={`Supprimer la note ${index + 1}`}
-                className="shrink-0 w-9 h-9 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 flex items-center justify-center cursor-pointer transition-colors"
+                className="shrink-0 w-9 h-9 rounded-xl border border-mc-line text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 flex items-center justify-center cursor-pointer transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -1794,7 +1805,7 @@ const ReceiptNotesEditor: React.FC<{
       <button
         type="button"
         onClick={() => onChange([...notes, ''])}
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-indigo-200 text-[#4F46E5] hover:bg-indigo-50 text-xs font-bold cursor-pointer transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-[#C9C3FB] text-mc-primary hover:bg-mc-primary-tint text-xs font-bold cursor-pointer transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
         Ajouter une note

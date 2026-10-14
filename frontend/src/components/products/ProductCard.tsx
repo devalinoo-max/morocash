@@ -53,7 +53,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // Bouton carré des actions secondaires : 44 px, la taille d'un pouce.
   const CARRE =
-    'w-11 h-9 shrink-0 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-[#4F46E5] hover:border-indigo-200 hover:bg-indigo-50/60 flex items-center justify-center transition-all cursor-pointer';
+    'w-11 h-9 shrink-0 rounded-xl border border-mc-line bg-white text-mc-soft hover:text-[#5B4BF0] hover:border-[#DAD6FC] hover:bg-mc-primary-tint flex items-center justify-center transition-all cursor-pointer';
 
   return (
     <div
@@ -68,7 +68,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       }}
       id={`product-card-${product.id}`}
       className="w-full text-left bg-white border rounded-[14px] p-3 min-h-[108px] flex cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.05)] active:bg-slate-50 transition-colors"
-      style={{ borderColor: selected ? '#4F46E5' : '#E2E8F0' }}
+      style={{ borderColor: selected ? '#5B4BF0' : '#E2E8F0' }}
     >
       <div className="flex-1 flex items-start gap-2.5 min-w-0">
         <input
@@ -77,7 +77,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           onClick={(e) => e.stopPropagation()}
           onChange={() => onToggleSelect(product.id)}
           aria-label={`Sélectionner ${product.name}`}
-          className="w-[22px] h-[22px] mt-0.5 shrink-0 text-[#4F46E5] rounded-md cursor-pointer focus:ring-[#4F46E5]"
+          className="w-[22px] h-[22px] mt-0.5 shrink-0 text-[#5B4BF0] rounded-md cursor-pointer focus:ring-[#5B4BF0]"
         />
 
         {/* Vignette : couleur calculée sur le nom, donc stable pour un produit
@@ -88,7 +88,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             src={product.photo}
             alt=""
             referrerPolicy="no-referrer"
-            className="w-11 h-11 rounded-[11px] object-cover border border-slate-200 shrink-0"
+            className="w-11 h-11 rounded-[11px] object-cover border border-mc-line shrink-0"
           />
         ) : (
           <div
@@ -107,7 +107,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <div className="flex-1 min-w-0 flex flex-col">
           {/* LIGNE 1 — le nom, et l'état du stock */}
           <div className="flex items-start gap-2 min-w-0">
-            <h3 className="flex-1 min-w-0 text-[14px] font-bold text-slate-900 leading-snug line-clamp-2">
+            <h3 className="flex-1 min-w-0 text-[14px] font-bold text-mc-ink leading-snug line-clamp-2">
               {product.name}
             </h3>
             {afficheStock && (
@@ -121,7 +121,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* LIGNE 2 — le prix de vente, la seule chose qu'on cherche vraiment */}
-          <div className="mt-1 text-[16px] tabular-nums text-[#4F46E5]" style={{ fontWeight: 800 }}>
+          <div className="mt-1 text-[16px] tabular-nums text-[#5B4BF0]" style={{ fontWeight: 800 }}>
             {formatMoneyCompact(product.salePrice)}
           </div>
 
@@ -140,7 +140,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   e.stopPropagation();
                   onStockEntry(product);
                 }}
-                className={`flex-1 min-w-0 h-9 rounded-xl bg-[#EEF2FF] text-[#4F46E5] text-[12.5px] font-bold hover:bg-indigo-100 active:scale-[0.98] transition-all cursor-pointer ${
+                className={`flex-1 min-w-0 h-9 rounded-xl bg-[#EEF2FF] text-[#5B4BF0] text-[12.5px] font-bold hover:bg-mc-primary-tint active:scale-[0.98] transition-all cursor-pointer ${
                   locked ? 'opacity-50' : ''
                 }`}
               >

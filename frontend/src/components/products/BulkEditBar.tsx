@@ -56,7 +56,7 @@ export const BulkEditBar: React.FC<BulkEditBarProps> = ({ selectedIds, onDone })
 
   return (
     <div className="fixed bottom-20 md:bottom-6 inset-x-0 z-[80] px-3 pointer-events-none">
-      <div className="pointer-events-auto mx-auto max-w-2xl rounded-2xl bg-slate-900 text-white shadow-2xl shadow-slate-900/40 p-3 space-y-3">
+      <div className="pointer-events-auto mx-auto max-w-2xl rounded-2xl bg-mc-ink text-white shadow-2xl shadow-slate-900/40 p-3 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-bold">
             {count} produit{plural} sélectionné{plural}
@@ -66,7 +66,7 @@ export const BulkEditBar: React.FC<BulkEditBarProps> = ({ selectedIds, onDone })
               type="button"
               onClick={() => setMode(mode === 'category' ? 'none' : 'category')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
-                mode === 'category' ? 'bg-white text-slate-900' : 'bg-white/10 hover:bg-white/20'
+                mode === 'category' ? 'bg-white text-mc-ink' : 'bg-white/10 hover:bg-white/20'
               }`}
             >
               <Tag className="w-3.5 h-3.5" />
@@ -77,7 +77,7 @@ export const BulkEditBar: React.FC<BulkEditBarProps> = ({ selectedIds, onDone })
               type="button"
               onClick={() => setMode(mode === 'price' ? 'none' : 'price')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
-                mode === 'price' ? 'bg-white text-slate-900' : 'bg-white/10 hover:bg-white/20'
+                mode === 'price' ? 'bg-white text-mc-ink' : 'bg-white/10 hover:bg-white/20'
               }`}
             >
               <Percent className="w-3.5 h-3.5" />
@@ -107,7 +107,7 @@ export const BulkEditBar: React.FC<BulkEditBarProps> = ({ selectedIds, onDone })
               type="number"
               value={percent}
               onChange={(e) => setPercent(parseInt(e.target.value, 10) || 0)}
-              className="w-20 px-2.5 py-2 rounded-lg text-slate-900 text-xs font-bold text-right outline-hidden"
+              className="w-20 px-2.5 py-2 rounded-lg text-mc-ink text-xs font-bold text-right outline-hidden"
             />
             <span className="text-xs font-bold">%</span>
             <span className="text-[11px] text-slate-300 flex-1">

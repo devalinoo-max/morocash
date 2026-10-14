@@ -12,7 +12,9 @@ export default defineConfig({
     globalSetup: ['./tests/global-teardown.ts'],
     // izikit/ est un projet Next.js séparé cloné en sous-dossier (référence/outillage) —
     // sans exclusion, vitest ramasse aussi ses *.test.ts et échoue sur ses alias `@/...`.
-    exclude: [...configDefaults.exclude, 'izikit/**'],
+    // frontend/ a sa propre suite (frontend/vitest.config.mts, sans base de
+    // données) : la ramasser ici rejouait ses tests navigateur à chaque fois.
+    exclude: [...configDefaults.exclude, 'izikit/**', 'frontend/**'],
     // Chaque appel à scoped()/runInTenantTransaction() ouvre sa propre transaction
     // Neon (aller-retour réseau par requête, cf. repositories/base.ts) — les tests
     // qui enchaînent plusieurs commandes/opérations (étapes 6, 7) dépassaient les

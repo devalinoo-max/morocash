@@ -1,6 +1,7 @@
 import { guardRead } from '@/server/guards';
 import { AppError } from '@/server/shared/errors';
 import { fail } from '@/server/shared/response';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 /**
  * Lecture d'un code-barres/QR depuis une photo (spec §8).
@@ -13,6 +14,7 @@ import { fail } from '@/server/shared/response';
 export async function POST() {
   try {
     await guardRead();
+    await assertCsrf();
     throw new AppError(
       'CODE_UNREADABLE',
       "La lecture de code depuis une photo n'est pas encore implémentée côté serveur."

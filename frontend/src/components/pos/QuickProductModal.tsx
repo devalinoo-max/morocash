@@ -70,13 +70,13 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white w-full max-w-md rounded-mc shadow-2xl overflow-hidden border border-mc-line flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 flex items-center justify-center">
-              <Plus className="w-5 h-5 text-indigo-300" />
+              <Plus className="w-5 h-5 text-[#B9B2FF]" />
             </div>
             <div>
               <h3 className="text-base font-bold">Nouveau produit rapide</h3>
@@ -104,7 +104,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Savon liquide 500ml"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-mc-line bg-slate-50 text-sm font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-mc-primary"
             />
           </div>
 
@@ -130,7 +130,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
                 disabled={isService}
                 value={isService ? 0 : stock}
                 onChange={(e) => setStock(parseInt(e.target.value, 10) || 0)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold disabled:opacity-40"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-mc-line bg-slate-50 text-sm font-bold disabled:opacity-40"
               />
             </div>
             <div>
@@ -142,7 +142,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="Ex: ALIMENTATION"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold uppercase"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-mc-line bg-slate-50 text-xs font-bold uppercase"
               />
             </div>
           </div>
@@ -153,7 +153,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
               id="chk-quick-is-service"
               checked={isService}
               onChange={(e) => setIsService(e.target.checked)}
-              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 rounded text-mc-primary focus:ring-mc-primary"
             />
             <label htmlFor="chk-quick-is-service" className="text-xs font-medium text-slate-700 cursor-pointer">
               C'est une prestation / service (sans gestion de stock physique)
@@ -161,7 +161,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-500 block mb-1">
+            <label className="text-xs font-bold text-mc-soft block mb-1">
               Code-barres (facultatif)
             </label>
             <input
@@ -169,7 +169,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
               placeholder="Ex: 618110038..."
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono"
+              className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs font-mono"
             />
           </div>
 
@@ -184,7 +184,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-2"
             >
               <Check className="w-4 h-4" />
               <span>Créer et ajouter au panier</span>

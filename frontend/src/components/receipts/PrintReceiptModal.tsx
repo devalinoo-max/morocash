@@ -94,7 +94,7 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-100">
-          <h3 id="print-receipt-title" className="text-[15px] font-[750] text-slate-900">
+          <h3 id="print-receipt-title" className="text-[15px] font-[750] text-mc-ink">
             Imprimer le reçu
           </h3>
           <button
@@ -126,7 +126,7 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
               type="checkbox"
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
-              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 rounded text-mc-primary focus:ring-mc-primary"
             />
             <span>Se souvenir de mon choix</span>
           </label>
@@ -144,7 +144,7 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
                   blockedDownload();
                   onClose();
                 }}
-                className="h-9 px-3 rounded-lg bg-slate-900 text-white text-[12px] font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="h-9 px-3 rounded-lg bg-mc-ink text-white text-[12px] font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Download className="w-4 h-4" />
                 Télécharger
@@ -155,7 +155,7 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
             type="button"
             onClick={handlePrint}
             disabled={!canPrint}
-            className="w-full h-12 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-[14px] font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
+            className="w-full h-12 rounded-full bg-mc-primary hover:bg-[#3B2FC9] text-white text-[14px] font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
           >
             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
             <span>{isGenerating ? 'Préparation du PDF…' : resolved.buttonLabel}</span>

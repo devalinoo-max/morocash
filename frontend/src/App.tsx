@@ -73,6 +73,9 @@ const ViewFallback: React.FC = () => (
   </div>
 );
 
+/** Pages dont l'en-tête porte déjà la pastille « Essai · N jours ». */
+const PAGES_AVEC_PASTILLE_ESSAI: string[] = ['home', 'sales', 'receipts', 'cash'];
+
 const AppSplash: React.FC = () => (
   <div className="min-h-screen bg-[#F4F4F8] flex flex-col items-center justify-center gap-4">
     <Logo size={44} />
@@ -403,7 +406,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F4F8] text-slate-900 font-sans flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[#F4F4F8] text-mc-ink font-jakarta flex flex-col selection:bg-mc-primary-tint selection:text-mc-primary-dark">
       <ToastNotification />
 
       {/* VIEWPORT MODE 1: simulation de cadre smartphone (outil de mise au point) */}
@@ -422,7 +425,7 @@ const MainLayout: React.FC = () => {
                 onOpenLanding={openLanding}
               />
               <OfflineBanner />
-              <TrialBanner />
+              {!PAGES_AVEC_PASTILLE_ESSAI.includes(activeTab) && <TrialBanner />}
               <RenewalBanner />
               <ReadOnlyBanner />
             </div>
@@ -457,7 +460,8 @@ const MainLayout: React.FC = () => {
               onOpenLanding={openLanding}
             />
             <OfflineBanner />
-            <TrialBanner />
+            {/* Sur les pages refaites, l'essai est une pastille dans l'en-tête de la page. */}
+            {!PAGES_AVEC_PASTILLE_ESSAI.includes(activeTab) && <TrialBanner />}
             <RenewalBanner />
             <ReadOnlyBanner />
 

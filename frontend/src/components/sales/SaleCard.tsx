@@ -74,10 +74,10 @@ export const SaleCard: React.FC<SaleCardProps> = ({ sale, showSeller, onOpen, on
           onOpen(sale);
         }
       }}
-      className={`w-full text-left bg-white border rounded-[14px] p-3 select-none cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.05)] active:bg-slate-50 transition-colors ${
+      className={`w-full text-left bg-white border rounded-2xl p-3 select-none cursor-pointer shadow-mc-card active:scale-[0.99] transition-transform ${
         annulee ? 'opacity-55' : ''
       }`}
-      style={{ borderColor: '#E2E8F0' }}
+      style={{ borderColor: '#E8EAF3' }}
     >
       {/* Ligne 1 — qui, et combien */}
       <div className="flex items-center gap-2.5 min-w-0">
@@ -88,12 +88,12 @@ export const SaleCard: React.FC<SaleCardProps> = ({ sale, showSeller, onOpen, on
         >
           {avatarInitials(nomClient)}
         </div>
-        <span className="flex-1 min-w-0 truncate text-[14.5px] font-bold text-slate-900">
+        <span className="flex-1 min-w-0 truncate text-[14.5px] font-bold text-mc-ink">
           {nomClient}
         </span>
         <span
           className={`shrink-0 text-[16px] font-extrabold tabular-nums ${
-            annulee ? 'line-through text-slate-400' : 'text-slate-900'
+            annulee ? 'line-through text-slate-400' : 'text-mc-ink'
           }`}
         >
           {formatMoney(sale.totalAmount)}
@@ -102,9 +102,9 @@ export const SaleCard: React.FC<SaleCardProps> = ({ sale, showSeller, onOpen, on
 
       {/* Ligne 2 — quand, et où ça en est */}
       <div className="flex items-center gap-1.5 mt-1.5 pl-[44px] min-w-0">
-        <span className="text-[11.5px] text-slate-500 shrink-0">{heure}</span>
+        <span className="text-[11.5px] text-mc-soft shrink-0">{heure}</span>
         <span className="text-[11.5px] text-slate-300 shrink-0">·</span>
-        <span className="text-[11.5px] text-slate-500 truncate">
+        <span className="text-[11.5px] text-mc-soft truncate">
           {countLabel(nbArticles, 'article')}
         </span>
         {showSeller && sale.sellerName && (

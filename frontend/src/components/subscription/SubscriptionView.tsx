@@ -195,8 +195,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
       )}
 
       {/* Top Header Card */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-60 h-60 bg-[#4F46E5]/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="p-6 sm:p-7 rounded-mc mc-gradient text-white shadow-mc-card relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-60 h-60 bg-[#5B4BF0]/20 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative z-10">
           <div className="space-y-2">
@@ -205,7 +205,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
               <span>Abonnement MoroCash</span>
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
               {currentPlan === 'TRIAL'
                 ? `Essai gratuit de ${trialDays} jours`
                 : currentPlan === 'BUSINESS'
@@ -245,7 +245,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
             <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">
               Statut du compte
             </span>
-            <span className={`text-base font-black block mt-0.5 ${currentPlan === 'EXPIRED' ? 'text-rose-400' : 'text-amber-400'}`}>
+            <span className={`text-base font-extrabold block mt-0.5 ${currentPlan === 'EXPIRED' ? 'text-rose-400' : 'text-amber-400'}`}>
               {currentPlan === 'TRIAL' ? 'Période d’essai' : currentPlan === 'EXPIRED' ? 'Lecture seule' : 'Abonnement actif'}
             </span>
             <span className="text-[11px] text-slate-300 mt-1 block">
@@ -287,11 +287,11 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
           </div>
 
           {/* Justifier le prix : encadré discret */}
-          <div className="max-w-4xl mx-auto p-5 sm:p-6 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-slate-800 space-y-2 text-center sm:text-left">
+          <div className="max-w-4xl mx-auto p-5 sm:p-6 rounded-2xl bg-white border border-mc-line text-mc-ink space-y-2 text-center sm:text-left">
             <p className="text-xs sm:text-sm font-semibold leading-relaxed text-slate-700">
               "{PRICING_JUSTIFICATION.quote}"
             </p>
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <p className="text-[11px] font-bold text-mc-soft uppercase tracking-wider">
               MoroCash s'autofinance dès ta première semaine d'utilisation.
             </p>
           </div>
@@ -306,7 +306,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
           <HeartHandshake className="w-4 h-4" />
         </div>
         <div className="space-y-1 text-xs">
-          <h4 className="font-extrabold text-slate-900">
+          <h4 className="font-extrabold text-mc-ink">
             Règle MoroCash inchangeable :
           </h4>
           <p className="text-slate-700 leading-relaxed">
@@ -327,16 +327,16 @@ const MobileMoneyMethods: React.FC = () => (
       Paiement local sécurisé par Mobile Money (Côte d'Ivoire, Sénégal, Bénin, Togo, Mali, Burkina Faso)
     </span>
     <div className="flex flex-wrap items-center justify-center gap-2.5">
-      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-sky-600 shadow-2xs">
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-mc-line text-xs font-extrabold text-sky-600 shadow-2xs">
         Wave (0% frais)
       </span>
-      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-orange-600 shadow-2xs">
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-mc-line text-xs font-extrabold text-orange-600 shadow-2xs">
         Orange Money
       </span>
-      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-amber-600 shadow-2xs">
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-mc-line text-xs font-extrabold text-amber-600 shadow-2xs">
         MTN MoMo
       </span>
-      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-blue-600 shadow-2xs">
+      <span className="px-3.5 py-1.5 rounded-xl bg-white border border-mc-line text-xs font-extrabold text-blue-600 shadow-2xs">
         Moov Money
       </span>
     </div>
@@ -359,34 +359,34 @@ const PlanCard: React.FC<{
 
   return (
     <div
-      className={`bg-white rounded-3xl p-6 sm:p-7 transition-all flex flex-col justify-between space-y-6 relative ${
-        highlighted ? 'border-2 border-[#4F46E5] shadow-xl' : 'border border-slate-200/90 hover:border-slate-300 shadow-xs'
+      className={`bg-white rounded-mc p-6 sm:p-7 transition-all flex flex-col justify-between space-y-6 relative ${
+        highlighted ? 'border-2 border-[#5B4BF0] shadow-xl' : 'border border-mc-line hover:border-slate-300 shadow-xs'
       }`}
     >
       {isBusiness && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#4F46E5] text-white text-[11px] font-black tracking-wide shadow-md whitespace-nowrap">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#5B4BF0] text-white text-[11px] font-extrabold tracking-wide shadow-md whitespace-nowrap">
           ⭐ RECOMMANDÉ POUR ÉQUIPES
         </div>
       )}
 
       <div className="space-y-5">
         <div>
-          <span className={`text-[11px] font-extrabold uppercase tracking-wider ${isBusiness ? 'text-indigo-600' : 'text-slate-400'}`}>
+          <span className={`text-[11px] font-extrabold uppercase tracking-wider ${isBusiness ? 'text-mc-primary' : 'text-slate-400'}`}>
             {isBusiness ? 'Formule Équipe' : 'Formule Solo'}
           </span>
-          <h3 className="text-2xl font-black text-slate-900 mt-0.5">{plan.nom}</h3>
-          <p className={`text-xs font-bold mt-1 ${isBusiness ? 'text-emerald-600' : 'text-[#4F46E5]'}`}>"{plan.baseline}"</p>
+          <h3 className="text-2xl font-extrabold text-mc-ink mt-0.5">{plan.nom}</h3>
+          <p className={`text-xs font-bold mt-1 ${isBusiness ? 'text-emerald-600' : 'text-[#5B4BF0]'}`}>"{plan.baseline}"</p>
         </div>
 
-        <div className={`p-4 rounded-2xl space-y-1 border ${isBusiness ? 'bg-indigo-50/60 border-indigo-100' : 'bg-slate-50/80 border-slate-200/70'}`}>
+        <div className={`p-4 rounded-2xl space-y-1 border ${isBusiness ? 'bg-mc-primary-tint border-[#DAD6FC]' : 'bg-slate-50/80 border-mc-line/70'}`}>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-3xl sm:text-4xl font-black text-slate-900">
+            <span className="text-3xl sm:text-4xl font-extrabold text-mc-ink">
               {formatMoney(discountedPrice(plan.prixMensuel, reduction))}
             </span>
             {reduction > 0 && (
               <span className="text-sm font-bold text-slate-400 line-through">{formatMoney(plan.prixMensuel)}</span>
             )}
-            <span className="text-xs font-bold text-slate-500">/ mois</span>
+            <span className="text-xs font-bold text-mc-soft">/ mois</span>
           </div>
           {reduction > 0 && (
             <p className="text-[11px] font-extrabold text-emerald-700">
@@ -414,10 +414,10 @@ const PlanCard: React.FC<{
 
       <button
         onClick={onSelect}
-        className={`w-full py-3.5 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
+        className={`w-full py-3.5 rounded-2xl font-extrabold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
           highlighted
-            ? 'bg-[#4F46E5] hover:bg-indigo-700 text-white shadow-md shadow-indigo-200'
-            : 'bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 hover:border-slate-300 shadow-xs'
+            ? 'bg-mc-primary hover:bg-mc-primary-dark text-white shadow-mc-card'
+            : 'bg-white hover:bg-slate-50 text-mc-ink border-2 border-mc-line hover:border-slate-300 shadow-xs'
         }`}
       >
         <span>{ctaLabel}</span>
@@ -452,15 +452,15 @@ const DurationPicker: React.FC<{
       <button
         onClick={onBack}
         disabled={isPending}
-        className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer disabled:opacity-50"
+        className="flex items-center gap-1.5 text-xs font-bold text-mc-soft hover:text-mc-ink cursor-pointer disabled:opacity-50"
       >
         <ArrowLeft className="w-4 h-4" /> Retour aux formules
       </button>
 
       <div className="space-y-1">
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#4F46E5]">{plan.nom}</span>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Choisis ta durée</h2>
-        <p className="text-sm text-slate-500">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#5B4BF0]">{plan.nom}</span>
+        <h2 className="text-2xl font-extrabold text-mc-ink tracking-tight">Choisis ta durée</h2>
+        <p className="text-sm text-mc-soft">
           Tu paies une seule fois par Mobile Money, sans prélèvement automatique. Plus la durée est longue, moins chaque
           mois te coûte.
         </p>
@@ -483,28 +483,28 @@ const DurationPicker: React.FC<{
               disabled={isPending}
               onClick={() => setSelected(period.id)}
               className={`relative text-left p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer disabled:cursor-not-allowed ${
-                isSelected ? 'border-[#4F46E5] bg-[#EEF2FF]' : 'border-slate-200 bg-white hover:border-slate-300'
+                isSelected ? 'border-[#5B4BF0] bg-[#EEF2FF]' : 'border-mc-line bg-white hover:border-slate-300'
               }`}
             >
               {isYear && (
-                <span className="absolute -top-2.5 right-4 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wide shadow-sm">
+                <span className="absolute -top-2.5 right-4 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase tracking-wide shadow-sm">
                   <Gift className="w-3 h-3" /> 2 mois offerts
                 </span>
               )}
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <span className="block text-sm font-black text-slate-900">{period.label}</span>
-                  <span className="block text-2xl font-black text-slate-900 leading-none">{formatMoney(total)}</span>
+                  <span className="block text-sm font-extrabold text-mc-ink">{period.label}</span>
+                  <span className="block text-2xl font-extrabold text-mc-ink leading-none">{formatMoney(total)}</span>
                   {total < normal && (
                     <span className="block text-xs font-bold text-slate-400 line-through">{formatMoney(normal)}</span>
                   )}
-                  <span className="block text-[11px] text-slate-500">
+                  <span className="block text-[11px] text-mc-soft">
                     {period.mois > 1 ? `soit ${formatMoney(Math.round(total / period.mois))} / mois` : 'sans engagement'}
                   </span>
                 </div>
                 <span
                   className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                    isSelected ? 'border-[#4F46E5] bg-[#4F46E5] text-white' : 'border-slate-300'
+                    isSelected ? 'border-[#5B4BF0] bg-[#5B4BF0] text-white' : 'border-slate-300'
                   }`}
                 >
                   {isSelected && <Check className="w-3 h-3" strokeWidth={3.5} />}
@@ -522,13 +522,13 @@ const DurationPicker: React.FC<{
         })}
       </div>
 
-      <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+      <div className="p-5 rounded-2xl bg-white border border-mc-line space-y-4">
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="text-slate-600">
             {plan.nom} · {selectedPeriod.label}
           </span>
           <span className="text-right">
-            <span className="font-black text-slate-900">{formatMoney(prixDe(selected))}</span>
+            <span className="font-extrabold text-mc-ink">{formatMoney(prixDe(selected))}</span>
             {reduction > 0 && (
               <span className="ml-2 text-xs font-bold text-slate-400 line-through">{formatMoney(prixNormalDe(selected))}</span>
             )}
@@ -542,7 +542,7 @@ const DurationPicker: React.FC<{
         <button
           onClick={() => onPay(selected)}
           disabled={isPending}
-          className="w-full py-3.5 rounded-full bg-[#4F46E5] hover:bg-indigo-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all disabled:opacity-60 disabled:cursor-wait"
+          className="w-full py-3.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all disabled:opacity-60 disabled:cursor-wait"
         >
           {isPending ? (
             <>
@@ -592,13 +592,13 @@ const BusinessAdvantages: React.FC<{ overview: SubscriptionOverview | null }> = 
   const placesLibres = utilisateurs === null ? null : Math.max(0, plan.maxUsers - utilisateurs);
 
   return (
-    <section className="max-w-5xl mx-auto bg-white rounded-3xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-5">
+    <section className="max-w-5xl mx-auto bg-white rounded-mc border border-mc-line shadow-mc-card p-5 sm:p-6 space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Mes avantages</span>
-          <h3 className="text-lg font-black text-slate-900">Tu es déjà sur la formule la plus complète</h3>
+          <h3 className="text-lg font-extrabold text-mc-ink">Tu es déjà sur la formule la plus complète</h3>
         </div>
-        <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
           {plan.nom}
         </span>
       </div>
@@ -647,17 +647,17 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
   const endIso = subscriptionEndsAt ?? current.dateFin;
 
   return (
-    <section className="max-w-5xl mx-auto bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
+    <section className="max-w-5xl mx-auto bg-white rounded-mc border border-mc-line shadow-mc-card overflow-hidden">
       <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100">
         <div className="space-y-1">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Mon abonnement</span>
-          <h3 className="text-xl font-black text-slate-900">
+          <h3 className="text-xl font-extrabold text-mc-ink">
             Formule {overview.planNom ?? planLabel(overview.planCode)}{' '}
-            <span className="text-sm font-bold text-slate-500">· {periodeLabel(current.periode)}</span>
+            <span className="text-sm font-bold text-mc-soft">· {periodeLabel(current.periode)}</span>
           </h3>
         </div>
         <span
-          className={`self-start px-3 py-1 rounded-full text-xs font-black border ${
+          className={`self-start px-3 py-1 rounded-full text-xs font-extrabold border ${
             expired ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
           }`}
         >
@@ -677,7 +677,7 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
               ? 'bg-rose-50 border-rose-200'
               : joursRestants !== null && joursRestants <= 7
               ? 'bg-amber-50 border-amber-200'
-              : 'bg-indigo-50/70 border-indigo-100'
+              : 'bg-mc-primary-tint border-[#DAD6FC]'
           }`}
         >
           <div
@@ -686,12 +686,12 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
                 ? 'bg-rose-600'
                 : joursRestants !== null && joursRestants <= 7
                 ? 'bg-amber-600'
-                : 'bg-[#4F46E5]'
+                : 'bg-[#5B4BF0]'
             }`}
           >
             <CalendarClock className="w-5 h-5" />
           </div>
-          <p className="text-sm font-black text-slate-900 leading-snug">
+          <p className="text-sm font-extrabold text-mc-ink leading-snug">
             {expired || joursRestants === null
               ? `Terminé le ${formatShortDate(endIso)}`
               : `Expire dans ${joursRestants} jour${joursRestants > 1 ? 's' : ''} — le ${formatShortDate(endIso)}`}
@@ -719,11 +719,11 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
         <div className="space-y-1.5">
           <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
             <div
-              className={`h-full rounded-full ${expired ? 'bg-rose-400' : 'bg-[#4F46E5]'}`}
+              className={`h-full rounded-full ${expired ? 'bg-rose-400' : 'bg-[#5B4BF0]'}`}
               style={{ width: `${Math.round(elapsed * 100)}%` }}
             />
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-mc-soft">
             Période du {formatLongDate(current.dateDebut)} au {formatLongDate(current.dateFin)}
             {hasPrepaid && subscriptionEndsAt ? ` · déjà payé jusqu’au ${formatLongDate(subscriptionEndsAt)}` : ''}
           </p>
@@ -731,10 +731,10 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
 
         {payments.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-extrabold text-slate-900">Historique des paiements</h4>
-            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <h4 className="text-xs font-extrabold text-mc-ink">Historique des paiements</h4>
+            <div className="overflow-x-auto rounded-2xl border border-mc-line">
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-500">
+                <thead className="bg-slate-50 text-mc-soft">
                   <tr>
                     <th className="text-left font-bold px-3 py-2">Date</th>
                     <th className="text-left font-bold px-3 py-2">Formule</th>
@@ -755,10 +755,10 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
                         {p.dateDebut && p.dateFin ? `${formatLongDate(p.dateDebut)} → ${formatLongDate(p.dateFin)}` : '—'}
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">{methodLabel(p.methode)}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                      <td className="px-3 py-2.5 whitespace-nowrap font-mono text-[11px] text-mc-soft">
                         {p.referencePasserelle ?? p.paymentId.slice(0, 8)}
                       </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap text-right font-black text-slate-900">
+                      <td className="px-3 py-2.5 whitespace-nowrap text-right font-extrabold text-mc-ink">
                         {formatMoney(p.montant)}
                         {p.remiseAffiliation > 0 && (
                           <>
@@ -789,11 +789,11 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
  * vaut l'annoncer ici que le laisser découvrir le jour où le bouton ne répond plus.
  */
 const NonRenewalNotice: React.FC = () => (
-  <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-    <h4 className="text-xs font-extrabold text-slate-900">Si tu n’es pas renouvelé</h4>
+  <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-mc-line space-y-2.5">
+    <h4 className="text-xs font-extrabold text-mc-ink">Si tu n’es pas renouvelé</h4>
     <ul className="space-y-2 text-xs text-slate-700">
       <li className="flex items-start gap-2.5">
-        <Eye className="w-4 h-4 text-slate-500 shrink-0 mt-px" />
+        <Eye className="w-4 h-4 text-mc-soft shrink-0 mt-px" />
         <span>
           Ton compte passe en <strong>lecture seule</strong> : tu vois tout, tu ne modifies plus rien.
         </span>
@@ -820,16 +820,16 @@ const InfoTile: React.FC<{ label: string; value: string; sub?: string; highlight
   sub,
   highlight,
 }) => (
-  <div className={`p-3 rounded-2xl border ${highlight ? 'bg-amber-50 border-amber-200' : 'bg-slate-50/80 border-slate-200/70'}`}>
+  <div className={`p-3 rounded-2xl border ${highlight ? 'bg-amber-50 border-amber-200' : 'bg-slate-50/80 border-mc-line/70'}`}>
     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">{label}</span>
-    <span className={`text-sm font-black block mt-0.5 ${highlight ? 'text-amber-800' : 'text-slate-900'}`}>{value}</span>
-    {sub && <span className="text-[11px] text-slate-500 block mt-0.5">{sub}</span>}
+    <span className={`text-sm font-extrabold block mt-0.5 ${highlight ? 'text-amber-800' : 'text-mc-ink'}`}>{value}</span>
+    {sub && <span className="text-[11px] text-mc-soft block mt-0.5">{sub}</span>}
   </div>
 );
 
 const PaymentReturnBanner: React.FC<{ state: ReturnState; onClose: () => void }> = ({ state, onClose }) => {
-  let tone = 'bg-slate-50 border-slate-200 text-slate-800';
-  let icon = <Loader2 className="w-5 h-5 animate-spin text-[#4F46E5]" />;
+  let tone = 'bg-slate-50 border-mc-line text-mc-ink';
+  let icon = <Loader2 className="w-5 h-5 animate-spin text-[#5B4BF0]" />;
   let title = 'Vérification de ton paiement…';
   let text = 'Valide le paiement sur ton téléphone si ce n’est pas encore fait. Ne ferme pas cette page.';
   let closable = false;

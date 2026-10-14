@@ -37,12 +37,12 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-[460px] rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white w-full max-w-[460px] rounded-mc shadow-2xl overflow-hidden border border-mc-line flex flex-col">
         <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 flex items-center justify-center">
-              <Truck className="w-5 h-5 text-indigo-300" />
+              <Truck className="w-5 h-5 text-[#B9B2FF]" />
             </div>
             <div>
               <h3 className="text-base font-bold">Frais de livraison</h3>
@@ -79,8 +79,8 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                   onClick={() => setFee(quick)}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                     fee === quick
-                      ? 'bg-[#4F46E5] text-white'
-                      : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
+                      ? 'bg-[#5B4BF0] text-white'
+                      : 'bg-slate-100 hover:bg-mc-primary-tint hover:text-mc-primary text-slate-700'
                   }`}
                 >
                   {formatMoney(quick)}
@@ -89,25 +89,25 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
             </div>
           </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
-            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Calcul en temps réel</div>
+          <div className="p-3.5 bg-slate-50 rounded-2xl border border-mc-line space-y-2 text-xs">
+            <div className="text-[11px] font-bold text-mc-soft uppercase tracking-wide">Calcul en temps réel</div>
             <div className="flex items-center justify-between font-semibold text-slate-700">
-              <span>Articles : <strong className="text-slate-900">{formatMoney(totalBeforeDelivery)}</strong></span>
+              <span>Articles : <strong className="text-mc-ink">{formatMoney(totalBeforeDelivery)}</strong></span>
               <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-              <span>Livraison : <strong className="text-slate-900">+{formatMoney(fee)}</strong></span>
+              <span>Livraison : <strong className="text-mc-ink">+{formatMoney(fee)}</strong></span>
               <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-              <span>Total : <strong className="text-[#4F46E5] font-black">{formatMoney(totalBeforeDelivery + fee)}</strong></span>
+              <span>Total : <strong className="text-[#5B4BF0] font-extrabold">{formatMoney(totalBeforeDelivery + fee)}</strong></span>
             </div>
           </div>
         </div>
 
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+        <div className="p-4 bg-slate-50 border-t border-mc-line flex items-center justify-between gap-3">
           {currentFee > 0 ? (
             <button type="button" onClick={() => apply(0)} className="text-xs text-rose-600 hover:underline font-bold cursor-pointer">
               Retirer
             </button>
           ) : (
-            <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:underline font-bold cursor-pointer">
+            <button type="button" onClick={onClose} className="text-xs text-mc-soft hover:underline font-bold cursor-pointer">
               Annuler
             </button>
           )}
@@ -115,7 +115,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
             id="btn-apply-delivery-confirm"
             type="button"
             onClick={() => apply(fee)}
-            className="px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-2"
+            className="px-5 py-2.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-2"
           >
             <Check className="w-4 h-4" />
             <span>{fee > 0 ? `Ajouter la livraison (${formatMoney(fee)})` : 'Aucune livraison'}</span>

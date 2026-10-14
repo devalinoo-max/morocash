@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import {
   Store,
@@ -24,9 +25,11 @@ import {
   LogOut,
   Download,
   Lock,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { NavigationTab } from '../../types';
+import type { MoreSubTab } from '../../utils/routes';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { avatarInitials } from '../../utils/avatar';
 
@@ -34,6 +37,30 @@ interface DesktopSidebarProps {
   onOpenSearch?: () => void;
   onOpenLanding?: () => void;
 }
+
+interface NavItem {
+  key: string;
+  id?: string;
+  label: string;
+  icon: LucideIcon;
+  /** Teinte de l'icône au repos ; l'item actif passe tout en blanc. */
+  iconClass?: string;
+  onClick: () => void;
+  active?: boolean;
+  /** Compteur neutre, ou rouge quand il demande un geste. */
+  count?: number;
+  countTone?: 'neutral' | 'danger';
+  /** Contenu libre à droite (raccourci clavier, état de la caisse). */
+  trailing?: React.ReactNode;
+  className?: string;
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const MC_EASE = [0.22, 1, 0.36, 1] as const;
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, onOpenLanding }) => {
   const {
@@ -43,10 +70,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
     setActiveMoreSubTab,
     attemptNewSale,
     isWriteLocked,
-    setSelectedSaleForReceipt,
     products,
     customers,
-    sales,
     activeCashSession,
     settings,
     logoutUser,
@@ -55,33 +80,17 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
   } = useApp();
 
   // Calculated badge counts
-  const salesCount = sales.length;
   const lowStockCount = products.filter(
     (p) => !p.isService && p.stock <= p.alertThreshold
   ).length;
   const debtorsCount = customers.filter((c) => c.totalDebt > 0).length;
 
-  const navigateTo = (
-    tab: NavigationTab,
-    subTab:
-      | 'expenses'
-      | 'reports'
-      | 'subscription'
-      | 'settings'
-      | 'help'
-      | 'export'
-      | 'employees'
-      | 'permissions'
-      | null = null
-  ) => {
+  const navigateTo = (tab: NavigationTab, subTab: MoreSubTab | null = null) => {
     setActiveTab(tab);
     setActiveMoreSubTab(subTab);
   };
 
-  const isCurrentActive = (
-    tab: NavigationTab,
-    subTab: string | null = null
-  ) => {
+  const isCurrentActive = (tab: NavigationTab, subTab: string | null = null) => {
     if (activeTab !== tab) return false;
     if (tab === 'more') {
       return activeMoreSubTab === subTab;
@@ -92,39 +101,255 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
   // Plan badge computation according to planStatus
   const getPlanBadge = () => {
     if (settings.planStatus === 'TRIAL') {
-      return {
-        label: 'Essai',
-        className: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      };
+      return { label: 'Essai', className: 'bg-amber-400/20 text-amber-300' };
     }
     if (settings.planStatus === 'SOLO') {
-      return {
-        label: 'Solo',
-        className: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-      };
+      return { label: 'Solo', className: 'bg-sky-400/20 text-sky-300' };
     }
     if (settings.planStatus === 'EXPIRED') {
-      return {
-        label: 'Expiré',
-        className: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-      };
+      return { label: 'Expiré', className: 'bg-rose-400/20 text-rose-300' };
     }
-    return {
-      label: 'Business',
-      className: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
-    };
+    return { label: 'Business', className: 'bg-white/15 text-white' };
   };
   const planBadge = getPlanBadge();
+
+  const groups: NavGroup[] = [
+    {
+      title: 'Tableau de bord',
+      items: [
+        {
+          key: 'home',
+          label: 'Accueil',
+          icon: LayoutDashboard,
+          onClick: () => navigateTo('home'),
+          active: isCurrentActive('home'),
+        },
+      ],
+    },
+    {
+      title: 'Vendre',
+      items: [
+        {
+          key: 'new-sale',
+          label: 'Nouvelle commande',
+          icon: PlusCircle,
+          iconClass: 'text-[#A79DFF]',
+          onClick: attemptNewSale,
+          className: isWriteLocked ? LOCKED_BTN_CLASS : '',
+          trailing: (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-[#C6C2E4]">
+              F2
+            </span>
+          ),
+        },
+        {
+          key: 'sales',
+          label: 'Mes commandes',
+          icon: Receipt,
+          onClick: () => navigateTo('sales'),
+          active: isCurrentActive('sales'),
+        },
+        {
+          key: 'receipts',
+          id: 'nav-mes-recus',
+          label: 'Mes reçus',
+          icon: FileText,
+          onClick: () => navigateTo('receipts'),
+          active: isCurrentActive('receipts'),
+        },
+      ],
+    },
+    {
+      title: 'Mon stock',
+      items: [
+        {
+          key: 'products',
+          label: 'Produits',
+          icon: Package,
+          onClick: () => navigateTo('products'),
+          active: isCurrentActive('products'),
+          count: products.length,
+        },
+        {
+          key: 'movements',
+          label: 'Mouvements',
+          icon: ArrowLeftRight,
+          onClick: () => navigateTo('movements'),
+          active: isCurrentActive('movements'),
+        },
+        {
+          key: 'low-stock',
+          label: 'Ce qui va manquer',
+          icon: AlertTriangle,
+          iconClass: 'text-rose-400',
+          onClick: () => navigateTo('products'),
+          count: lowStockCount,
+          countTone: 'danger',
+        },
+      ],
+    },
+    {
+      title: 'Mes clients',
+      items: [
+        {
+          key: 'customers',
+          label: 'Clients',
+          icon: Users,
+          onClick: () => {
+            setCustomersDebtorsFilter(false);
+            navigateTo('customers');
+          },
+          active: isCurrentActive('customers') && !customersDebtorsFilter,
+          count: customers.length,
+        },
+        {
+          key: 'debtors',
+          label: 'Qui me doit',
+          icon: Clock,
+          iconClass: 'text-amber-400',
+          onClick: () => {
+            setCustomersDebtorsFilter(true);
+            navigateTo('customers');
+          },
+          active: isCurrentActive('customers') && customersDebtorsFilter,
+          count: debtorsCount,
+          countTone: 'danger',
+        },
+      ],
+    },
+    {
+      title: 'Mon argent',
+      items: [
+        {
+          key: 'cash',
+          label: 'Caisse',
+          icon: WalletCards,
+          onClick: () => navigateTo('cash'),
+          active: isCurrentActive('cash'),
+          trailing: (
+            <span
+              className={`flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                activeCashSession ? 'text-emerald-300 bg-emerald-400/15' : 'text-[#9D99C9] bg-white/10'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  activeCashSession ? 'bg-emerald-400 animate-pulse' : 'bg-[#75709F]'
+                }`}
+              />
+              <span>{activeCashSession ? 'Ouverte' : 'Fermée'}</span>
+            </span>
+          ),
+        },
+        {
+          key: 'expenses',
+          label: 'Ce que je dépense',
+          icon: TrendingDown,
+          iconClass: 'text-amber-400',
+          onClick: () => navigateTo('more', 'expenses'),
+          active: isCurrentActive('more', 'expenses'),
+        },
+        {
+          key: 'reports',
+          label: 'Mes chiffres',
+          icon: BarChart3,
+          iconClass: 'text-[#A79DFF]',
+          onClick: () => navigateTo('more', 'reports'),
+          active: isCurrentActive('more', 'reports'),
+        },
+      ],
+    },
+    {
+      title: 'Mon équipe',
+      items: [
+        {
+          key: 'employees',
+          label: 'Employés',
+          icon: UserCheck,
+          onClick: () => navigateTo('more', 'employees'),
+          active: isCurrentActive('more', 'employees'),
+        },
+        {
+          key: 'permissions',
+          label: 'Qui peut voir quoi',
+          icon: ShieldCheck,
+          iconClass: 'text-emerald-400',
+          onClick: () => navigateTo('more', 'permissions'),
+          active: isCurrentActive('more', 'permissions'),
+        },
+      ],
+    },
+    {
+      title: 'Mon compte',
+      items: [
+        {
+          key: 'subscription',
+          label: 'Mon abonnement',
+          icon: Crown,
+          iconClass: 'text-amber-400',
+          onClick: () => navigateTo('more', 'subscription'),
+          active: isCurrentActive('more', 'subscription'),
+        },
+        {
+          key: 'settings',
+          label: 'Réglages',
+          icon: Settings,
+          onClick: () => navigateTo('more', 'settings'),
+          active: isCurrentActive('more', 'settings'),
+        },
+        {
+          key: 'export',
+          label: 'Sauvegarde & Export',
+          icon: Download,
+          iconClass: 'text-emerald-400',
+          onClick: () => navigateTo('more', 'export'),
+          active: isCurrentActive('more', 'export'),
+        },
+        {
+          key: 'help',
+          label: 'Aide',
+          icon: HelpCircle,
+          onClick: () => navigateTo('more', 'help'),
+          active: isCurrentActive('more', 'help'),
+        },
+        ...(onOpenLanding
+          ? [
+              {
+                key: 'landing',
+                label: 'Site / Landing Page',
+                icon: Sparkles,
+                iconClass: 'text-emerald-400',
+                onClick: onOpenLanding,
+                className: 'text-emerald-300 hover:text-emerald-200',
+              } satisfies NavItem,
+            ]
+          : []),
+        // Déconnexion aussi dans la liste, et pas seulement tout en bas :
+        // c'est ici, sous « Mon compte », qu'on vient la chercher — et cette
+        // liste défile, donc elle reste atteignable même sur un écran court
+        // où le bas de la barre est coupé.
+        {
+          key: 'logout',
+          label: 'Déconnexion',
+          icon: LogOut,
+          onClick: () => logoutUser(),
+          className: 'hover:!bg-rose-600 hover:!text-white',
+        },
+      ],
+    },
+  ];
+
+  const trialTotal = settings.trialDays ?? 14;
 
   return (
     <aside
       id="desktop-sidebar"
-      className="w-[220px] lg:w-[246px] bg-[#17162B] text-[#C6C2E4] border-r border-[#2F2C50] flex flex-col shrink-0 h-screen sticky top-0 select-none z-30 font-sans"
+      className="w-[232px] lg:w-[258px] shrink-0 h-screen sticky top-0 p-3 pr-0 select-none z-30 font-jakarta"
     >
-      {/* 1. En-tête : Logo MoroCash + Nom boutique */}
-      <div className="p-3 lg:p-4 border-b border-[#2F2C50] flex items-center justify-between gap-2.5 shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl bg-gradient-to-br from-[#4F46E5] to-[#4338CA] flex items-center justify-center text-white font-black text-sm shadow-md shadow-indigo-900/50 shrink-0 overflow-hidden">
+      <div className="h-full bg-mc-sidebar text-[#C6C2E4] rounded-[24px] flex flex-col overflow-hidden shadow-mc-card">
+        {/* 1. En-tête : Logo MoroCash + Nom boutique */}
+        <div className="px-4 pt-4 pb-3 flex items-center gap-3 shrink-0 min-w-0">
+          <div className="w-10 h-10 rounded-2xl mc-gradient flex items-center justify-center text-white shrink-0 overflow-hidden">
             {settings.logoUrl ? (
               <img
                 src={settings.logoUrl}
@@ -133,530 +358,213 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <Store className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+              <Store className="w-5 h-5 text-white" />
             )}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-white text-xs lg:text-sm tracking-tight">MoroCash</span>
-              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${planBadge.className}`}>
+              <span className="font-extrabold text-white text-[14px] tracking-tight">MoroCash</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${planBadge.className}`}>
                 {planBadge.label}
               </span>
             </div>
-            <p className="text-[10.5px] text-slate-400 font-medium truncate">
+            <p className="text-[12px] text-[#9D99C9] font-medium truncate">
               {settings.shopName || 'Ma boutique'}
             </p>
           </div>
         </div>
-      </div>
 
-      {/* 2. Recherche rapide en pilule */}
-      <div className="px-2.5 lg:px-3 pt-2.5 pb-1 shrink-0">
-        <button
-          onClick={onOpenSearch}
-          title="Rechercher (⌘K)"
-          className="w-full flex items-center justify-between px-3 py-1.5 lg:py-2 rounded-xl bg-[#232141] hover:bg-[#2A274E] text-[#C6C2E4] hover:text-white border border-[#2F2C50] text-xs transition-colors cursor-pointer group"
-        >
-          <span className="flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-400 shrink-0" />
-            <span className="text-slate-400 group-hover:text-slate-200 text-xs">Rechercher...</span>
-          </span>
-          <kbd className="px-1.5 py-0.5 text-[9.5px] font-mono bg-[#17162B] text-slate-400 rounded border border-[#2F2C50]">
-            ⌘K
-          </kbd>
-        </button>
-      </div>
-
-      {/* 3. Navigation groupée par DOMAINE avec défilement interne */}
-      <nav className="flex-1 min-h-0 overflow-y-auto px-2 lg:px-2.5 py-1.5 space-y-1 scrollbar-thin scrollbar-thumb-[#2F2C50] scrollbar-track-transparent">
-        {/* GROUPE 1 : TABLEAU DE BORD */}
-        <div>
-          <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
-            TABLEAU DE BORD
-          </div>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => navigateTo('home')}
-              title="Accueil"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('home')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <LayoutDashboard className="w-[17px] h-[17px] shrink-0" />
-              <span className="truncate">Accueil</span>
-            </button>
-          </div>
-        </div>
-
-        {/* GROUPE 2 : VENDRE */}
-        <div>
-          <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
-            VENDRE
-          </div>
-          <div className="space-y-0.5">
-            <button
-              onClick={attemptNewSale}
-              title="Nouvelle commande"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] text-[#C6C2E4] hover:bg-[#232141] hover:text-white transition-all cursor-pointer group ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <PlusCircle className="w-[17px] h-[17px] text-indigo-400 group-hover:scale-110 transition-transform shrink-0" />
-                <span className="truncate">Nouvelle commande</span>
-              </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 shrink-0">
-                F2
-              </span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('sales')}
-              title="Mes commandes"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('sales')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <Receipt className="w-[17px] h-[17px] shrink-0" />
-                <span className="truncate">Mes commandes</span>
-              </span>
-              {salesCount > 0 && (
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full shrink-0 ${
-                    isCurrentActive('sales')
-                      ? 'bg-white/20 text-white'
-                      : 'bg-[#232141] text-slate-300'
-                  }`}
-                >
-                  {salesCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              id="nav-mes-recus"
-              onClick={() => navigateTo('receipts')}
-              title="Mes reçus"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('receipts')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <FileText className="w-[17px] h-[17px] shrink-0" />
-                <span className="truncate">Mes reçus</span>
-              </span>
-              {salesCount > 0 && (
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full shrink-0 ${
-                    isCurrentActive('receipts')
-                      ? 'bg-white/20 text-white'
-                      : 'bg-[#232141] text-slate-300'
-                  }`}
-                >
-                  {salesCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* GROUPE 3 : MON STOCK */}
-        <div>
-          <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
-            MON STOCK
-          </div>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => navigateTo('products')}
-              title="Produits"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('products')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <Package className="w-[17px] h-[17px] shrink-0" />
-                <span className="truncate">Produits</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-normal shrink-0">
-                {products.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('movements')}
-              title="Mouvements"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('movements')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <ArrowLeftRight className="w-[17px] h-[17px] shrink-0" />
-              <span className="truncate">Mouvements</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('products')}
-              title="Ce qui va manquer"
-              className="w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] text-[#C6C2E4] hover:bg-[#232141] hover:text-white transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <AlertTriangle className="w-[17px] h-[17px] text-rose-400 shrink-0" />
-                <span className="truncate">Ce qui va manquer</span>
-              </span>
-              {lowStockCount > 0 && (
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-[#DC2626] text-white shrink-0">
-                  {lowStockCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* GROUPE 4 : MES CLIENTS */}
-        <div>
-          <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
-            MES CLIENTS
-          </div>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => {
-                setCustomersDebtorsFilter(false);
-                navigateTo('customers');
-              }}
-              title="Clients"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('customers') && !customersDebtorsFilter
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <Users className="w-[17px] h-[17px] shrink-0" />
-                <span className="truncate">Clients</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-normal shrink-0">
-                {customers.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                setCustomersDebtorsFilter(true);
-                navigateTo('customers');
-              }}
-              title="Qui me doit"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('customers') && customersDebtorsFilter
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <Clock className="w-[17px] h-[17px] text-amber-400 shrink-0" />
-                <span className="truncate">Qui me doit</span>
-              </span>
-              {debtorsCount > 0 && (
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-[#DC2626] text-white shrink-0">
-                  {debtorsCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* GROUPE 5 : MON ARGENT */}
-        <div>
-          <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
-            MON ARGENT
-          </div>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => navigateTo('cash')}
-              title="Caisse"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center justify-between text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('cash')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-[10px] truncate">
-                <WalletCards className="w-[17px] h-[17px] shrink-0" />
-                <span className="truncate">Caisse</span>
-              </span>
-              <span
-                className={`flex items-center gap-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
-                  activeCashSession
-                    ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/60'
-                    : 'text-slate-400 bg-slate-800/60 border-slate-700/60'
-                }`}
-              >
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    activeCashSession ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
-                  }`}
-                />
-                <span>{activeCashSession ? 'Ouverte' : 'Fermée'}</span>
-              </span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('more', 'expenses')}
-              title="Ce que je dépense"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'expenses')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <TrendingDown className="w-[17px] h-[17px] text-amber-400 shrink-0" />
-              <span className="truncate">Ce que je dépense</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('more', 'reports')}
-              title="Mes chiffres"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'reports')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <BarChart3 className="w-[17px] h-[17px] text-indigo-400 shrink-0" />
-              <span className="truncate">Mes chiffres</span>
-            </button>
-          </div>
-        </div>
-
-        {/* GROUPE 6 : MON ÉQUIPE */}
-        <div>
-          <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
-            MON ÉQUIPE
-          </div>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => navigateTo('more', 'employees')}
-              title="Employés"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'employees')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <UserCheck className="w-[17px] h-[17px] shrink-0" />
-              <span className="truncate">Employés</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('more', 'permissions')}
-              title="Qui peut voir quoi"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'permissions')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <ShieldCheck className="w-[17px] h-[17px] text-emerald-400 shrink-0" />
-              <span className="truncate">Qui peut voir quoi</span>
-            </button>
-          </div>
-        </div>
-
-        {/* GROUPE 7 : MON COMPTE */}
-        <div>
-          <div className="text-[10.5px] font-semibold text-[#75709F] uppercase tracking-wider px-[17px] pt-[16px] pb-[6px]">
-            MON COMPTE
-          </div>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => navigateTo('more', 'subscription')}
-              title="Mon abonnement"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'subscription')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <Crown className="w-[17px] h-[17px] text-amber-400 shrink-0" />
-              <span className="truncate">Mon abonnement</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('more', 'settings')}
-              title="Réglages"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'settings')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <Settings className="w-[17px] h-[17px] shrink-0" />
-              <span className="truncate">Réglages</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('more', 'export')}
-              title="Sauvegarde & Export"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'export')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <Download className="w-[17px] h-[17px] text-emerald-400 shrink-0" />
-              <span className="truncate">Sauvegarde & Export</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('more', 'help')}
-              title="Aide"
-              className={`w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] transition-all cursor-pointer ${
-                isCurrentActive('more', 'help')
-                  ? 'bg-[#4F46E5] text-white font-semibold shadow-xs'
-                  : 'text-[#C6C2E4] hover:bg-[#232141] hover:text-white'
-              }`}
-            >
-              <HelpCircle className="w-[17px] h-[17px] shrink-0" />
-              <span className="truncate">Aide</span>
-            </button>
-
-            {onOpenLanding && (
-              <button
-                onClick={onOpenLanding}
-                title="Voir la Landing Page"
-                className="w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] text-emerald-300 hover:bg-emerald-950/40 hover:text-emerald-200 border border-emerald-500/20 transition-all cursor-pointer mt-1"
-              >
-                <Sparkles className="w-[17px] h-[17px] text-emerald-400 shrink-0" />
-                <span className="truncate font-semibold">Site / Landing Page</span>
-              </button>
-            )}
-
-            {/* Déconnexion aussi dans la liste, et pas seulement tout en bas :
-                c'est ici, sous « Mon compte », qu'on vient la chercher — et
-                cette liste défile, donc elle reste atteignable même sur un
-                écran court où le bas de la barre est coupé. */}
-            <button
-              onClick={() => logoutUser()}
-              title="Déconnexion"
-              className="w-full h-[38px] px-[11px] py-[9px] rounded-[9px] flex items-center gap-[10px] text-[13px] text-[#C6C2E4] hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
-            >
-              <LogOut className="w-[17px] h-[17px] shrink-0" />
-              <span className="truncate">Déconnexion</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* 4. Carte du bas : statut d'abonnement + bouton Voir mon abonnement */}
-      <div className="p-2 lg:p-2.5 border-t border-[#2F2C50] shrink-0">
-        <div className="p-2.5 rounded-2xl bg-[#232141] border border-[#2F2C50] space-y-2">
-          {settings.planStatus === 'EXPIRED' ? (
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-rose-400" />
-                <span>Abonnement expiré</span>
-              </span>
-            </div>
-          ) : settings.planStatus === 'TRIAL' ? (
-            <>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Essai</span>
-                </span>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">
-                  {settings.trialDaysLeft} jours restants
-                </span>
-              </div>
-              <div className="w-full bg-[#17162B] h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-amber-400 to-[#4F46E5] h-full rounded-full"
-                  style={{ width: `${Math.min(100, (settings.trialDaysLeft / 14) * 100)}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Formule {settings.planStatus === 'BUSINESS' ? 'Business' : 'Solo'}</span>
-                </span>
-                {/* Un abonné payant voyait « Active » sans aucune échéance : il
-                    découvrait la coupure le matin même. Le compte à rebours se
-                    lit maintenant ici, comme pendant l'essai. */}
-                <span
-                  className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded ${
-                    settings.subscriptionDaysLeft != null && settings.subscriptionDaysLeft <= 7
-                      ? 'bg-amber-500/20 text-amber-300'
-                      : 'bg-emerald-500/20 text-emerald-300'
-                  }`}
-                >
-                  {settings.subscriptionDaysLeft == null
-                    ? 'Active'
-                    : `${settings.subscriptionDaysLeft} j restants`}
-                </span>
-              </div>
-              {settings.subscriptionDaysLeft != null && settings.subscriptionDaysLeft <= 30 && (
-                <div className="w-full bg-[#17162B] h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      settings.subscriptionDaysLeft <= 7
-                        ? 'bg-gradient-to-r from-rose-500 to-amber-400'
-                        : 'bg-gradient-to-r from-emerald-400 to-[#4F46E5]'
-                    }`}
-                    style={{ width: `${Math.min(100, (settings.subscriptionDaysLeft / 30) * 100)}%` }}
-                  />
-                </div>
-              )}
-            </>
-          )}
+        {/* 2. Recherche rapide en pilule */}
+        <div className="px-3 pb-1 shrink-0">
           <button
-            onClick={() => navigateTo('more', 'subscription')}
-            className={`w-full py-1.5 rounded-xl text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs block text-center ${
-              settings.planStatus === 'EXPIRED' ? 'bg-rose-600 hover:bg-rose-500' : 'bg-[#4F46E5] hover:bg-indigo-500'
-            }`}
+            onClick={onOpenSearch}
+            title="Rechercher (⌘K)"
+            className="w-full h-10 flex items-center justify-between px-3.5 rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-[#9D99C9] hover:text-white text-[14px] transition-colors cursor-pointer active:scale-[0.97]"
           >
-            {settings.planStatus === 'EXPIRED' ? 'Réactiver mon compte' : 'Voir mon abonnement'}
+            <span className="flex items-center gap-2">
+              <Search className="w-4 h-4 shrink-0" />
+              <span>Rechercher…</span>
+            </span>
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-black/25 text-[#9D99C9] rounded-md">
+              ⌘K
+            </kbd>
           </button>
         </div>
-      </div>
 
-      {/* 5. Ligne identité utilisateur / rôle + déconnexion.
-          La déconnexion n'était qu'une icône grise de 32 px sans libellé, dans
-          le coin : elle marchait, mais on ne la trouvait pas — sur téléphone,
-          l'onglet « Plus » a toujours eu un vrai bouton écrit. */}
-      <div className="p-2.5 lg:p-3 border-t border-[#2F2C50] shrink-0 space-y-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#4F46E5] to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-[#2F2C50]">
-            {avatarInitials(settings.ownerName)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-white truncate leading-tight">
-              {settings.ownerName}
-            </p>
-            <p className="text-[10px] text-slate-400 truncate">
-              {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'} • {settings.city}
-            </p>
+        {/* 3. Navigation groupée par DOMAINE avec défilement interne.
+            La pastille de l'item actif glisse d'un item à l'autre. */}
+        <MotionConfig reducedMotion="user">
+          <motion.nav
+            layoutScroll
+            className="flex-1 min-h-0 overflow-y-auto px-3 pb-2 scrollbar-none"
+          >
+            {groups.map((group) => (
+              <div key={group.title}>
+                <div className="text-[11px] font-semibold text-[#75709F] uppercase tracking-wider px-3 pt-4 pb-1.5">
+                  {group.title}
+                </div>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const Icone = item.icon;
+                    return (
+                      <button
+                        key={item.key}
+                        id={item.id}
+                        onClick={item.onClick}
+                        title={item.label}
+                        aria-current={item.active ? 'page' : undefined}
+                        className={`relative w-full h-10 px-3 rounded-xl flex items-center justify-between gap-2 text-[14px] transition-colors duration-200 cursor-pointer active:scale-[0.97] ${
+                          item.active
+                            ? 'text-white font-semibold'
+                            : 'text-[#C6C2E4] hover:bg-white/[0.07] hover:text-white'
+                        } ${item.className ?? ''}`}
+                      >
+                        {item.active && (
+                          <motion.span
+                            layoutId="sidebar-pastille"
+                            transition={{ duration: 0.4, ease: MC_EASE }}
+                            className="absolute inset-0 rounded-xl bg-mc-primary shadow-[0_6px_16px_rgba(91,75,240,0.45)]"
+                          />
+                        )}
+                        <span className="relative z-10 flex items-center gap-3 min-w-0">
+                          <Icone
+                            className={`w-5 h-5 shrink-0 ${item.active ? 'text-white' : (item.iconClass ?? '')}`}
+                          />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        {item.trailing && <span className="relative z-10 shrink-0">{item.trailing}</span>}
+                        {item.count != null && item.count > 0 && (
+                          <span
+                            className={`relative z-10 shrink-0 min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold tabular-nums flex items-center justify-center ${
+                              item.active
+                                ? 'bg-white/25 text-white'
+                                : item.countTone === 'danger'
+                                  ? 'bg-mc-danger text-white'
+                                  : 'bg-white/10 text-[#C6C2E4]'
+                            }`}
+                          >
+                            {item.count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </motion.nav>
+        </MotionConfig>
+
+        {/* 4. Carte du bas : statut d'abonnement + bouton Voir mon abonnement */}
+        <div className="px-3 pt-2 shrink-0">
+          <div
+            className={`p-3 rounded-2xl space-y-2.5 ${
+              settings.planStatus === 'TRIAL' ? 'mc-gradient' : 'bg-white/[0.07]'
+            }`}
+          >
+            {settings.planStatus === 'EXPIRED' ? (
+              <span className="text-[12px] font-bold text-white flex items-center gap-1.5">
+                <Lock className="w-4 h-4 text-rose-400" />
+                <span>Abonnement expiré</span>
+              </span>
+            ) : settings.planStatus === 'TRIAL' ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-bold text-white flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>Essai</span>
+                  </span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white tabular-nums">
+                    {settings.trialDaysLeft} jours restants
+                  </span>
+                </div>
+                <div className="w-full bg-black/25 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-white h-full rounded-full"
+                    style={{ width: `${Math.min(100, (settings.trialDaysLeft / trialTotal) * 100)}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-bold text-white flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <span>Formule {settings.planStatus === 'BUSINESS' ? 'Business' : 'Solo'}</span>
+                  </span>
+                  {/* Un abonné payant voyait « Active » sans aucune échéance : il
+                      découvrait la coupure le matin même. Le compte à rebours se
+                      lit maintenant ici, comme pendant l'essai. */}
+                  <span
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums ${
+                      settings.subscriptionDaysLeft != null && settings.subscriptionDaysLeft <= 7
+                        ? 'bg-amber-400/20 text-amber-300'
+                        : 'bg-emerald-400/20 text-emerald-300'
+                    }`}
+                  >
+                    {settings.subscriptionDaysLeft == null
+                      ? 'Active'
+                      : `${settings.subscriptionDaysLeft} j restants`}
+                  </span>
+                </div>
+                {settings.subscriptionDaysLeft != null && settings.subscriptionDaysLeft <= 30 && (
+                  <div className="w-full bg-black/25 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        settings.subscriptionDaysLeft <= 7
+                          ? 'bg-gradient-to-r from-rose-500 to-amber-400'
+                          : 'bg-gradient-to-r from-emerald-400 to-[#5B4BF0]'
+                      }`}
+                      style={{ width: `${Math.min(100, (settings.subscriptionDaysLeft / 30) * 100)}%` }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            <button
+              onClick={() => navigateTo('more', 'subscription')}
+              className={`w-full h-8 rounded-full text-[12px] font-bold transition-all cursor-pointer block text-center active:scale-[0.97] ${
+                settings.planStatus === 'EXPIRED'
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                  : settings.planStatus === 'TRIAL'
+                    ? 'bg-white text-mc-primary-dark hover:bg-white/90'
+                    : 'bg-mc-primary hover:bg-[#6C5CFF] text-white'
+              }`}
+            >
+              {settings.planStatus === 'EXPIRED' ? 'Réactiver mon compte' : 'Voir mon abonnement'}
+            </button>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => logoutUser()}
-          title="Déconnexion"
-          aria-label="Déconnexion"
-          className="w-full py-2 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-300 bg-[#232141] border border-[#2F2C50] hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-colors cursor-pointer"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Déconnexion</span>
-        </button>
+
+        {/* 5. Ligne identité utilisateur / rôle + déconnexion.
+            La déconnexion n'était qu'une icône grise de 32 px sans libellé, dans
+            le coin : elle marchait, mais on ne la trouvait pas — sur téléphone,
+            l'onglet « Plus » a toujours eu un vrai bouton écrit. */}
+        <div className="p-3 shrink-0 space-y-2">
+          <div className="flex items-center gap-2.5 px-1">
+            <div className="w-9 h-9 rounded-full mc-gradient text-white font-bold text-[12px] flex items-center justify-center shrink-0">
+              {avatarInitials(settings.ownerName)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-bold text-white truncate leading-tight">
+                {settings.ownerName}
+              </p>
+              <p className="text-[11px] text-[#9D99C9] truncate">
+                {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'} • {settings.city}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => logoutUser()}
+            title="Déconnexion"
+            aria-label="Déconnexion"
+            className="w-full h-9 rounded-full flex items-center justify-center gap-1.5 text-[12px] font-bold text-[#C6C2E4] bg-white/[0.07] hover:bg-rose-600 hover:text-white transition-colors cursor-pointer active:scale-[0.97]"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Déconnexion</span>
+          </button>
+        </div>
       </div>
     </aside>
   );

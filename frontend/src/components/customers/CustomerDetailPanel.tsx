@@ -80,16 +80,16 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
       <div
         id="customer-detail-panel"
         onClick={(e) => e.stopPropagation()}
-        className="bg-white w-full sm:max-w-lg max-h-[90vh] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-100 flex flex-col"
+        className="bg-white w-full sm:max-w-lg max-h-[90vh] rounded-t-3xl sm:rounded-mc shadow-2xl border border-slate-100 flex flex-col"
       >
         {/* En-tête : qui, et combien il doit */}
         <div className="p-5 pb-4 border-b border-slate-100 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="font-extrabold text-base text-slate-900 truncate">{customer.name}</h3>
+              <h3 className="font-extrabold text-base text-mc-ink truncate">{customer.name}</h3>
               <a
                 href={`tel:${customer.phone}`}
-                className="text-xs font-bold text-slate-600 mt-0.5 inline-flex items-center gap-1 hover:text-[#4F46E5]"
+                className="text-xs font-bold text-slate-600 mt-0.5 inline-flex items-center gap-1 hover:text-[#5B4BF0]"
               >
                 <Phone className="w-3 h-3 text-slate-400" />
                 {customer.phone}
@@ -98,7 +98,7 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
             <button
               onClick={onClose}
               aria-label="Fermer"
-              className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer shrink-0"
+              className="w-7 h-7 rounded-full bg-slate-100 text-mc-soft hover:bg-slate-200 flex items-center justify-center cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -117,7 +117,7 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
               >
                 {hasDebt ? (customer.debtProvisional ? 'Il te doit (provisoire)' : 'Il te doit') : 'Solde'}
               </span>
-              <div className={`text-lg font-black ${hasDebt ? 'text-rose-700' : 'text-emerald-700'}`}>
+              <div className={`text-lg font-extrabold ${hasDebt ? 'text-rose-700' : 'text-emerald-700'}`}>
                 {hasDebt ? formatMoney(customer.totalDebt) : 'À jour (0 F)'}
               </div>
             </div>
@@ -130,18 +130,18 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
           </div>
 
           <div className="flex items-center gap-2 text-xs">
-            <Repeat className="w-3.5 h-3.5 text-[#4F46E5] shrink-0" />
-            <span className="font-semibold text-slate-500">Fréquence d’achat :</span>
-            <span className="font-extrabold text-slate-900">{frequence}</span>
+            <Repeat className="w-3.5 h-3.5 text-[#5B4BF0] shrink-0" />
+            <span className="font-semibold text-mc-soft">Fréquence d’achat :</span>
+            <span className="font-extrabold text-mc-ink">{frequence}</span>
           </div>
         </div>
 
         {/* Commandes, la plus récente en haut */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           <section id="customer-payments" className="space-y-2 pb-2">
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Ses paiements</h4>
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-mc-soft">Ses paiements</h4>
             {paiements.length === 0 ? (
-              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200/80 rounded-2xl p-3">
+              <p className="text-xs text-mc-soft bg-slate-50 border border-mc-line rounded-2xl p-3">
                 Aucun versement pour l’instant.
               </p>
             ) : (
@@ -151,7 +151,7 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
             )}
           </section>
 
-          <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 pt-1">Ses commandes</h4>
+          <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-mc-soft pt-1">Ses commandes</h4>
           {commandes.length === 0 ? (
             <div className="py-10 text-center text-slate-400 space-y-2">
               <ShoppingBag className="w-9 h-9 mx-auto text-slate-300 stroke-[1.5]" />
@@ -175,12 +175,12 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
                 <div
                   key={sale.id}
                   className={`p-3 rounded-2xl border ${
-                    aRegler ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200/80 bg-white'
+                    aRegler ? 'border-rose-300 bg-rose-50/40' : 'border-mc-line bg-white'
                   } ${annulee ? 'opacity-60' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs font-extrabold text-slate-900">
+                      <p className="text-xs font-extrabold text-mc-ink">
                         {new Date(sale.createdAt).toLocaleDateString('fr-FR', {
                           day: 'numeric',
                           month: 'short',
@@ -188,15 +188,15 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
                         })}
                         <span className="font-semibold text-slate-400"> · {sale.reference}</span>
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                      <p className="text-[11px] text-mc-soft truncate mt-0.5">
                         {countLabel(nbArticles, 'article')} ·{' '}
                         {sale.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <div
-                        className={`text-sm font-black tabular-nums ${
-                          annulee ? 'text-slate-400 line-through' : 'text-slate-900'
+                        className={`text-sm font-extrabold tabular-nums ${
+                          annulee ? 'text-slate-400 line-through' : 'text-mc-ink'
                         }`}
                       >
                         {formatMoney(sale.totalAmount)}
@@ -215,11 +215,11 @@ export const CustomerDetailPanel: React.FC<CustomerDetailPanelProps> = ({ custom
                       <span className="font-semibold text-slate-600">
                         Déjà payé : {formatMoney(sale.paidAmount)}
                       </span>
-                      <span className="font-black text-rose-700">Reste dû : {formatMoney(reste)}</span>
+                      <span className="font-extrabold text-rose-700">Reste dû : {formatMoney(reste)}</span>
                     </div>
                   )}
                   {annulee && sale.cancelReason && (
-                    <p className="mt-1.5 text-[11px] text-slate-500 italic">Motif : {sale.cancelReason}</p>
+                    <p className="mt-1.5 text-[11px] text-mc-soft italic">Motif : {sale.cancelReason}</p>
                   )}
                 </div>
               );

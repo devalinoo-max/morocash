@@ -2,6 +2,7 @@ import { affiliatePayoutSchema, getAffiliateDashboard, requestAffiliatePayout } 
 import { requireAffiliate } from '@/server/modules/affiliation/session';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 /**
  * Demande de retrait de tout le solde, vers l'opérateur et le numéro choisis.
@@ -10,6 +11,7 @@ import { AppError } from '@/server/shared/errors';
 export async function POST(request: Request) {
   try {
     const affiliate = await requireAffiliate();
+    await assertCsrf();
     const body = await request.json().catch(() => null);
     const parsed = affiliatePayoutSchema.safeParse(body);
     if (!parsed.success) {

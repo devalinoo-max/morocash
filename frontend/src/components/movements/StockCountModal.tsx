@@ -157,8 +157,8 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl sm:rounded-mc shadow-2xl border border-mc-line w-full max-w-3xl my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-800 to-indigo-900 px-6 py-4 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -166,7 +166,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
               <ClipboardList className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black tracking-tight">
+              <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
                 Faire un comptage de stock
               </h2>
               <p className="text-xs text-indigo-200 font-medium">
@@ -192,7 +192,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs font-bold text-mc-ink focus:bg-white focus:border-mc-primary focus:outline-none"
               >
                 <option value="ALL">Tout le magasin ({physicalProducts.length})</option>
                 {categories.map((c) => (
@@ -215,11 +215,11 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                   value={scanInput}
                   onChange={(e) => setScanInput(e.target.value)}
                   placeholder="Scannez un article pour ajouter +1 au comptage..."
-                  className="w-full pl-9 pr-20 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full pl-9 pr-20 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs font-semibold text-mc-ink focus:bg-white focus:border-mc-primary focus:outline-none"
                 />
                 <button
                   type="submit"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[11px] font-bold hover:bg-indigo-700 cursor-pointer"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-mc-primary text-white rounded-lg text-[11px] font-bold hover:bg-mc-primary-dark cursor-pointer"
                 >
                   Scanner
                 </button>
@@ -240,15 +240,15 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filtrer par nom de produit dans cette liste..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-none"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs font-medium text-mc-ink focus:bg-white focus:border-mc-primary focus:outline-none"
             />
           </div>
 
           {/* Products Table */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+          <div className="border border-mc-line rounded-xl overflow-hidden shadow-xs">
             <div className="max-h-[320px] overflow-y-auto">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-100 text-[11px] font-black uppercase text-slate-600 sticky top-0 z-10">
+                <thead className="bg-slate-100 text-[11px] font-extrabold uppercase text-slate-600 sticky top-0 z-10">
                   <tr>
                     <th className="py-2.5 px-3">Produit</th>
                     <th className="py-2.5 px-2 text-center">Théorique</th>
@@ -273,7 +273,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                         }`}
                       >
                         <td className="py-2.5 px-3">
-                          <p className="font-bold text-slate-900 leading-tight">
+                          <p className="font-bold text-mc-ink leading-tight">
                             {prod.name}
                           </p>
                           <span className="text-[10px] text-slate-400 font-mono">
@@ -281,7 +281,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                           </span>
                         </td>
 
-                        <td className="py-2.5 px-2 text-center font-bold text-slate-500">
+                        <td className="py-2.5 px-2 text-center font-bold text-mc-soft">
                           {prod.stock} {prod.unit || 'u'}
                         </td>
 
@@ -290,7 +290,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleQtyChange(prod.id, counted - 1)}
-                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs flex items-center justify-center cursor-pointer"
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center justify-center cursor-pointer"
                             >
                               −
                             </button>
@@ -301,23 +301,23 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                               onChange={(e) =>
                                 handleQtyChange(prod.id, Number(e.target.value))
                               }
-                              className={`w-14 text-center font-black text-xs py-1 rounded border focus:outline-none ${
+                              className={`w-14 text-center font-extrabold text-xs py-1 rounded border focus:outline-none ${
                                 diff !== 0
                                   ? 'border-amber-400 bg-amber-50 text-amber-900'
-                                  : 'border-slate-200 bg-white text-slate-900'
+                                  : 'border-mc-line bg-white text-mc-ink'
                               }`}
                             />
                             <button
                               type="button"
                               onClick={() => handleQtyChange(prod.id, counted + 1)}
-                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs flex items-center justify-center cursor-pointer"
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center justify-center cursor-pointer"
                             >
                               +
                             </button>
                           </div>
                         </td>
 
-                        <td className="py-2.5 px-3 text-right font-black">
+                        <td className="py-2.5 px-3 text-right font-extrabold">
                           {diff === 0 ? (
                             <span className="inline-flex items-center gap-0.5 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[11px]">
                               <Equal className="w-3 h-3" /> 0
@@ -366,12 +366,12 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
               value={commentaire}
               onChange={(e) => setCommentaire(e.target.value)}
               placeholder="Ex: Comptage de fin de semaine, contrôle rayon lait..."
-              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-none"
+              className="w-full px-3.5 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs text-mc-ink focus:bg-white focus:border-mc-primary focus:outline-none"
             />
           </div>
 
           {/* Gaps Summary Banner */}
-          <div className="p-3.5 rounded-xl bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-mc-ink text-white flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-4">
               <div>
                 <span className="text-slate-400 text-[10px] uppercase font-bold block">
@@ -387,7 +387,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                   Écarts constatés
                 </span>
                 <span
-                  className={`font-black text-sm ${
+                  className={`font-extrabold text-sm ${
                     totalEcarts > 0 ? 'text-amber-400' : 'text-emerald-400'
                   }`}
                 >
@@ -411,7 +411,7 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
                   Écart valeur total
                 </span>
                 <span
-                  className={`font-black text-sm ${
+                  className={`font-extrabold text-sm ${
                     ecartValeur >= 0 ? 'text-emerald-400' : 'text-rose-400'
                   }`}
                 >
@@ -422,18 +422,18 @@ export const StockCountModal: React.FC<StockCountModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="pt-2 border-t border-slate-200 flex items-center justify-end gap-2.5">
+          <div className="pt-2 border-t border-mc-line flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="px-4 py-2.5 border border-mc-line rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="button"
               onClick={handleSubmit}
-              className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-700 hover:to-indigo-900 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-700/20 transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-700 hover:to-indigo-900 text-white rounded-xl text-xs font-extrabold shadow-md shadow-indigo-700/20 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
               Valider le comptage

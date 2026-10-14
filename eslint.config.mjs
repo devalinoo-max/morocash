@@ -12,7 +12,24 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Projets et sorties de build qui ne relèvent pas des règles Next :
+    // le frontend Vite a sa propre vérification (tsc), le reste est généré.
+    "frontend/**",
+    "landing-redesign/**",
+    "landing-static/**",
+    "izikit/**",
+    "src/generated/**",
   ]),
+  {
+    rules: {
+      // `const { coutUnitaire, ...rest } = item` sert à RETIRER un champ :
+      // la variable écartée n'est pas un oubli.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { ignoreRestSiblings: true, argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -258,7 +258,7 @@ export const ProductsTab: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cherche un produit, un code"
-              className="w-full h-11 pl-10 pr-3 rounded-full bg-white border border-slate-200 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] transition-all"
+              className="w-full h-11 pl-10 pr-3 rounded-full bg-white border border-mc-line text-[13px] font-medium text-mc-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#5B4BF0] transition-all"
             />
           </div>
 
@@ -266,11 +266,11 @@ export const ProductsTab: React.FC = () => {
             id="btn-scan-to-search"
             type="button"
             onClick={() => setIsSearchScannerOpen(true)}
-            className="w-11 h-11 shrink-0 rounded-full bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center cursor-pointer transition-all active:scale-95"
+            className="w-11 h-11 shrink-0 rounded-full bg-mc-ink hover:bg-[#1E2140] text-white flex items-center justify-center cursor-pointer transition-all active:scale-95"
             title="Scanner pour rechercher"
             aria-label="Scanner un code pour rechercher"
           >
-            <Camera className="w-[18px] h-[18px] text-indigo-300" />
+            <Camera className="w-[18px] h-[18px] text-[#B9B2FF]" />
           </button>
         </div>
 
@@ -282,7 +282,7 @@ export const ProductsTab: React.FC = () => {
             id="btn-add-new-product"
             type="button"
             onClick={() => gateWrite(() => handleOpenCreate())}
-            className={`flex-1 min-w-[170px] h-10 px-3.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white text-[13px] font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer ${
+            className={`flex-1 min-w-[170px] h-10 px-3.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark active:scale-[0.98] text-white text-[13px] font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer ${
               isWriteLocked ? LOCKED_BTN_CLASS : ''
             }`}
           >
@@ -293,18 +293,18 @@ export const ProductsTab: React.FC = () => {
             id="btn-open-labels"
             type="button"
             onClick={() => setIsLabelSelectionOpen(true)}
-            className="flex-1 sm:flex-none h-10 px-3.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-none min-h-10 px-3 py-1.5 leading-tight rounded-2xl bg-white border border-mc-line hover:bg-slate-50 text-mc-ink text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Tag className="w-4 h-4 text-slate-500" />
+            <Tag className="w-4 h-4 text-mc-soft" />
             Imprimer vos étiquettes
           </button>
           <button
             id="btn-open-catalog-export"
             type="button"
             onClick={() => setIsExportOpen(true)}
-            className="flex-1 sm:flex-none h-10 px-3.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-none min-h-10 px-3 py-1.5 leading-tight rounded-2xl bg-white border border-mc-line hover:bg-slate-50 text-mc-ink text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Download className="w-4 h-4 text-slate-500" />
+            <Download className="w-4 h-4 text-mc-soft" />
             Télécharger votre catalogue
           </button>
         </div>
@@ -327,8 +327,8 @@ export const ProductsTab: React.FC = () => {
                   onClick={() => setFilterType(flt.id)}
                   className={`shrink-0 h-8 px-3 rounded-full text-[11.5px] font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
                     actif
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'bg-mc-ink text-white shadow-xs'
+                      : 'bg-white border border-mc-line text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   {flt.dot && (
@@ -350,8 +350,8 @@ export const ProductsTab: React.FC = () => {
       {/* =====================================================================
           LIGNE DE RÉSUMÉ — ce que l'ancien sous-titre aurait dû dire
           ===================================================================== */}
-      <div className="h-9 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200/80 flex items-center gap-2 text-[12px] min-w-0">
-        <span className="font-bold text-slate-800 shrink-0">
+      <div className="h-9 px-3 rounded-xl bg-white border border-mc-line flex items-center gap-2 text-[12px] min-w-0">
+        <span className="font-bold text-mc-ink shrink-0">
           {countLabel(counts.ALL, settings.activityType === 'SERVICES' ? 'prestation' : 'produit')}
         </span>
         {terminology.stockVisible && counts.LOW_STOCK > 0 && (
@@ -376,7 +376,7 @@ export const ProductsTab: React.FC = () => {
           fixes sous 400 px), deux ou trois dès qu'il y a la place. */}
       <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-2.5">
         {filteredProducts.length === 0 ? (
-          <div className="md:col-span-full p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 space-y-2">
+          <div className="md:col-span-full p-12 text-center bg-white rounded-mc border border-mc-line text-slate-400 space-y-2">
             <Package className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
             <p className="text-sm font-semibold text-slate-600">Aucun article trouvé</p>
             <p className="text-xs">Ajoute un produit ou modifie tes critères de recherche.</p>
@@ -470,11 +470,11 @@ export const ProductsTab: React.FC = () => {
       {/* QUICK STOCK INFLOW MODAL */}
       {adjustStockProduct && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white max-w-sm w-full p-5 rounded-3xl shadow-2xl space-y-4">
-            <h3 className="font-extrabold text-base text-slate-900">
+          <div className="bg-white max-w-sm w-full p-5 rounded-mc shadow-2xl space-y-4">
+            <h3 className="font-extrabold text-base text-mc-ink">
               Entrée de stock : {adjustStockProduct.name}
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-mc-soft">
               Stock actuel : <strong>{adjustStockProduct.stock}</strong> {adjustStockProduct.unit}
             </p>
 
@@ -488,7 +488,7 @@ export const ProductsTab: React.FC = () => {
                 min="1"
                 value={stockAddAmount}
                 onChange={(e) => setStockAddAmount(parseInt(e.target.value, 10) || 1)}
-                className="w-full px-3.5 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-900"
+                className="w-full px-3.5 py-3 rounded-xl border border-mc-line text-sm font-bold text-mc-ink"
               />
             </div>
 
@@ -507,7 +507,7 @@ export const ProductsTab: React.FC = () => {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setAdjustStockProduct(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-xs text-slate-600 cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl border border-mc-line font-bold text-xs text-slate-600 cursor-pointer"
               >
                 Annuler
               </button>

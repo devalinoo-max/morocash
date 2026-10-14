@@ -1,4 +1,4 @@
-import { CACHE_STORE, idbGet, idbPut } from './idb';
+import { CACHE_STORE, idbDelete, idbGet, idbPut } from './idb';
 
 /**
  * Instantane local des donnees de la boutique.
@@ -50,6 +50,15 @@ export function saveSnapshot(snapshot: Omit<OfflineSnapshot, 'savedAt'>): Promis
 
 export function loadSnapshot(): Promise<OfflineSnapshot | null> {
   return idbGet<OfflineSnapshot>(CACHE_STORE, SNAPSHOT_KEY);
+}
+
+/**
+ * Efface l'instantané à la déconnexion : clients, téléphones et ventes d'une
+ * boutique ne doivent pas rester lisibles sur un téléphone partagé. La table
+ * des identifiants (idMap) est gardée, la file d'attente en a encore besoin.
+ */
+export function clearSnapshot(): Promise<void> {
+  return idbDelete(CACHE_STORE, SNAPSHOT_KEY);
 }
 
 /**

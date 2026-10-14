@@ -142,7 +142,7 @@ export const PageThumbnail: React.FC<{ page: PrintPageSpec | null }> = ({ page }
         })}
         <rect x={pad} y={h - pad - 4} width={w - 2 * pad} height="2.4" fill="#0F172A" />
       </svg>
-      <span className="text-[10px] font-semibold text-slate-500 text-center leading-tight">{describePage(page)}</span>
+      <span className="text-[10px] font-semibold text-mc-soft text-center leading-tight">{describePage(page)}</span>
     </div>
   );
 };
@@ -190,13 +190,13 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
 
   const optionClass = (selected: boolean) =>
     `w-full text-left px-3.5 py-3 rounded-[13px] border-[1.5px] transition-colors cursor-pointer flex items-center gap-3 ${
-      selected ? 'border-[#4F46E5] bg-indigo-50/60' : 'border-slate-200 bg-white hover:border-slate-300'
+      selected ? 'border-[#5B4BF0] bg-mc-primary-tint' : 'border-mc-line bg-white hover:border-slate-300'
     }`;
 
   const Radio = ({ on }: { on: boolean }) => (
     <span
       className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
-        on ? 'border-[#4F46E5] bg-[#4F46E5]' : 'border-slate-300 bg-white'
+        on ? 'border-[#5B4BF0] bg-[#5B4BF0]' : 'border-slate-300 bg-white'
       }`}
     >
       {on && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
@@ -214,14 +214,14 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
             <button key={f.id} type="button" onClick={() => set({ choice: f.id })} className={optionClass(on)}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[13.5px] font-bold text-slate-900">{f.label}</span>
+                  <span className="text-[13.5px] font-bold text-mc-ink">{f.label}</span>
                   {f.id === '58' && (
                     <span className="text-[9.5px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-px">
                       Recommandé
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">{f.aide}</div>
+                <div className="text-[11px] text-mc-soft mt-0.5">{f.aide}</div>
               </div>
               <Radio on={on} />
             </button>
@@ -238,8 +238,8 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
               }}
             >
               <div className="flex-1 min-w-0">
-                <div className="text-[13.5px] font-bold text-slate-900 truncate">{size.nom}</div>
-                <div className="text-[11px] text-slate-500 mt-0.5">{describePage(size)}</div>
+                <div className="text-[13.5px] font-bold text-mc-ink truncate">{size.nom}</div>
+                <div className="text-[11px] text-mc-soft mt-0.5">{describePage(size)}</div>
               </div>
               <button
                 type="button"
@@ -261,7 +261,7 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
         {/* Taille personnalisée : bordure pointillée tant qu'elle est repliée —
             ici on crée, on ne choisit pas. */}
         <div
-          className={`rounded-[13px] border-[1.5px] border-[#4F46E5] bg-[#EEF2FF] ${isCustom ? 'border-solid' : 'border-dashed'}`}
+          className={`rounded-[13px] border-[1.5px] border-[#5B4BF0] bg-[#EEF2FF] ${isCustom ? 'border-solid' : 'border-dashed'}`}
         >
           <button
             type="button"
@@ -269,9 +269,9 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
             className="w-full text-left px-3.5 py-3 flex items-center gap-3 cursor-pointer"
             aria-expanded={isCustom}
           >
-            <RectangleHorizontal className="w-5 h-5 text-[#4F46E5] shrink-0" />
+            <RectangleHorizontal className="w-5 h-5 text-[#5B4BF0] shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="text-[13.5px] font-bold text-slate-900">Taille personnalisée</div>
+              <div className="text-[13.5px] font-bold text-mc-ink">Taille personnalisée</div>
               <div className="text-[11px] text-slate-600 mt-0.5">Pour une imprimante qui n’est pas dans la liste</div>
             </div>
             <Radio on={isCustom} />
@@ -280,14 +280,14 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
           {isCustom && (
             <div className="px-3.5 pb-3.5 space-y-3">
               {/* a) Unité */}
-              <div className="grid grid-cols-3 gap-1 p-1 bg-white/80 rounded-xl border border-indigo-100">
+              <div className="grid grid-cols-3 gap-1 p-1 bg-white/80 rounded-xl border border-[#DAD6FC]">
                 {(['mm', 'cm', 'po'] as PrintUnit[]).map((u) => (
                   <button
                     key={u}
                     type="button"
                     onClick={() => changeUnit(u)}
                     className={`py-1.5 rounded-lg text-[11.5px] font-bold transition-colors cursor-pointer ${
-                      draft.unit === u ? 'bg-[#4F46E5] text-white' : 'text-slate-600 hover:text-slate-900'
+                      draft.unit === u ? 'bg-[#5B4BF0] text-white' : 'text-slate-600 hover:text-mc-ink'
                     }`}
                   >
                     {u === 'mm' ? 'Millimètres' : u === 'cm' ? 'Centimètres' : 'Pouces'}
@@ -298,30 +298,30 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
               {/* b) Largeur × hauteur */}
               <div className="flex items-end gap-2">
                 <label className="flex-1 min-w-0">
-                  <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Largeur</span>
+                  <span className="block text-[10px] font-extrabold uppercase tracking-wider text-mc-soft mb-1">Largeur</span>
                   <input
                     type="text"
                     inputMode="decimal"
                     value={draft.largeurText}
                     onChange={(e) => set({ largeurText: e.target.value })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-center text-[15px] font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                    className="w-full h-11 px-3 rounded-xl border border-mc-line bg-white text-center text-[15px] font-bold text-mc-ink focus:ring-2 focus:ring-mc-primary outline-hidden"
                   />
                 </label>
                 <span className="pb-3 text-slate-400 font-bold">×</span>
                 <label className="flex-1 min-w-0">
-                  <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Hauteur</span>
+                  <span className="block text-[10px] font-extrabold uppercase tracking-wider text-mc-soft mb-1">Hauteur</span>
                   <input
                     type="text"
                     inputMode="decimal"
                     value={draft.hauteurText}
                     placeholder="Auto"
                     onChange={(e) => set({ hauteurText: e.target.value })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-center text-[15px] font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-semibold focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                    className="w-full h-11 px-3 rounded-xl border border-mc-line bg-white text-center text-[15px] font-bold text-mc-ink placeholder:text-slate-400 placeholder:font-semibold focus:ring-2 focus:ring-mc-primary outline-hidden"
                   />
                 </label>
-                <span className="pb-3 text-[12px] font-bold text-slate-500 w-6">{UNIT_LABELS[draft.unit]}</span>
+                <span className="pb-3 text-[12px] font-bold text-mc-soft w-6">{UNIT_LABELS[draft.unit]}</span>
               </div>
-              <p className="text-[10.5px] text-slate-500 leading-snug">
+              <p className="text-[10.5px] text-mc-soft leading-snug">
                 Laisse la hauteur vide pour un ticket qui s’adapte au nombre d’articles.
               </p>
 
@@ -337,7 +337,7 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
                         hauteurText: sc.hauteurMm ? formatInUnit(sc.hauteurMm, draft.unit) : '',
                       })
                     }
-                    className="px-2.5 py-1 rounded-full bg-white border border-indigo-200 text-[11px] font-bold text-[#4F46E5] hover:bg-indigo-50 cursor-pointer"
+                    className="px-2.5 py-1 rounded-full bg-white border border-[#DAD6FC] text-[11px] font-bold text-[#5B4BF0] hover:bg-mc-primary-tint cursor-pointer"
                   >
                     {sc.label}
                   </button>
@@ -360,12 +360,12 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
                     checked={draft.saveAsName && canSaveMore}
                     disabled={!canSaveMore}
                     onChange={(e) => set({ saveAsName: e.target.checked })}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    className="w-4 h-4 rounded text-mc-primary focus:ring-mc-primary"
                   />
                   <span>Enregistrer cette taille sous un nom</span>
                 </label>
                 {!canSaveMore && (
-                  <p className="text-[10.5px] text-slate-500">
+                  <p className="text-[10.5px] text-mc-soft">
                     {MAX_SAVED_SIZES} tailles enregistrées au maximum : supprimes-en une pour en ajouter.
                   </p>
                 )}
@@ -377,14 +377,14 @@ export const PrintFormatPicker: React.FC<PrintFormatPickerProps> = ({
                       maxLength={40}
                       onChange={(e) => set({ name: e.target.value })}
                       placeholder="Mon imprimante du magasin"
-                      className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-slate-200 bg-white text-[13px] text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                      className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-mc-line bg-white text-[13px] text-mc-ink focus:ring-2 focus:ring-mc-primary outline-hidden"
                     />
                     {onSaveSizeNow && (
                       <button
                         type="button"
                         onClick={onSaveSizeNow}
                         disabled={!resolved.page || !draft.name.trim()}
-                        className="h-10 px-3 rounded-xl bg-[#4F46E5] text-white text-[12px] font-bold disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                        className="h-10 px-3 rounded-full bg-mc-primary text-white text-[12px] font-bold disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                       >
                         Enregistrer
                       </button>

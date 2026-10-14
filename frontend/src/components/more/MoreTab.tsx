@@ -43,6 +43,7 @@ import { SubscriptionView } from '../subscription/SubscriptionView';
 import { ReportsTab } from '../reports/ReportsTab';
 import { SettingsPage } from '../settings/SettingsPage';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
+import { avatarInitials } from '../../utils/avatar';
 
 export const MoreTab: React.FC = () => {
   const {
@@ -192,15 +193,15 @@ export const MoreTab: React.FC = () => {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setActiveMoreSubTab(null)}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+            className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Retour menu</span>
+            <ArrowLeft className="w-5 h-5" />
+            <span>Menu</span>
           </button>
           {isOwner && (
             <button
               onClick={() => gateWrite(() => setIsAddEmployeeOpen(true))}
-              className={`px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+              className={`h-10 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-[14px] font-bold flex items-center gap-1.5 cursor-pointer shadow-mc-card transition-all active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               <UserPlus className="w-4 h-4" />
               <span>Ajouter une personne</span>
@@ -208,13 +209,13 @@ export const MoreTab: React.FC = () => {
           )}
         </div>
 
-        <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+        <div className="p-4 rounded-2xl bg-mc-primary-tint border border-[#DAD6FC] flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-mc-primary text-white flex items-center justify-center shrink-0">
             <UserCheck className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xs font-extrabold text-indigo-950">Gestion de l’équipe</h3>
-            <p className="text-[11px] text-indigo-700">
+            <h3 className="text-xs font-extrabold text-mc-primary-dark">Gestion de l’équipe</h3>
+            <p className="text-[11px] text-mc-primary-dark">
               Chaque vendeur se connecte avec son mot de passe à 6 chiffres pour enregistrer ses commandes.
             </p>
           </div>
@@ -226,7 +227,7 @@ export const MoreTab: React.FC = () => {
             .map((emp) => (
               <div
                 key={emp.id}
-                className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between gap-3"
+                className="p-4 rounded-2xl bg-white border border-mc-line shadow-xs flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-slate-100 font-extrabold text-xs text-slate-700 flex items-center justify-center">
@@ -234,14 +235,14 @@ export const MoreTab: React.FC = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{emp.nom}</span>
+                      <span className="text-xs font-bold text-mc-ink">{emp.nom}</span>
                       <span
                         className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
                           emp.role === 'OWNER'
                             ? 'bg-amber-100 text-amber-800'
                             : emp.role === 'ACCOUNTANT'
                             ? 'bg-purple-100 text-purple-800'
-                            : 'bg-indigo-100 text-indigo-800'
+                            : 'bg-mc-primary-tint text-mc-primary-dark'
                         }`}
                       >
                         {emp.role === 'OWNER'
@@ -251,7 +252,7 @@ export const MoreTab: React.FC = () => {
                           : 'Vendeur'}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                    <p className="text-[11px] text-mc-soft mt-0.5 flex items-center gap-2">
                       <span>{emp.telephone}</span>
                       <span>•</span>
                       <span className="text-slate-400">Mot de passe : ••••</span>
@@ -285,8 +286,8 @@ export const MoreTab: React.FC = () => {
         {/* Modal: Ajouter une personne (BLOC 8: nom, téléphone, code à 4 chiffres, rôle) */}
         {isAddEmployeeOpen && (
           <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white max-w-sm w-full rounded-3xl p-5 space-y-4 shadow-2xl">
-              <h3 className="font-extrabold text-base text-slate-900">Ajouter une personne</h3>
+            <div className="bg-white max-w-sm w-full rounded-mc p-5 space-y-4 shadow-2xl">
+              <h3 className="font-extrabold text-base text-mc-ink">Ajouter une personne</h3>
               <form onSubmit={handleAddEmployeeSubmit} className="space-y-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Nom complet *</label>
@@ -296,7 +297,7 @@ export const MoreTab: React.FC = () => {
                     placeholder="Ex: Fatou Cissé"
                     value={empName}
                     onChange={(e) => setEmpName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs font-bold text-mc-ink"
                   />
                 </div>
 
@@ -308,7 +309,7 @@ export const MoreTab: React.FC = () => {
                     placeholder="Ex: +225 07 12 34 56"
                     value={empPhone}
                     onChange={(e) => setEmpPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs text-mc-ink"
                   />
                 </div>
 
@@ -324,7 +325,7 @@ export const MoreTab: React.FC = () => {
                     placeholder="123456"
                     value={empPin}
                     onChange={(e) => setEmpPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono tracking-widest text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs font-mono tracking-widest text-mc-ink"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
                     Ce mot de passe lui permettra d'ouvrir sa caisse et d'enregistrer des commandes.
@@ -336,7 +337,7 @@ export const MoreTab: React.FC = () => {
                   <select
                     value={empRole}
                     onChange={(e) => setEmpRole(e.target.value as 'SELLER' | 'ACCOUNTANT')}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white"
+                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs font-bold text-mc-ink bg-white"
                   >
                     <option value="SELLER">Vendeur (Commandes, encaissement, stock)</option>
                     <option value="ACCOUNTANT">Gestionnaire (Ajout produits, validation)</option>
@@ -359,18 +360,18 @@ export const MoreTab: React.FC = () => {
                       <label
                         key={option.code}
                         className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-colors ${
-                          checked ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200 hover:bg-slate-50'
+                          checked ? 'bg-mc-primary-tint border-[#DAD6FC]' : 'bg-white border-mc-line hover:bg-slate-50'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleEmpPermission(option.code)}
-                          className="mt-0.5 w-4 h-4 shrink-0 accent-[#4F46E5] cursor-pointer"
+                          className="mt-0.5 w-4 h-4 shrink-0 accent-[#5B4BF0] cursor-pointer"
                         />
                         <span className="min-w-0">
-                          <span className="block text-xs font-bold text-slate-900">{option.label}</span>
-                          <span className="block text-[10px] text-slate-500 leading-snug">{option.aide}</span>
+                          <span className="block text-xs font-bold text-mc-ink">{option.label}</span>
+                          <span className="block text-[10px] text-mc-soft leading-snug">{option.aide}</span>
                         </span>
                       </label>
                     );
@@ -386,14 +387,14 @@ export const MoreTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddEmployeeOpen(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-slate-600 cursor-pointer"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={isSavingEmployee}
-                    className="flex-1 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs shadow-md cursor-pointer"
+                    className="flex-1 py-2.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark disabled:opacity-60 text-white font-bold text-xs shadow-md cursor-pointer"
                   >
                     {isSavingEmployee ? 'Enregistrement…' : 'Enregistrer'}
                   </button>
@@ -414,19 +415,19 @@ export const MoreTab: React.FC = () => {
       <div className="space-y-4 pb-24 animate-in fade-in duration-150">
         <button
           onClick={() => setActiveMoreSubTab(null)}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+          className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour menu</span>
+          <ArrowLeft className="w-5 h-5" />
+          <span>Menu</span>
         </button>
 
         {/* Phrase explicite exigée par le BLOC 8 */}
-        <div className="p-5 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-xs flex items-center gap-3.5">
+        <div className="p-5 rounded-mc bg-emerald-50 border border-emerald-200 shadow-xs flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-black text-emerald-950 tracking-tight">
+            <h2 className="text-sm font-extrabold text-emerald-950 tracking-tight">
               « Tes vendeurs ne voient pas tes bénéfices »
             </h2>
             <p className="text-xs text-emerald-800 mt-0.5">
@@ -436,17 +437,17 @@ export const MoreTab: React.FC = () => {
         </div>
 
         {/* Réglage du plafond de remise exigé par le BLOC 8 */}
-        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
+        <div className="p-4 md:p-6 rounded-mc bg-white border border-mc-line shadow-mc-card space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Percent className="w-4 h-4 text-indigo-600" />
-              <h3 className="text-xs font-extrabold text-slate-900">Plafond de remise vendeur</h3>
+              <Percent className="w-4 h-4 text-mc-primary" />
+              <h3 className="text-xs font-extrabold text-mc-ink">Plafond de remise vendeur</h3>
             </div>
-            <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-mc-primary-tint text-mc-primary-dark border border-[#DAD6FC]">
               Max {currentMaxDiscount}%
             </span>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-mc-soft">
             Fixe le pourcentage maximal de remise qu'un vendeur peut appliquer sans demander l'autorisation du propriétaire.
           </p>
           <div className="grid grid-cols-4 gap-2 pt-1">
@@ -460,8 +461,8 @@ export const MoreTab: React.FC = () => {
                 }}
                 className={`py-2 px-3 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                   currentMaxDiscount === pct
-                    ? 'bg-[#4F46E5] text-white border-[#4F46E5] shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-[#5B4BF0] text-white border-[#5B4BF0] shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-mc-line hover:bg-slate-100'
                 }`}
               >
                 {pct === 0 ? '0% (Aucune)' : `${pct}%`}
@@ -471,12 +472,12 @@ export const MoreTab: React.FC = () => {
         </div>
 
         {/* Détail des droits d'accès */}
-        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-          <h3 className="text-xs font-extrabold text-slate-900">Tableau des règles d'accès</h3>
+        <div className="p-4 md:p-6 rounded-mc bg-white border border-mc-line shadow-mc-card space-y-3">
+          <h3 className="text-xs font-extrabold text-mc-ink">Tableau des règles d'accès</h3>
           <div className="divide-y divide-slate-100 text-xs">
             <div className="py-2.5 flex items-center justify-between">
               <div>
-                <p className="font-bold text-slate-900">Enregistrer une commande & encaisser</p>
+                <p className="font-bold text-mc-ink">Enregistrer une commande & encaisser</p>
                 <p className="text-[11px] text-slate-400">Vente au comptoir, choix du paiement</p>
               </div>
               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
@@ -486,7 +487,7 @@ export const MoreTab: React.FC = () => {
 
             <div className="py-2.5 flex items-center justify-between">
               <div>
-                <p className="font-bold text-slate-900">Voir les prix d’achat et la marge</p>
+                <p className="font-bold text-mc-ink">Voir les prix d’achat et la marge</p>
                 <p className="text-[11px] text-slate-400">Ce que tu as gagné, coût unitaire</p>
               </div>
               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
@@ -496,7 +497,7 @@ export const MoreTab: React.FC = () => {
 
             <div className="py-2.5 flex items-center justify-between">
               <div>
-                <p className="font-bold text-slate-900">Ouvrir et fermer la caisse</p>
+                <p className="font-bold text-mc-ink">Ouvrir et fermer la caisse</p>
                 <p className="text-[11px] text-slate-400">Comptage physique du tiroir-caisse</p>
               </div>
               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
@@ -506,7 +507,7 @@ export const MoreTab: React.FC = () => {
 
             <div className="py-2.5 flex items-center justify-between">
               <div>
-                <p className="font-bold text-slate-900">Supprimer une commande enregistrée</p>
+                <p className="font-bold text-mc-ink">Supprimer une commande enregistrée</p>
                 <p className="text-[11px] text-slate-400">Annulation définitive d'une transaction</p>
               </div>
               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
@@ -527,39 +528,39 @@ export const MoreTab: React.FC = () => {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setActiveMoreSubTab(null)}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+            className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Retour menu</span>
+            <ArrowLeft className="w-5 h-5" />
+            <span>Menu</span>
           </button>
           <button
             onClick={() => gateWrite(() => setIsAddExpenseOpen(true))}
-            className={`px-3.5 py-2 rounded-xl bg-[#4F46E5] text-white text-xs font-bold flex items-center gap-1 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+            className={`h-10 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-[14px] font-bold flex items-center gap-1.5 cursor-pointer shadow-mc-card transition-all active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <Plus className="w-4 h-4" />
             <span>Saisir une dépense</span>
           </button>
         </div>
 
-        <div className="p-4 rounded-3xl bg-amber-50 border border-amber-200">
-          <span className="text-xs font-bold text-amber-800 uppercase">Ce que tu as dépensé</span>
-          <div className="text-2xl font-black text-amber-950 mt-0.5">{formatMoney(totalExp)}</div>
+        <div className="p-4 md:p-6 rounded-mc bg-mc-warning-bg">
+          <span className="text-[14px] font-semibold text-[#92400E]">Ce que tu as dépensé</span>
+          <div className="text-[28px] md:text-[40px] font-extrabold text-[#B45309] tabular-nums tracking-tight leading-tight">{formatMoney(totalExp)}</div>
         </div>
 
         <div className="space-y-2">
           {expenses.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200 text-xs">
+            <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-mc-line text-xs">
               Aucune dépense enregistrée.
             </div>
           ) : (
             expenses.map((exp) => (
               <div
                 key={exp.id}
-                className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between gap-3"
+                className="p-3.5 rounded-2xl bg-white border border-mc-line shadow-xs flex items-center justify-between gap-3"
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">{exp.category}</span>
+                    <span className="text-xs font-bold text-mc-ink">{exp.category}</span>
                     {exp.isAuto && (
                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-blue-100 text-blue-800">
                         Auto (Achat Stock)
@@ -571,7 +572,7 @@ export const MoreTab: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-black text-rose-600">-{formatMoney(exp.amount)}</span>
+                  <span className="text-sm font-extrabold text-rose-600">-{formatMoney(exp.amount)}</span>
                 </div>
               </div>
             ))
@@ -581,8 +582,8 @@ export const MoreTab: React.FC = () => {
         {/* Modal: Quick 2-step Expense */}
         {isAddExpenseOpen && (
           <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white max-w-sm w-full rounded-3xl p-5 space-y-4 shadow-2xl">
-              <h3 className="font-extrabold text-base text-slate-900">Enregistrer une dépense</h3>
+            <div className="bg-white max-w-sm w-full rounded-mc p-5 space-y-4 shadow-2xl">
+              <h3 className="font-extrabold text-base text-mc-ink">Enregistrer une dépense</h3>
               <form onSubmit={handleAddExpenseSubmit} className="space-y-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -602,7 +603,7 @@ export const MoreTab: React.FC = () => {
                   <select
                     value={expCategory}
                     onChange={(e) => setExpCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white"
+                    className="w-full px-3 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-mc-ink bg-white"
                   >
                     <option value="Factures & Charges">Facture CIE / Eau / Internet</option>
                     <option value="Transport & Livraisons">Transport & Déplacement</option>
@@ -619,7 +620,7 @@ export const MoreTab: React.FC = () => {
                     value={expNote}
                     onChange={(e) => setExpNote(e.target.value)}
                     placeholder="Ex: Taxi retour grossiste"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs text-mc-ink"
                   />
                 </div>
 
@@ -627,7 +628,7 @@ export const MoreTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddExpenseOpen(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600"
+                    className="flex-1 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-slate-600"
                   >
                     Annuler
                   </button>
@@ -657,10 +658,10 @@ export const MoreTab: React.FC = () => {
       <div className="space-y-4 pb-24 animate-in fade-in duration-150">
         <button
           onClick={() => setActiveMoreSubTab(null)}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+          className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour menu</span>
+          <ArrowLeft className="w-5 h-5" />
+          <span>Menu</span>
         </button>
         <SubscriptionView onBack={() => setActiveMoreSubTab(null)} />
       </div>
@@ -682,20 +683,20 @@ export const MoreTab: React.FC = () => {
       <div className="space-y-4 pb-24 animate-in fade-in duration-150">
         <button
           onClick={() => setActiveMoreSubTab(null)}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+          className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour menu</span>
+          <ArrowLeft className="w-5 h-5" />
+          <span>Menu</span>
         </button>
 
-        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-          <h3 className="font-extrabold text-sm text-slate-900">Exportation & Sauvegarde locale</h3>
-          <p className="text-xs text-slate-500">
+        <div className="p-4 md:p-6 rounded-mc bg-white border border-mc-line shadow-mc-card space-y-4">
+          <h3 className="text-[20px] font-extrabold text-mc-ink">Exportation & Sauvegarde locale</h3>
+          <p className="text-xs text-mc-soft">
             Télécharge l'intégralité de vos commandes ({sales.length}), clients ({customers.length}) et produits pour conservation ou comptabilité.
           </p>
           <button
             onClick={handleExportCSV}
-            className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
+            className="w-full min-h-12 px-4 py-3 rounded-full bg-mc-success hover:bg-[#15803D] text-white font-bold text-[14px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97]"
           >
             <Download className="w-4 h-4" />
             <span>Télécharger le fichier CSV des commandes</span>
@@ -711,15 +712,15 @@ export const MoreTab: React.FC = () => {
       <div className="space-y-4 pb-24 animate-in fade-in duration-150">
         <button
           onClick={() => setActiveMoreSubTab(null)}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+          className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour menu</span>
+          <ArrowLeft className="w-5 h-5" />
+          <span>Menu</span>
         </button>
 
-        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-          <h3 className="font-extrabold text-sm text-slate-900">Centre d'aide rapide</h3>
-          <div className="space-y-2 text-xs text-slate-600">
+        <div className="p-4 md:p-6 rounded-mc bg-white border border-mc-line shadow-mc-card space-y-3">
+          <h3 className="text-[20px] font-extrabold text-mc-ink">Centre d'aide rapide</h3>
+          <div className="space-y-3 text-[14px] text-mc-ink/80 leading-relaxed">
             <p><strong>• Comment faire une commande ?</strong> Touche le bouton '+ Nouvelle commande' en haut ou en bas.</p>
             <p><strong>• Comment relancer un client débiteur ?</strong> Va dans l'onglet 'Clients' et clique sur 'Relancer'.</p>
             <p><strong>• Fonctionnement hors-ligne ?</strong> L'application continue d'enregistrer toutes vos commandes même sans connexion internet.</p>
@@ -729,398 +730,304 @@ export const MoreTab: React.FC = () => {
     );
   }
 
-  // DEFAULT MENU LIST: EXACT GROUPS FROM BLOC 4
-  return (
-    <div id="more-tab-content" className="space-y-5 pb-24 animate-in fade-in duration-200">
-      <div>
-        <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Plus</h2>
-        <p className="text-xs text-slate-500">
-          Caisse, Clients, Dépenses, Mes chiffres, Employés, Abonnement et Réglages
-        </p>
-      </div>
+  // MENU « PLUS »
+  // Rangé par fréquence d'usage : en haut, quatre grandes tuiles pour ce qu'on
+  // ouvre tous les jours ; dessous, trois listes courtes pour le reste ; la
+  // déconnexion tout en bas, loin du pouce, pour ne pas la toucher par erreur.
+  interface Entree {
+    key: string;
+    id?: string;
+    titre: string;
+    aide: string;
+    icone: React.ComponentType<{ className?: string }>;
+    teinte: string;
+    action: () => void;
+    /** Compteur rouge : quelque chose demande un geste. */
+    alerte?: number;
+    /** Petit état à droite du titre (« Ouverte », « 12 »). */
+    etat?: { texte: string; classe: string };
+  }
 
-      {/* COMPTE — session réelle (étape 13) */}
-      <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-            {currentUser?.nom ?? 'Utilisateur'}
-          </p>
-          <p className="text-[11px] text-slate-400 truncate">
-            {currentBusiness?.nom ?? ''} — {currentUser?.role ?? ''}
+  const abonnementLigne =
+    settings.planStatus === 'EXPIRED'
+      ? 'Abonnement expiré • Réactive ton compte'
+      : settings.planStatus === 'TRIAL'
+      ? `Essai — ${settings.trialDaysLeft} ${settings.trialDaysLeft > 1 ? 'jours restants' : 'jour restant'}`
+      : `Formule ${settings.planStatus === 'BUSINESS' ? 'Business' : 'Solo'}${
+          settings.subscriptionDaysLeft != null
+            ? ` — ${settings.subscriptionDaysLeft} ${settings.subscriptionDaysLeft > 1 ? 'jours restants' : 'jour restant'}`
+            : ' • Active'
+        }`;
+
+  const tuiles: Entree[] = [
+    {
+      key: 'cash',
+      titre: 'Caisse',
+      aide: 'Entrées et sorties',
+      icone: WalletCards,
+      teinte: 'bg-mc-success-bg text-[#15803D]',
+      action: () => setActiveTab('cash'),
+      etat: activeCashSession
+        ? { texte: 'Ouverte', classe: 'bg-mc-success-bg text-[#15803D]' }
+        : { texte: 'Fermée', classe: 'bg-mc-bg text-mc-soft' },
+    },
+    {
+      key: 'debtors',
+      titre: 'Qui me doit',
+      aide: 'Dettes et relances',
+      icone: Clock,
+      teinte: 'bg-mc-danger-bg text-[#DC2626]',
+      action: () => {
+        setCustomersDebtorsFilter(true);
+        setActiveTab('customers');
+      },
+      alerte: debtorsCount,
+    },
+    {
+      key: 'receipts',
+      id: 'more-menu-mes-recus',
+      titre: 'Mes reçus',
+      aide: 'Revoir et renvoyer',
+      icone: FileText,
+      teinte: 'bg-mc-primary-tint text-mc-primary',
+      action: () => {
+        setActiveTab('receipts');
+        setActiveMoreSubTab(null);
+      },
+      etat: sales.length > 0 ? { texte: String(sales.length), classe: 'bg-mc-bg text-mc-soft' } : undefined,
+    },
+    {
+      key: 'expenses',
+      titre: 'Mes dépenses',
+      aide: 'Loyer, transport…',
+      icone: TrendingDown,
+      teinte: 'bg-mc-warning-bg text-[#B45309]',
+      action: () => setActiveMoreSubTab('expenses'),
+    },
+  ];
+
+  const groupes: { titre: string; entrees: Entree[] }[] = [
+    {
+      titre: 'Ma boutique',
+      entrees: [
+        {
+          key: 'customers',
+          titre: 'Clients',
+          aide: 'Carnet et historique',
+          icone: Users,
+          teinte: 'bg-[#E6F4FE] text-[#0369A1]',
+          action: () => {
+            setCustomersDebtorsFilter(false);
+            setActiveTab('customers');
+          },
+        },
+        ...(settings.activityType !== 'SERVICES'
+          ? [
+              {
+                key: 'movements',
+                titre: 'Mouvements de stock',
+                aide: 'Réceptions, casses, inventaires',
+                icone: ArrowLeftRight,
+                teinte: 'bg-mc-primary-tint text-mc-primary',
+                action: () => setActiveTab('movements'),
+              },
+              {
+                key: 'low-stock',
+                titre: 'Ce qui va manquer',
+                aide: 'Produits bientôt en rupture',
+                icone: AlertTriangle,
+                teinte: 'bg-mc-danger-bg text-[#DC2626]',
+                action: () => setActiveTab('products'),
+                alerte: lowStockCount,
+              },
+            ]
+          : []),
+        {
+          key: 'reports',
+          titre: 'Mes chiffres',
+          aide: 'Ventes, bénéfices, rentabilité',
+          icone: BarChart3,
+          teinte: 'bg-mc-primary-tint text-mc-primary',
+          action: () => setActiveMoreSubTab('reports'),
+        },
+      ],
+    },
+    {
+      titre: 'Mon équipe',
+      entrees: [
+        {
+          key: 'employees',
+          titre: 'Employés',
+          aide: 'Ajouter une personne, son rôle',
+          icone: UserCheck,
+          teinte: 'bg-[#F3E8FF] text-[#7E22CE]',
+          action: () => setActiveMoreSubTab('employees'),
+        },
+        {
+          key: 'permissions',
+          titre: 'Qui peut voir quoi',
+          aide: 'Bénéfices cachés, remise maximale',
+          icone: ShieldCheck,
+          teinte: 'bg-mc-success-bg text-[#15803D]',
+          action: () => setActiveMoreSubTab('permissions'),
+        },
+      ],
+    },
+    {
+      titre: 'Mon compte',
+      entrees: [
+        {
+          key: 'subscription',
+          titre: 'Mon abonnement',
+          aide: abonnementLigne,
+          icone: Crown,
+          teinte: 'bg-mc-warning-bg text-[#B45309]',
+          action: () => setActiveMoreSubTab('subscription'),
+        },
+        {
+          key: 'settings',
+          titre: 'Réglages',
+          aide: 'Boutique, reçus, mot de passe',
+          icone: Settings,
+          teinte: 'bg-mc-bg text-mc-ink',
+          action: () => setActiveMoreSubTab('settings'),
+        },
+        {
+          key: 'export',
+          titre: 'Sauvegarde & Export',
+          aide: 'Télécharger mes données',
+          icone: Download,
+          teinte: 'bg-mc-success-bg text-[#15803D]',
+          action: () => setActiveMoreSubTab('export'),
+        },
+        {
+          key: 'help',
+          titre: 'Aide',
+          aide: 'Guide et support',
+          icone: HelpCircle,
+          teinte: 'bg-[#E6F4FE] text-[#0369A1]',
+          action: () => setActiveMoreSubTab('help'),
+        },
+      ],
+    },
+  ];
+
+  const nomUtilisateur = currentUser?.nom ?? 'Utilisateur';
+  const roleLisible =
+    settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur';
+
+  return (
+    <div id="more-tab-content" className="font-jakarta text-mc-ink space-y-6 pb-24 max-w-2xl mx-auto">
+      {/* QUI EST CONNECTÉ — et où en est l'abonnement, d'un coup d'œil */}
+      <div className="mc-gradient text-white rounded-mc shadow-mc-card p-4 flex items-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-[16px] font-extrabold shrink-0">
+          {avatarInitials(nomUtilisateur)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[16px] font-extrabold truncate">{nomUtilisateur}</p>
+          <p className="text-[12px] text-white/75 truncate">
+            {currentBusiness?.nom ? `${currentBusiness.nom} · ` : ''}
+            {roleLisible}
           </p>
         </div>
         <button
           type="button"
-          onClick={() => logoutUser()}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-xs font-bold cursor-pointer transition-colors"
+          onClick={() => setActiveMoreSubTab('subscription')}
+          className="shrink-0 h-8 px-3 rounded-full bg-white/20 hover:bg-white/30 text-[12px] font-bold whitespace-nowrap cursor-pointer transition-colors active:scale-[0.97]"
         >
-          <LogOut className="w-3.5 h-3.5" /> Déconnexion
+          {settings.planStatus === 'EXPIRED'
+            ? 'Expiré'
+            : settings.planStatus === 'TRIAL'
+            ? `Essai · ${settings.trialDaysLeft} j`
+            : settings.planStatus === 'BUSINESS'
+            ? 'Business'
+            : 'Solo'}
         </button>
       </div>
 
-      {/* GROUPE VENDRE — même catégorie que la barre latérale desktop
-          (Nouvelle commande/Mes commandes sont déjà des onglets directs en bas) */}
-      <div className="space-y-2">
-        <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-1">
-          Vendre
-        </div>
-        <div className="space-y-2">
-          {/* Mes reçus */}
-          <div
-            id="more-menu-mes-recus"
-            onClick={() => {
-              setActiveTab('receipts');
-              setActiveMoreSubTab(null);
-            }}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#4F46E5] flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">Mes reçus</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    {sales.length}
+      {/* TOUS LES JOURS — quatre grandes tuiles, faciles au pouce */}
+      <section className="space-y-2">
+        <h2 className="text-[12px] font-bold uppercase tracking-wider text-mc-soft px-1">Tous les jours</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {tuiles.map((t) => {
+            const Icone = t.icone;
+            return (
+              <button
+                key={t.key}
+                id={t.id}
+                type="button"
+                onClick={t.action}
+                className="mc-lift relative min-h-[112px] p-4 rounded-mc bg-white border border-mc-line shadow-mc-card text-left cursor-pointer flex flex-col justify-between gap-3 active:scale-[0.97]"
+              >
+                <span className="flex items-start justify-between gap-2">
+                  <span className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${t.teinte}`}>
+                    <Icone className="w-5 h-5" />
                   </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Historique, réémission et partage WhatsApp
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-        </div>
-      </div>
-
-      {/* GROUPE STOCK (Si commerce physique) — même ordre que la barre latérale desktop */}
-      {settings.activityType !== 'SERVICES' && (
-        <div className="space-y-2">
-          <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-1">
-            Mon Stock
-          </div>
-          <div className="space-y-2">
-            <div
-              onClick={() => setActiveTab('movements')}
-              className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                  <ArrowLeftRight className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">Mouvements de stock</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Réceptions, casses, pertes, inventaires et journal complet
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Ce qui va manquer — même raccourci que la barre latérale desktop */}
-            <div
-              onClick={() => setActiveTab('products')}
-              className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">Ce qui va manquer</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Produits en rupture ou proches du seuil d'alerte
-                  </p>
-                </div>
-              </div>
-              {lowStockCount > 0 && (
-                <span className="text-[10px] font-extrabold px-2 py-0.2 rounded-full bg-rose-600 text-white shrink-0">
-                  {lowStockCount}
+                  {t.alerte != null && t.alerte > 0 ? (
+                    <span className="min-w-[24px] h-6 px-2 rounded-full bg-mc-danger text-white text-[12px] font-bold flex items-center justify-center tabular-nums">
+                      {t.alerte}
+                    </span>
+                  ) : (
+                    t.etat && (
+                      <span className={`h-6 px-2.5 rounded-full text-[12px] font-bold flex items-center tabular-nums ${t.etat.classe}`}>
+                        {t.etat.texte}
+                      </span>
+                    )
+                  )}
                 </span>
-              )}
-            </div>
-          </div>
+                <span className="min-w-0">
+                  <span className="block text-[16px] font-bold leading-tight">{t.titre}</span>
+                  <span className="block text-[12px] text-mc-soft mt-0.5 truncate">{t.aide}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </section>
 
-      {/* GROUPE 2 : MES CLIENTS (BLOC 4 mandate) */}
-      <div className="space-y-2">
-        <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-1">
-          Mes Clients
-        </div>
-        <div className="space-y-2">
-          {/* Clients */}
-          <div
-            onClick={() => {
-              setCustomersDebtorsFilter(false);
-              setActiveTab('customers');
-            }}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Clients</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Répertoire et historique des transactions
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-
-          {/* Qui me doit */}
-          <div
-            onClick={() => {
-              setCustomersDebtorsFilter(true);
-              setActiveTab('customers');
-            }}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">Qui me doit</h3>
-                  {debtorsCount > 0 && (
-                    <span className="text-[10px] font-extrabold px-2 py-0.2 rounded-full bg-rose-600 text-white">
-                      {debtorsCount}
+      {/* LE RESTE — une carte par groupe, une ligne par écran */}
+      {groupes.map((g) => (
+        <section key={g.titre} className="space-y-2">
+          <h2 className="text-[12px] font-bold uppercase tracking-wider text-mc-soft px-1">{g.titre}</h2>
+          <div className="bg-white rounded-mc border border-mc-line shadow-mc-card overflow-hidden divide-y divide-mc-line">
+            {g.entrees.map((e) => {
+              const Icone = e.icone;
+              return (
+                <button
+                  key={e.key}
+                  type="button"
+                  onClick={e.action}
+                  className="w-full min-h-[64px] px-4 py-3 flex items-center gap-3 text-left cursor-pointer hover:bg-mc-bg/60 active:bg-mc-bg transition-colors"
+                >
+                  <span className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${e.teinte}`}>
+                    <Icone className="w-5 h-5" />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[16px] font-bold leading-tight truncate">{e.titre}</span>
+                    <span className="block text-[12px] text-mc-soft mt-0.5 truncate">{e.aide}</span>
+                  </span>
+                  {e.alerte != null && e.alerte > 0 && (
+                    <span className="min-w-[24px] h-6 px-2 rounded-full bg-mc-danger text-white text-[12px] font-bold flex items-center justify-center tabular-nums shrink-0">
+                      {e.alerte}
                     </span>
                   )}
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Dettes en cours et relance WhatsApp
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                  <ChevronRight className="w-5 h-5 text-mc-soft shrink-0" />
+                </button>
+              );
+            })}
           </div>
-        </div>
-      </div>
+        </section>
+      ))}
 
-      {/* GROUPE 1 : MON ARGENT (BLOC 4 mandate) */}
-      <div className="space-y-2">
-        <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-1">
-          Mon Argent
-        </div>
-        <div className="space-y-2">
-          {/* Caisse */}
-          <div
-            onClick={() => setActiveTab('cash')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <WalletCards className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">Caisse</h3>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.2 rounded-full border ${
-                      activeCashSession
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-slate-100 text-slate-600 border-slate-200'
-                    }`}
-                  >
-                    {activeCashSession ? 'Ouverte' : 'Fermée'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Comptage physique, fond de départ et réconciliation
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-
-          {/* Ce que je dépense */}
-          <div
-            onClick={() => setActiveMoreSubTab('expenses')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <TrendingDown className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Ce que je dépense</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Factures boutique, transport, loyer et charges
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-
-          {/* Mes chiffres */}
-          <div
-            onClick={() => setActiveMoreSubTab('reports')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                <BarChart3 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Mes chiffres</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Répartition des commandes, bénéfices et rentabilité
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-        </div>
-      </div>
-
-      {/* GROUPE 3 : MON ÉQUIPE (BLOC 4 mandate) */}
-      <div className="space-y-2">
-        <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-1">
-          Mon Équipe
-        </div>
-        <div className="space-y-2">
-          {/* Employés */}
-          <div
-            onClick={() => setActiveMoreSubTab('employees')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Employés</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Ajouter une personne, mot de passe et attribution des rôles
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-
-          {/* Qui peut voir quoi */}
-          <div
-            onClick={() => setActiveMoreSubTab('permissions')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Qui peut voir quoi</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Masquage des bénéfices et plafond de remise vendeur
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-        </div>
-      </div>
-
-      {/* GROUPE 4 : MON COMPTE (BLOC 4 mandate) */}
-      <div className="space-y-2">
-        <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-1">
-          Mon Compte
-        </div>
-        <div className="space-y-2">
-          {/* Mon abonnement */}
-          <div
-            onClick={() => setActiveMoreSubTab('subscription')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
-                <Crown className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Mon abonnement</h3>
-                {/* Sur téléphone il n'y a pas de barre latérale : c'est ici que
-                    se lit l'échéance. La ligne annonçait « Essai … • Formule
-                    Pro » à tout le monde, abonnés payants compris. */}
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {settings.planStatus === 'EXPIRED'
-                    ? 'Abonnement expiré • Réactive ton compte'
-                    : settings.planStatus === 'TRIAL'
-                    ? `Essai — ${settings.trialDaysLeft} ${settings.trialDaysLeft > 1 ? 'jours restants' : 'jour restant'}`
-                    : `Formule ${settings.planStatus === 'BUSINESS' ? 'Business' : 'Solo'}${
-                        settings.subscriptionDaysLeft != null
-                          ? ` — ${settings.subscriptionDaysLeft} ${settings.subscriptionDaysLeft > 1 ? 'jours restants' : 'jour restant'}`
-                          : ' • Active'
-                      }`}
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-
-          {/* Réglages */}
-          <div
-            onClick={() => setActiveMoreSubTab('settings')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                <Settings className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Réglages</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Nom boutique, ville, reçu WhatsApp et type d'activité
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-
-          {/* Sauvegarde / Export CSV */}
-          <div
-            onClick={() => setActiveMoreSubTab('export')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <Download className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Sauvegarde & Export</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Télécharger les données au format Excel / CSV
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-
-          {/* Aide */}
-          <div
-            onClick={() => setActiveMoreSubTab('help')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-[#4F46E5] transition-all flex items-center justify-between gap-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center shrink-0">
-                <HelpCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">Aide</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Guide d'utilisation et support direct
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          </div>
-        </div>
-      </div>
+      {/* DÉCONNEXION — tout en bas, jamais sous le pouce par accident */}
+      <button
+        type="button"
+        onClick={() => logoutUser()}
+        className="w-full h-12 rounded-full border border-[#FBCACA] bg-white text-[#DC2626] text-[16px] font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-mc-danger-bg transition-colors active:scale-[0.97]"
+      >
+        <LogOut className="w-5 h-5" />
+        Déconnexion
+      </button>
     </div>
   );
 };

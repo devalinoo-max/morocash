@@ -4,6 +4,7 @@ import { broadcastSchema, sendBroadcast } from '@/server/modules/push/service';
 import { countPushAudience, listPushBroadcasts } from '@/server/repositories/push';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 /** Page « Notifications » : appareils abonnés et derniers envois. */
 export async function GET() {
@@ -19,6 +20,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const admin = await requireAdminSession();
+    await assertCsrf();
 
     const body = await request.json().catch(() => null);
     const parsed = broadcastSchema.safeParse(body);

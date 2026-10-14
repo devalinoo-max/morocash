@@ -1,8 +1,12 @@
 import React, { useState, useMemo } from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '../../context/AppContext';
+import { avatarColor, avatarInitials } from '../../utils/avatar';
+import { KpiCard, MC_EASE, Segmented, TrialPill, staggerParent } from '../sales/SalesKit';
 import {
   FileText,
   Search,
+  SlidersHorizontal,
   Calendar,
   Share2,
   Printer,
@@ -49,6 +53,8 @@ export const ReceiptsTab: React.FC = () => {
   } = useApp();
 
   const [versementOuvert, setVersementOuvert] = useState<Versement | null>(null);
+  const [filtresOuverts, setFiltresOuverts] = useState(false);
+  const [vue, setVue] = useState<'orders' | 'payments'>('orders');
 
   // Filters state
   const [period, setPeriod] = useState<PeriodFilter>('month');
@@ -140,8 +146,9 @@ export const ReceiptsTab: React.FC = () => {
 
       if (stateFilter === 'SENT' && !hasBeenSent) return false;
       if (stateFilter === 'UNSENT' && hasBeenSent) return false;
-      if (stateFilter === 'PAID' && sale.remainingAmount > 0) return false;
-      if (stateFilter === 'REMAINING' && sale.remainingAmount <= 0) return false;
+      // Une commande annulée n'est ni soldée ni en attente de paiement.
+      if (stateFilter === 'PAID' && (sale.isCancelled || sale.remainingAmount > 0)) return false;
+      if (stateFilter === 'REMAINING' && (sale.isCancelled || sale.remainingAmount <= 0)) return false;
 
       // Text search (reference, customer name, customer phone)
       if (searchQuery.trim()) {
@@ -168,7 +175,7 @@ export const ReceiptsTab: React.FC = () => {
   ]);
 
   // 4. Calculate Key Indicators
-  // Reçus de paiement : un par versement reçu après la commande (le paiement
+  // Reçus de versement : un par versement reçu après la commande (le paiement
   // fait à la commande figure, lui, sur le reçu de la commande). Mêmes filtres
   // de période, de client, de vendeur et de recherche que les reçus de commande.
   const versementReceipts = useMemo(() => {
@@ -377,6 +384,7 @@ export const ReceiptsTab: React.FC = () => {
       'Mode de paiement',
       'Statut envoi',
       'Dernier canal',
+      'Statut',
     ];
 
     const rows = filteredSales.map((sale) => {
@@ -392,10 +400,11 @@ export const ReceiptsTab: React.FC = () => {
         `"${sale.sellerName || 'Vendeur'}"`,
         sale.totalAmount,
         sale.paidAmount,
-        sale.remainingAmount,
+        sale.isCancelled ? 0 : sale.remainingAmount,
         `"${sale.paymentMethod}"`,
         `"${statusEnvoi}"`,
         `"${canal}"`,
+        `"${sale.isCancelled ? 'Annulée' : sale.remainingAmount > 0 ? 'Reste à payer' : 'Soldée'}"`,
       ].join(';');
     });
 
@@ -421,187 +430,97 @@ export const ReceiptsTab: React.FC = () => {
     return `${count} art. : ${names}${extra}`;
   };
 
+  // Plus aucun reçu de paiement dans le filtre : on retombe sur les commandes,
+  // jamais sur un écran vide.
+  const vueAffichee = versementReceipts.length === 0 ? 'orders' : vue;
+
+  // Sur téléphone, les listes déroulantes sont repliées : un filtre actif doit
+  // alors rester annoncé sur le bouton, sinon il manque des reçus sans raison visible.
+  const nbFiltresActifs =
+    (stateFilter !== 'ALL' ? 1 : 0) + (selectedCustomerId !== 'ALL' ? 1 : 0) + (selectedSeller !== 'ALL' ? 1 : 0);
+
+  const selectClass =
+    'w-full h-11 px-4 text-[14px] rounded-full bg-white border border-mc-line focus:border-mc-primary focus:ring-1 focus:ring-mc-primary outline-hidden text-mc-ink font-medium cursor-pointer';
+
   return (
-    <div className="space-y-6 pb-20">
-      {/* 1. BARRE HAUTE */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4F46E5] flex items-center justify-center shadow-2xs">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Mes reçus</h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Historique et réémission des reçus clients
-              </p>
-            </div>
+    <div className="font-jakarta text-mc-ink space-y-4 md:space-y-6 pb-20">
+      <MotionConfig reducedMotion="user">
+      {/* 1. EN-TÊTE — sur téléphone le titre est déjà dans la barre haute */}
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0 hidden md:block">
+          <div className="flex items-center gap-3">
+            <h1 className="text-[28px] font-extrabold tracking-tight leading-tight">Mes reçus</h1>
+            <TrialPill />
           </div>
+          <p className="text-[14px] text-mc-soft">Historique et réémission des reçus clients</p>
+        </div>
+        <div className="md:hidden">
+          <TrialPill />
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          <button
-            id="btn-export-receipts-csv"
-            onClick={handleExportCSV}
-            className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 flex items-center gap-2 transition-colors cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>Exporter</span>
-          </button>
-        </div>
-      </div>
+        <button
+          id="btn-export-receipts-csv"
+          onClick={handleExportCSV}
+          className="hidden md:inline-flex ml-auto h-10 px-4 rounded-full border border-mc-line bg-white text-[14px] font-semibold items-center gap-2 cursor-pointer hover:border-mc-primary hover:text-mc-primary transition-all duration-200 active:scale-[0.97]"
+        >
+          <Download className="w-4 h-4" />
+          <span>Exporter</span>
+        </button>
+      </header>
 
-      {/* 2. INDICATEURS CLÉS (3 CARTES MODERNES) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Reçus émis */}
-        <div className="bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Reçus émis
-            </span>
-            <div className="text-2xl font-extrabold text-slate-900 mt-1">
-              {metrics.totalIssued}
-            </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Commandes de la période
-            </p>
-          </div>
-          <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-[#4F46E5] flex items-center justify-center">
-            <FileText className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Envoyés au client */}
-        <div className="bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
-              Envoyés au client
-            </span>
-            <div className="text-2xl font-extrabold text-slate-900 mt-1">
-              {metrics.sentCount}
-            </div>
-            <p className="text-[11px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />
-              <span>
-                {metrics.whatsappCount} sur WhatsApp · {metrics.sentPercent} %
-              </span>
-            </p>
-          </div>
-          <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Send className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Jamais envoyés */}
-        <div className="bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">
-              Jamais envoyés
-            </span>
-            <div className="text-2xl font-extrabold text-slate-900 mt-1">
-              {metrics.unsentCount}
-            </div>
-            <p className="text-[11px] text-amber-600 font-medium mt-0.5 flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              <span>Le client n'a rien reçu</span>
-            </p>
-          </div>
-          <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* 3. BARRE DE FILTRES ET RECHERCHE */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
-        {/* Recherche + Filtres déroulants */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Recherche texte */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              id="search-receipts"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="N° reçu, client, téléphone..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5] outline-hidden transition-all text-slate-800 placeholder:text-slate-400"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Filtre État */}
-          <div>
-            <select
-              id="filter-receipt-state"
-              value={stateFilter}
-              onChange={(e) => setStateFilter(e.target.value as StateFilter)}
-              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#4F46E5] outline-hidden text-slate-800 font-medium cursor-pointer"
+      {/* 2. INDICATEURS CLÉS — la flèche de chaque carte filtre la liste */}
+      <motion.div
+        variants={staggerParent}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-3 gap-2 md:gap-4"
+      >
+        <KpiCard
+          compact
+          featured
+          label="Reçus émis"
+          value={metrics.totalIssued}
+          hint={<span className="hidden md:inline">Commandes de la période</span>}
+          onOpen={() => setStateFilter('ALL')}
+          openLabel="Afficher tous les reçus"
+        />
+        <KpiCard
+          compact
+          label="Envoyés"
+          value={metrics.sentCount}
+          badge={
+            <span
+              className={`px-2 py-0.5 rounded-full text-[12px] font-bold tabular-nums ${
+                metrics.sentPercent > 0 ? 'bg-mc-success-bg text-[#15803D]' : 'bg-mc-bg text-mc-soft'
+              }`}
             >
-              <option value="ALL">Tous les états</option>
-              <option value="SENT">Envoyés au client</option>
-              <option value="UNSENT">Jamais envoyés</option>
-              <option value="PAID">Soldés intégralement</option>
-              <option value="REMAINING">Avec reste à payer</option>
-            </select>
-          </div>
-
-          {/* Filtre Client */}
-          <div>
-            <select
-              id="filter-receipt-customer"
-              value={selectedCustomerId}
-              onChange={(e) => setSelectedCustomerId(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#4F46E5] outline-hidden text-slate-800 font-medium cursor-pointer"
-            >
-              <option value="ALL">Tous les clients</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filtre Vendeur (Propriétaire uniquement) */}
-          {settings.role !== 'SELLER' ? (
-            <div>
-              <select
-                id="filter-receipt-seller"
-                value={selectedSeller}
-                onChange={(e) => setSelectedSeller(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#4F46E5] outline-hidden text-slate-800 font-medium cursor-pointer"
-              >
-                <option value="ALL">Tous les vendeurs</option>
-                {distinctSellers.map((seller) => (
-                  <option key={seller} value={seller}>
-                    {seller}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="flex items-center px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600">
-              <User className="w-3.5 h-3.5 text-slate-400 mr-2" />
-              <span>Mes reçus ({settings.currentSellerName || 'Vendeur'})</span>
-            </div>
-          )}
-        </div>
-
-        {/* Pilules de Période */}
-        <div className="flex items-center justify-between pt-1 border-t border-slate-100 flex-wrap gap-2">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs text-slate-400 font-medium mr-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" /> Période :
+              {metrics.sentPercent} %
             </span>
-            {(
+          }
+          hint={<span className="hidden md:inline">{metrics.whatsappCount} sur WhatsApp</span>}
+          onOpen={() => setStateFilter('SENT')}
+          openLabel="N’afficher que les reçus envoyés"
+        />
+        <KpiCard
+          compact
+          label="Jamais envoyés"
+          value={metrics.unsentCount}
+          tone={metrics.unsentCount > 0 ? 'warning' : 'default'}
+          hint={<span className="hidden md:inline">Le client n'a rien reçu</span>}
+          onOpen={() => setStateFilter('UNSENT')}
+          openLabel="N’afficher que les reçus jamais envoyés"
+        />
+      </motion.div>
+
+      {/* 3. FILTRES ET RECHERCHE */}
+      <div className="space-y-3">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <Segmented<PeriodFilter>
+            id="btn-receipts-period"
+            label="Période"
+            value={period}
+            onChange={setPeriod}
+            options={
               [
                 { id: 'today', label: "Aujourd'hui" },
                 { id: 'week', label: 'Cette semaine' },
@@ -609,19 +528,9 @@ export const ReceiptsTab: React.FC = () => {
                 { id: 'range', label: DATE_RANGE_LABEL },
                 { id: 'all', label: 'Tout' },
               ] as const
-            ).map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPeriod(p.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                  period === p.id
-                    ? 'bg-slate-900 text-white shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+            }
+          />
+          <div className="flex flex-wrap items-center gap-3">
             {period === 'range' && (
               <DateRangeInputs
                 id="receipts-range"
@@ -631,31 +540,154 @@ export const ReceiptsTab: React.FC = () => {
                 onEndChange={setRangeEnd}
               />
             )}
+            <span className="text-[14px] text-mc-soft">
+              <span className="font-bold text-mc-ink tabular-nums">{filteredSales.length}</span> reçu
+              {filteredSales.length > 1 ? 's' : ''} trouvé
+              {filteredSales.length > 1 ? 's' : ''}
+            </span>
+            {/* Téléphone : les trois listes déroulantes se rangent derrière
+                « Filtres », la recherche reste visible. */}
+            <button
+              id="btn-receipts-filters"
+              type="button"
+              aria-expanded={filtresOuverts}
+              onClick={() => setFiltresOuverts((o) => !o)}
+              className={`md:hidden ml-auto h-9 px-3 rounded-full border text-[14px] font-semibold inline-flex items-center gap-1.5 cursor-pointer active:scale-[0.97] ${
+                nbFiltresActifs > 0
+                  ? 'bg-mc-primary-tint border-mc-primary text-mc-primary-dark'
+                  : 'bg-white border-mc-line text-mc-ink'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filtres{nbFiltresActifs > 0 ? ` (${nbFiltresActifs})` : ''}
+            </button>
+            <button
+              type="button"
+              aria-label="Exporter"
+              onClick={handleExportCSV}
+              className="md:hidden w-9 h-9 rounded-full border border-mc-line bg-white inline-flex items-center justify-center cursor-pointer active:scale-[0.97]"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={`grid grid-cols-2 lg:grid-cols-4 gap-3 [&>*:nth-child(-n+2)]:col-span-2 lg:[&>*:nth-child(-n+2)]:col-span-1 ${
+            filtresOuverts ? '' : 'max-md:[&>*:nth-child(n+2)]:hidden'
+          }`}
+        >
+          {/* Recherche texte */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-mc-soft absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="search-receipts"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="N° reçu, client, téléphone..."
+              className="w-full h-11 pl-11 pr-9 text-[14px] rounded-full bg-white border border-mc-line focus:border-mc-primary focus:ring-1 focus:ring-mc-primary outline-hidden transition-all text-mc-ink placeholder:text-mc-soft/70"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                aria-label="Effacer la recherche"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-mc-soft hover:text-mc-ink p-0.5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          <div className="text-xs text-slate-500">
-            <span className="font-semibold text-slate-800">{filteredSales.length}</span> reçu
-            {filteredSales.length > 1 ? 's' : ''} trouvé
-            {filteredSales.length > 1 ? 's' : ''}
-          </div>
+          {/* Filtre État */}
+          <select
+            id="filter-receipt-state"
+            aria-label="État du reçu"
+            value={stateFilter}
+            onChange={(e) => setStateFilter(e.target.value as StateFilter)}
+            className={selectClass}
+          >
+            <option value="ALL">Tous les états</option>
+            <option value="SENT">Envoyés au client</option>
+            <option value="UNSENT">Jamais envoyés</option>
+            <option value="PAID">Soldés intégralement</option>
+            <option value="REMAINING">Avec reste à payer</option>
+          </select>
+
+          {/* Filtre Client */}
+          <select
+            id="filter-receipt-customer"
+            aria-label="Client"
+            value={selectedCustomerId}
+            onChange={(e) => setSelectedCustomerId(e.target.value)}
+            className={selectClass}
+          >
+            <option value="ALL">Tous les clients</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Filtre Vendeur (Propriétaire uniquement) */}
+          {settings.role !== 'SELLER' ? (
+            <select
+              id="filter-receipt-seller"
+              aria-label="Vendeur"
+              value={selectedSeller}
+              onChange={(e) => setSelectedSeller(e.target.value)}
+              className={selectClass}
+            >
+              <option value="ALL">Tous les vendeurs</option>
+              {distinctSellers.map((seller) => (
+                <option key={seller} value={seller}>
+                  {seller}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="flex items-center h-11 px-4 bg-white rounded-full border border-mc-line text-[14px] text-mc-soft">
+              <User className="w-4 h-4 mr-2" />
+              <span className="truncate">Mes reçus ({settings.currentSellerName || 'Vendeur'})</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* REÇUS DE PAIEMENT — un par versement, ouvert d'un tap */}
+      {/* Deux sortes de reçus, une seule à l'écran : les reçus de commande
+          d'abord, ceux des versements derrière le second onglet. Empilés, les
+          versements obligeaient à défiler avant de voir le premier reçu. */}
       {versementReceipts.length > 0 && (
-        <section id="versement-receipts" className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="px-5 py-2.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-800 tracking-wide">Reçus de paiement (versements)</span>
-            <span className="text-slate-500 font-medium">
+        <Segmented<'orders' | 'payments'>
+          id="btn-receipts-view"
+          label="Sorte de reçus"
+          tone="ink"
+          value={vueAffichee}
+          onChange={setVue}
+          options={[
+            { id: 'orders', label: 'Reçus de commande', count: filteredSales.length },
+            { id: 'payments', label: 'Reçus de versement', count: versementReceipts.length },
+          ]}
+        />
+      )}
+
+      {/* REÇUS DE PAIEMENT — un par versement, ouvert d'un tap */}
+      {vueAffichee === 'payments' && versementReceipts.length > 0 && (
+        <section id="versement-receipts">
+          <div className="flex items-baseline gap-2 mb-2">
+            <h2 className="text-[16px] font-bold">Reçus de versement</h2>
+            <span className="text-[12px] font-medium text-mc-soft">
               {versementReceipts.length} reçu{versementReceipts.length > 1 ? 's' : ''}
             </span>
           </div>
-          <div className="p-3 space-y-2">
+          <div className="space-y-2">
             {versementReceipts.map((v) => (
               <VersementRow
                 key={v.id}
                 versement={v}
                 showCustomer
+                inline
                 onOpenReceipt={setVersementOuvert}
                 onOpenOrder={openOrder}
               />
@@ -668,89 +700,177 @@ export const ReceiptsTab: React.FC = () => {
         <VersementReceiptModal versement={versementOuvert} onClose={() => setVersementOuvert(null)} />
       )}
 
-      {/* 4. TABLEAU GROUPÉ PAR JOUR */}
-      {filteredSales.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center shadow-xs">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+      {/* 4. LISTE GROUPÉE PAR JOUR */}
+      {vueAffichee === 'orders' && (filteredSales.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: MC_EASE }}
+          className="bg-white rounded-mc border border-mc-line shadow-mc-card px-6 py-12 text-center"
+        >
+          <div className="w-16 h-16 mx-auto rounded-full bg-mc-primary-tint text-mc-primary flex items-center justify-center mb-4">
             <FileText className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-bold text-slate-800">Aucun reçu sur cette période</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+          <h3 className="text-[20px] font-extrabold">Aucun reçu sur cette période</h3>
+          <p className="text-[14px] text-mc-soft max-w-sm mx-auto mt-1">
             Modifie tes filtres ou enregistre une nouvelle commande pour générer des reçus.
           </p>
-        </div>
+        </motion.div>
       ) : (
-        <div className="space-y-5">
-          {groupedSales.map((group) => (
-            <div
-              key={group.label}
-              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
-            >
-              {/* En-tête de date du groupe */}
-              <div className="px-5 py-2.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-800 tracking-wide flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-[#4F46E5]" />
-                  {group.label}
-                </span>
-                <span className="text-slate-500 font-medium">
-                  {group.items.length} reçu{group.items.length > 1 ? 's' : ''}
-                </span>
-              </div>
+        <div className="space-y-6">
+          {groupedSales.map((group) => {
+            const allGroupSelected =
+              group.items.length > 0 && group.items.every((it) => selectedIds.has(it.id));
+            return (
+              <section key={group.label}>
+                {/* En-tête de date du groupe, avec la case « tout le jour » */}
+                <div className="flex items-center gap-3 px-1 pb-2">
+                  <input
+                    type="checkbox"
+                    aria-label={`Sélectionner tous les reçus — ${group.label}`}
+                    checked={allGroupSelected}
+                    onChange={() => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        group.items.forEach((it) => {
+                          if (allGroupSelected) next.delete(it.id);
+                          else next.add(it.id);
+                        });
+                        return next;
+                      });
+                    }}
+                    className="hidden md:block w-4 h-4 rounded accent-[#5B4BF0] cursor-pointer"
+                  />
+                  <h2 className="text-[16px] font-bold">{group.label}</h2>
+                  <span className="text-[12px] font-medium text-mc-soft">
+                    {group.items.length} reçu{group.items.length > 1 ? 's' : ''}
+                  </span>
+                </div>
 
-              {/* Téléphone : une carte par reçu. Le tableau à dix colonnes
-                  obligeait à faire défiler chaque ligne de droite à gauche. */}
-              <ul className="md:hidden divide-y divide-slate-100">
-                {group.items.map((sale) => {
-                  const isSelected = selectedIds.has(sale.id);
-                  const lastDelivery = (deliveriesBySaleId.get(sale.id) || [])[0];
-                  return (
-                    <li
-                      key={sale.id}
-                      className={`px-4 py-3 flex gap-3 ${isSelected ? 'bg-indigo-50/40' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleSelect(sale.id)}
-                        aria-label={`Sélectionner le reçu ${sale.reference}`}
-                        className="mt-1 w-4 h-4 shrink-0 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5] cursor-pointer"
-                      />
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <button
-                            onClick={() => setInspectingSale(sale)}
-                            className="min-w-0 text-left cursor-pointer"
-                          >
-                            <span className="block font-semibold text-[14px] text-slate-900 truncate">
-                              {sale.customerName?.trim() || 'Client de passage'}
-                            </span>
-                            <span className="block font-mono text-[11px] font-bold text-indigo-900 break-all">
-                              {sale.reference}
-                            </span>
-                          </button>
-                          <span className="shrink-0 font-bold text-[14px] text-slate-900">
-                            {formatMoney(sale.totalAmount)}
-                          </span>
+                <div className="space-y-2">
+                  {group.items.map((sale) => {
+                    const isSelected = selectedIds.has(sale.id);
+                    const lastDelivery = (deliveriesBySaleId.get(sale.id) || [])[0];
+                    const nom = sale.customerName?.trim() || 'Client de passage';
+
+                    return (
+                      <div
+                        key={sale.id}
+                        className={`mc-lift rounded-2xl border px-3 md:px-4 py-3 ${
+                          isSelected ? 'bg-mc-primary-tint/60 border-mc-primary' : 'bg-white border-mc-line'
+                        }`}
+                      >
+                        {/* TÉLÉPHONE — une carte par reçu, rien hors de l'écran */}
+                        <div className="md:hidden flex gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(sale.id)}
+                            aria-label={`Sélectionner le reçu ${sale.reference}`}
+                            className="mt-1 w-4 h-4 shrink-0 rounded accent-[#5B4BF0] cursor-pointer"
+                          />
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="flex items-start justify-between gap-3">
+                              <button
+                                onClick={() => setInspectingSale(sale)}
+                                className="min-w-0 text-left cursor-pointer"
+                              >
+                                <span className="block font-bold text-[14px] truncate">{nom}</span>
+                                <span className="block font-mono text-[12px] font-bold text-mc-primary-dark break-all">
+                                  {sale.reference}
+                                </span>
+                              </button>
+                              <span className="shrink-0 font-extrabold text-[16px] tabular-nums">
+                                {formatMoney(sale.totalAmount)}
+                              </span>
+                            </div>
+
+                            <p className="text-[12px] text-mc-soft truncate">
+                              <span className="font-mono">{formatShortDate(sale.createdAt)}</span>
+                              {' · '}
+                              {getArticlesSummary(sale)}
+                            </p>
+                            <p className="text-[12px] text-mc-soft/80 truncate">
+                              {sale.customerPhone ? `${sale.customerPhone} · ` : ''}
+                              Vendu par {sale.sellerName || 'Vendeur'}
+                            </p>
+
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                                <PaymentBadge sale={sale} />
+                                <DeliveryBadge delivery={lastDelivery} />
+                              </div>
+                              <div className="flex items-center shrink-0 -mr-2">
+                                <ReceiptActions
+                                  size="md"
+                                  onWhatsApp={() => handleWhatsAppSingle(sale)}
+                                  onPrint={() => handlePrintSingle(sale)}
+                                  onDownload={() => handleDownloadSingle(sale)}
+                                  onView={() => setInspectingSale(sale)}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
-                        <p className="text-[12px] text-slate-500 truncate">
-                          <span className="font-mono">{formatShortDate(sale.createdAt)}</span>
-                          {' · '}
-                          {getArticlesSummary(sale)}
-                        </p>
-                        <p className="text-[11.5px] text-slate-400 truncate">
-                          {sale.customerPhone ? `${sale.customerPhone} · ` : ''}
-                          Vendu par {sale.sellerName || 'Vendeur'}
-                        </p>
+                        {/* ORDINATEUR — une ligne : mêmes informations que l'ancien tableau */}
+                        <div className="hidden md:flex items-center gap-4">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(sale.id)}
+                            aria-label={`Sélectionner le reçu ${sale.reference}`}
+                            className="w-4 h-4 shrink-0 rounded accent-[#5B4BF0] cursor-pointer"
+                          />
+                          <button
+                            onClick={() => setInspectingSale(sale)}
+                            className="flex-1 basis-0 min-w-0 flex items-center gap-3 text-left cursor-pointer"
+                          >
+                            <span
+                              className="w-10 h-10 rounded-full text-white font-bold text-[14px] flex items-center justify-center shrink-0"
+                              style={{ backgroundColor: avatarColor(nom) }}
+                              aria-hidden="true"
+                            >
+                              {avatarInitials(nom)}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-[14px] font-bold truncate">
+                                {nom}
+                                {sale.customerPhone && (
+                                  <span className="ml-2 text-[12px] font-mono font-normal text-mc-soft">
+                                    {sale.customerPhone}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="block text-[12px] text-mc-soft truncate">
+                                <span className="font-mono font-bold text-mc-primary-dark">{sale.reference}</span>
+                                {' · '}
+                                <span className="font-mono">{formatShortDate(sale.createdAt)}</span>
+                                {' · '}
+                                {sale.sellerName || 'Vendeur'}
+                              </span>
+                            </span>
+                          </button>
 
-                        <div className="flex items-center justify-between gap-2 pt-0.5">
-                          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          <div
+                            className="hidden xl:block w-[24%] shrink-0 min-w-0 text-[14px] text-mc-soft truncate"
+                            title={sale.items.map((it) => `${it.name} (${it.quantity})`).join(', ')}
+                          >
+                            {getArticlesSummary(sale)}
+                          </div>
+
+                          <div className="w-28 shrink-0 text-right text-[16px] font-extrabold tabular-nums whitespace-nowrap">
+                            {formatMoney(sale.totalAmount)}
+                          </div>
+
+                          <div className="hidden lg:flex w-[232px] shrink-0 items-center gap-1.5">
                             <PaymentBadge sale={sale} />
                             <DeliveryBadge delivery={lastDelivery} />
                           </div>
-                          <div className="flex items-center shrink-0 -mr-2">
+
+                          <div className="flex items-center justify-end gap-1 shrink-0">
                             <ReceiptActions
-                              size="md"
+                              size="sm"
                               onWhatsApp={() => handleWhatsAppSingle(sale)}
                               onPrint={() => handlePrintSingle(sale)}
                               onDownload={() => handleDownloadSingle(sale)}
@@ -759,155 +879,23 @@ export const ReceiptsTab: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              {/* Table (écran large) */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-white text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4 w-10">
-                        <input
-                          type="checkbox"
-                          checked={
-                            group.items.length > 0 &&
-                            group.items.every((it) => selectedIds.has(it.id))
-                          }
-                          onChange={() => {
-                            const allGroupSelected = group.items.every((it) => selectedIds.has(it.id));
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              group.items.forEach((it) => {
-                                if (allGroupSelected) next.delete(it.id);
-                                else next.add(it.id);
-                              });
-                              return next;
-                            });
-                          }}
-                          className="rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5] cursor-pointer"
-                        />
-                      </th>
-                      <th className="py-3 px-3">N° Reçu</th>
-                      <th className="py-3 px-3">Heure</th>
-                      <th className="py-3 px-3">Client</th>
-                      <th className="py-3 px-3">Vendu par</th>
-                      <th className="py-3 px-3">Articles</th>
-                      <th className="py-3 px-3 text-right">Total</th>
-                      <th className="py-3 px-3 text-center">Paiement</th>
-                      <th className="py-3 px-3 text-center">Envoyé</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {group.items.map((sale) => {
-                      const isSelected = selectedIds.has(sale.id);
-                      const dels = deliveriesBySaleId.get(sale.id) || [];
-                      const lastDelivery = dels[0];
-
-                      return (
-                        <tr
-                          key={sale.id}
-                          className={`hover:bg-slate-50/80 transition-colors group ${
-                            isSelected ? 'bg-indigo-50/40' : ''
-                          }`}
-                        >
-                          {/* Checkbox */}
-                          <td className="py-3 px-4">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleSelect(sale.id)}
-                              className="rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5] cursor-pointer"
-                            />
-                          </td>
-
-                          {/* N° Reçu */}
-                          <td className="py-3 px-3">
-                            <button
-                              onClick={() => {
-                                setInspectingSale(sale);
-                              }}
-                              className="font-mono font-bold text-indigo-900 hover:text-[#4F46E5] hover:underline flex items-center gap-1 cursor-pointer"
-                            >
-                              <span>{sale.reference}</span>
-                            </button>
-                          </td>
-
-                          {/* Heure */}
-                          <td className="py-3 px-3 text-slate-500 font-mono">
-                            {formatShortDate(sale.createdAt)}
-                          </td>
-
-                          {/* Client */}
-                          <td className="py-3 px-3">
-                            <div className="font-medium text-slate-900">
-                              {sale.customerName?.trim() || 'Client de passage'}
-                            </div>
-                            {sale.customerPhone && (
-                              <div className="text-[10px] text-slate-400 font-mono">
-                                {sale.customerPhone}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Vendu par */}
-                          <td className="py-3 px-3 text-slate-600 font-medium">
-                            {sale.sellerName || 'Vendeur'}
-                          </td>
-
-                          {/* Articles (résumé court) */}
-                          <td className="py-3 px-3 text-slate-600 max-w-[200px] truncate" title={sale.items.map((it) => `${it.name} (${it.quantity})`).join(', ')}>
-                            {getArticlesSummary(sale)}
-                          </td>
-
-                          {/* Total */}
-                          <td className="py-3 px-3 text-right font-bold font-sans text-slate-900">
-                            {formatMoney(sale.totalAmount)}
-                          </td>
-
-                          {/* Reste à payer / Paiement */}
-                          <td className="py-3 px-3 text-center">
-                            <PaymentBadge sale={sale} />
-                          </td>
-
-                          {/* Statut Envoyé */}
-                          <td className="py-3 px-3 text-center">
-                            <DeliveryBadge delivery={lastDelivery} />
-                          </td>
-
-                          {/* Actions rapides */}
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <ReceiptActions
-                                size="sm"
-                                onWhatsApp={() => handleWhatsAppSingle(sale)}
-                                onPrint={() => handlePrintSingle(sale)}
-                                onDownload={() => handleDownloadSingle(sale)}
-                                onView={() => setInspectingSale(sale)}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </div>
-      )}
+      ))}
+      </MotionConfig>
 
       {/* 5. BARRE FLOTTANTE SÉLECTION MULTIPLE */}
       {selectedIds.size > 0 && (
         // Sur téléphone, au-dessus de la barre de navigation du bas (sinon ses
         // boutons passaient dessous, hors d'atteinte).
-        <div className="fixed bottom-24 inset-x-3 md:inset-x-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-40 bg-slate-900 text-white px-4 md:px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-x-4 gap-y-2 flex-wrap animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="fixed bottom-24 inset-x-3 md:inset-x-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-40 bg-mc-ink text-white px-4 md:px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-x-4 gap-y-2 flex-wrap animate-in fade-in slide-in-from-bottom-3 duration-200">
           <div className="flex items-center gap-2 pr-2 md:border-r border-slate-700">
-            <span className="w-6 h-6 rounded-full bg-[#4F46E5] text-white text-xs font-bold flex items-center justify-center">
+            <span className="w-6 h-6 rounded-full bg-[#5B4BF0] text-white text-xs font-bold flex items-center justify-center">
               {selectedIds.size}
             </span>
             <span className="text-xs font-semibold">reçus sélectionnés</span>
@@ -917,7 +905,7 @@ export const ReceiptsTab: React.FC = () => {
             <button
               onClick={handleBulkPrint}
               disabled={isProcessingPdf}
-              className="px-3 py-1.5 bg-[#4F46E5] hover:bg-indigo-600 active:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 bg-mc-primary hover:bg-mc-primary-dark active:bg-mc-primary-dark text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimer la sélection</span>
@@ -954,8 +942,8 @@ export const ReceiptsTab: React.FC = () => {
           >
             <ReceiptPreview sale={inspectingSale} onClose={() => setInspectingSale(null)}>
               {/* Historique des envois pour ce reçu */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="bg-white p-4 rounded-xl border border-mc-line shadow-2xs space-y-2.5">
+                <h4 className="text-xs font-bold text-mc-ink uppercase tracking-wider flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
                   <span>Historique des transmissions</span>
                 </h4>
@@ -972,7 +960,7 @@ export const ReceiptsTab: React.FC = () => {
                     {(deliveriesBySaleId.get(inspectingSale.id) || []).map((del) => (
                       <div
                         key={del.id}
-                        className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs"
+                        className="p-2.5 rounded-lg bg-slate-50 border border-mc-line flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-2">
                           <span
@@ -993,7 +981,7 @@ export const ReceiptsTab: React.FC = () => {
                             )}
                           </span>
                           <div>
-                            <div className="font-semibold text-slate-800">
+                            <div className="font-semibold text-mc-ink">
                               {del.canal === 'WHATSAPP'
                                 ? del.destinataireNom
                                   ? `Envoyé sur WhatsApp à ${del.destinataireNom}`
@@ -1009,7 +997,7 @@ export const ReceiptsTab: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                        <span className="text-[10.5px] text-slate-500 font-mono">
+                        <span className="text-[10.5px] text-mc-soft font-mono">
                           {formatDate(del.createdAt)}
                         </span>
                       </div>
@@ -1059,7 +1047,11 @@ export const ReceiptsTab: React.FC = () => {
 // Pastilles et actions partagées par le tableau (écran large) et les cartes (téléphone).
 
 const PaymentBadge: React.FC<{ sale: Sale }> = ({ sale }) =>
-  sale.remainingAmount > 0 ? (
+  sale.isCancelled ? (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+      Annulée
+    </span>
+  ) : sale.remainingAmount > 0 ? (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
       Reste {formatMoney(sale.remainingAmount)}
     </span>
@@ -1072,7 +1064,7 @@ const PaymentBadge: React.FC<{ sale: Sale }> = ({ sale }) =>
 const DeliveryBadge: React.FC<{ delivery?: ReceiptDelivery }> = ({ delivery }) => {
   if (!delivery) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-slate-100 text-mc-soft border border-mc-line whitespace-nowrap">
         Non envoyé
       </span>
     );
@@ -1140,7 +1132,7 @@ const ReceiptActions: React.FC<{
         onClick={onView}
         title="Voir l'aperçu complet"
         aria-label="Voir l'aperçu complet"
-        className={`${base} text-indigo-600 hover:bg-indigo-50`}
+        className={`${base} text-mc-primary hover:bg-mc-primary-tint`}
       >
         <Eye className={icon} />
       </button>

@@ -3,11 +3,15 @@ import { nanoid } from 'nanoid';
 import * as Sentry from '@sentry/nextjs';
 import { AppError } from './errors';
 
+// Les réponses de l'API portent les données d'une boutique : jamais dans un
+// cache partagé (CDN, proxy), jamais réutilisées par le navigateur.
+const NO_STORE = { 'Cache-Control': 'private, no-store' };
+
 // Contrat de réponse exact du cahier des charges (spec §8).
 export function ok<T>(data: T, init?: { status?: number }) {
   return NextResponse.json(
     { success: true, data, meta: { requestId: `req_${nanoid(12)}` } },
-    { status: init?.status ?? 200 }
+    { status: init?.status ?? 200, headers: NO_STORE }
   );
 }
 
@@ -19,7 +23,7 @@ export function fail(error: unknown) {
         error: { code: error.code, message: error.message, details: error.details ?? {} },
         meta: { requestId: `req_${nanoid(12)}` },
       },
-      { status: error.status }
+      { status: error.status, headers: NO_STORE }
     );
   }
 
@@ -36,6 +40,6 @@ export function fail(error: unknown) {
       error: { code: 'SERVER_ERROR', message: 'Une erreur interne est survenue.', details: {} },
       meta: { requestId: `req_${nanoid(12)}` },
     },
-    { status: 500 }
+    { status: 500, headers: NO_STORE }
   );
 }

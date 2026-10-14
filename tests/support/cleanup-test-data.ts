@@ -5,6 +5,10 @@ import type { PrismaClient } from '@prisma/client';
 // annulée, cf. vitest.config.mts. Ces boutiques portent toujours un nom du
 // type "Test Isolation A", "Verif Stage7", "Boutique E2E Flow"… d'où le filtre.
 const TEST_NAME_NEEDLES = ['test', 'e2e', 'verif'];
+// Le mot entier seulement : « Test Isolation A » oui, « Contest Mode » ou
+// « Vérifications Auto » non. La recherche en base (contains) ne fait que
+// présélectionner ; c'est ce filtre qui décide de la suppression.
+const TEST_NAME_WORD = /(^|[^p{L}])(test|e2e|verif)(?![p{L}])/iu;
 
 export async function findTestBusinessIds(prisma: PrismaClient): Promise<string[]> {
   const businesses = await prisma.business.findMany({
@@ -13,9 +17,9 @@ export async function findTestBusinessIds(prisma: PrismaClient): Promise<string[
         nom: { contains: needle, mode: 'insensitive' as const },
       })),
     },
-    select: { id: true },
+    select: { id: true, nom: true },
   });
-  return businesses.map((b) => b.id);
+  return businesses.filter((b) => TEST_NAME_WORD.test(b.nom)).map((b) => b.id);
 }
 
 /**

@@ -213,7 +213,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
           onDrop={handleDrop}
           className={`w-[120px] h-[120px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative shrink-0 transition-all overflow-hidden select-none ${
             isDragging
-              ? 'border-indigo-500 bg-indigo-50/50 scale-102'
+              ? 'border-mc-primary bg-mc-primary-tint scale-102'
               : 'border-[#E2E8F0] bg-slate-50/60 hover:bg-slate-50'
           }`}
         >
@@ -230,7 +230,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   title="Changer de logo"
-                  className="px-2 py-1 rounded bg-white text-slate-900 text-[10px] font-bold shadow-xs cursor-pointer"
+                  className="px-2 py-1 rounded bg-white text-mc-ink text-[10px] font-bold shadow-xs cursor-pointer"
                 >
                   Modifier
                 </button>
@@ -246,7 +246,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
           )}
 
           {isProcessing && (
-            <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex items-center justify-center text-indigo-600">
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex items-center justify-center text-mc-primary">
               <Sparkles className="w-5 h-5 animate-spin" />
             </div>
           )}
@@ -254,7 +254,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
 
         {/* Action buttons & explanations */}
         <div className="flex-1 space-y-2.5">
-          <p className="text-xs text-slate-500 leading-relaxed max-w-md">
+          <p className="text-xs text-mc-soft leading-relaxed max-w-md">
             {logoUrl
               ? 'Ton logo est configuré. Il s’affiche automatiquement sur tes reçus numériques et sur les étiquettes de tes articles.'
               : 'Ajoute ton logo, il apparaîtra sur tes reçus et tes étiquettes.'}
@@ -275,9 +275,9 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-mc-primary-tint hover:bg-mc-primary-tint text-mc-primary-dark font-bold text-xs transition-colors cursor-pointer"
             >
-              <Upload className="w-3.5 h-3.5 text-indigo-600" />
+              <Upload className="w-3.5 h-3.5 text-mc-primary" />
               <span>Choisir un fichier</span>
             </button>
 
@@ -329,12 +329,12 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
 
       {/* Live Preview Vignette: "Voici comment il apparaîtra sur ton reçu" */}
       <div className="pt-2 border-t border-slate-100">
-        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+        <span className="text-[11px] font-bold text-mc-soft uppercase tracking-wider block mb-2">
           Voici comment il apparaîtra sur ton reçu
         </span>
 
-        <div className="inline-flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 max-w-sm">
-          <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0 shadow-2xs overflow-hidden">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-mc-line w-full max-w-sm min-w-0">
+          <div className="w-10 h-10 rounded-lg bg-white border border-mc-line flex items-center justify-center p-1 shrink-0 shadow-2xs overflow-hidden">
             {logoUrl ? (
               <img src={logoUrl} alt="Vignette reçu" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
             ) : (
@@ -342,7 +342,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
             )}
           </div>
           <div className="min-w-0">
-            <h5 className="text-xs font-bold text-slate-900 truncate uppercase">
+            <h5 className="text-xs font-bold text-mc-ink truncate uppercase">
               {shopName || 'MoroCash Store'}
             </h5>
             <p className="text-[10px] text-slate-400 truncate">Reçu N° CMD-2026-0042 • Payé</p>
@@ -353,21 +353,21 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
       {/* Interactive Crop Modal if user picked an image */}
       {cropImageSrc && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-mc p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Move className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-bold text-mc-ink flex items-center gap-2">
+                <Move className="w-4 h-4 text-mc-primary" />
                 <span>Ajuster le recadrage carré</span>
               </h3>
             </div>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-mc-soft">
               Fais glisser l'image ou ajuste le zoom pour centrer ton logo dans le carré.
             </p>
 
             {/* Crop canvas area */}
             <div
-              className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-2 border-indigo-500 bg-slate-900 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+              className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-2 border-mc-primary bg-slate-900 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
               onMouseDown={(e) => {
                 setIsDraggingCrop(true);
                 dragStartRef.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
@@ -397,7 +397,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
 
             {/* Zoom Slider */}
             <div className="space-y-1 pt-1">
-              <div className="flex justify-between text-[11px] font-bold text-slate-500">
+              <div className="flex justify-between text-[11px] font-bold text-mc-soft">
                 <span>Zoom</span>
                 <span>{Math.round(zoom * 100)}%</span>
               </div>
@@ -424,7 +424,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
               <button
                 type="button"
                 onClick={applyCrop}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
                 <span>Valider le logo</span>

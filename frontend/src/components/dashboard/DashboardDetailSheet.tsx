@@ -38,7 +38,7 @@ export interface DashboardDetail {
 }
 
 const TONE_CLASS = {
-  default: 'text-slate-900',
+  default: 'text-mc-ink',
   negative: 'text-[#DC2626]',
   positive: 'text-[#059669]',
   muted: 'text-slate-400 line-through',
@@ -64,34 +64,36 @@ export const DashboardDetailSheet: React.FC<{ detail: DashboardDetail; onClose: 
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
         id="dashboard-detail-sheet"
         onClick={(e) => e.stopPropagation()}
-        className="bg-white w-full sm:max-w-lg max-h-[90vh] rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-100 flex flex-col"
+        className="bg-white w-full sm:max-w-lg max-h-[90vh] rounded-t-3xl sm:rounded-mc shadow-2xl border border-slate-100 flex flex-col"
       >
         <div className="p-5 pb-4 border-b border-slate-100 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="font-extrabold text-base text-slate-900">{detail.title}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">{detail.subtitle}</p>
+              <h3 className="font-extrabold text-base text-mc-ink">{detail.title}</h3>
+              <p className="text-xs text-mc-soft mt-0.5">{detail.subtitle}</p>
             </div>
             <button
               onClick={onClose}
               aria-label="Fermer"
-              className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer shrink-0"
+              className="w-7 h-7 rounded-full bg-slate-100 text-mc-soft hover:bg-slate-200 flex items-center justify-center cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+          <div className="p-3 rounded-2xl bg-slate-50 border border-mc-line space-y-1.5">
             {detail.summary?.map((line) => (
               <div key={line.label} className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-600">{line.label}</span>
-                <span className="font-bold text-slate-800 tabular-nums">
+                <span className="font-bold text-mc-ink tabular-nums">
                   {line.sign === '-' ? '− ' : ''}
                   {formatMoney(line.value)}
                 </span>
@@ -99,13 +101,13 @@ export const DashboardDetailSheet: React.FC<{ detail: DashboardDetail; onClose: 
             ))}
             <div
               className={`flex items-center justify-between ${
-                detail.summary?.length ? 'pt-1.5 border-t border-slate-200' : ''
+                detail.summary?.length ? 'pt-1.5 border-t border-mc-line' : ''
               }`}
             >
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-mc-soft">
                 {detail.total.label}
               </span>
-              <span className={`text-lg font-black tabular-nums ${totalTone}`}>
+              <span className={`text-lg font-extrabold tabular-nums ${totalTone}`}>
                 {detail.total.value < 0 ? '−' : ''}
                 {formatMoney(Math.abs(detail.total.value))}
               </span>
@@ -120,22 +122,22 @@ export const DashboardDetailSheet: React.FC<{ detail: DashboardDetail; onClose: 
             </p>
           )}
           {detail.rows.length === 0 ? (
-            <p className="py-10 text-center text-sm font-semibold text-slate-500">{detail.emptyText}</p>
+            <p className="py-10 text-center text-sm font-semibold text-mc-soft">{detail.emptyText}</p>
           ) : (
             detail.rows.map((row) => {
               const tone = row.tone ?? 'default';
               const content = (
                 <>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-extrabold text-slate-900 truncate">{row.title}</p>
-                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                    <p className="text-xs font-extrabold text-mc-ink truncate">{row.title}</p>
+                    <p className="text-[11px] text-mc-soft truncate mt-0.5">
                       {formatWhen(row.date)}
                       {row.subtitle ? ` · ${row.subtitle}` : ''}
                     </p>
-                    {row.note && <p className="text-[11px] text-slate-500 italic mt-0.5">{row.note}</p>}
+                    {row.note && <p className="text-[11px] text-mc-soft italic mt-0.5">{row.note}</p>}
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={`text-sm font-black tabular-nums ${TONE_CLASS[tone]}`}>
+                    <div className={`text-sm font-extrabold tabular-nums ${TONE_CLASS[tone]}`}>
                       {tone === 'negative' ? '− ' : ''}
                       {formatMoney(row.amount)}
                     </div>
@@ -152,7 +154,7 @@ export const DashboardDetailSheet: React.FC<{ detail: DashboardDetail; onClose: 
                 </>
               );
               const className =
-                'w-full p-3 rounded-2xl border border-slate-200/80 bg-white flex items-center gap-3 text-left';
+                'w-full p-3 rounded-2xl border border-mc-line bg-white flex items-center gap-3 text-left';
               return row.onClick ? (
                 <button
                   key={row.id}
@@ -176,7 +178,7 @@ export const DashboardDetailSheet: React.FC<{ detail: DashboardDetail; onClose: 
             <button
               type="button"
               onClick={detail.footer.onClick}
-              className="w-full py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="w-full py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-mc-line text-xs font-bold text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
             >
               <span>{detail.footer.label}</span>
               <ArrowRight className="w-3.5 h-3.5" />

@@ -7,6 +7,7 @@ import {
 } from '@/server/modules/admin/affiliation';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 export async function GET() {
   try {
@@ -20,6 +21,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const admin = await requireAdminSession();
+    await assertCsrf();
     const body = await request.json().catch(() => null);
     const parsed = affiliateSettingsSchema.safeParse(body);
     if (!parsed.success) {

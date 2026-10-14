@@ -60,14 +60,14 @@ export const CatalogExportModal: React.FC<CatalogExportModalProps> = ({ isOpen, 
       type="button"
       disabled={running !== null}
       onClick={() => handleExport(format)}
-      className="w-full p-3.5 rounded-2xl border border-slate-200 hover:border-[#4F46E5] hover:bg-indigo-50/40 text-left flex items-center gap-3 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-wait"
+      className="w-full p-3.5 rounded-2xl border border-mc-line hover:border-[#5B4BF0] hover:bg-mc-primary-tint text-left flex items-center gap-3 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-wait"
     >
-      <span className="w-10 h-10 rounded-xl bg-indigo-50 text-[#4F46E5] flex items-center justify-center shrink-0">
+      <span className="w-10 h-10 rounded-xl bg-mc-primary-tint text-[#5B4BF0] flex items-center justify-center shrink-0">
         {running === format ? <Loader2 className="w-5 h-5 animate-spin" /> : icon}
       </span>
       <span className="flex-1 min-w-0">
-        <span className="block text-[14px] font-bold text-slate-900">{title}</span>
-        <span className="block text-[12px] text-slate-500">
+        <span className="block text-[14px] font-bold text-mc-ink">{title}</span>
+        <span className="block text-[12px] text-mc-soft">
           {running === format ? 'Préparation du fichier…' : description}
         </span>
       </span>
@@ -89,10 +89,10 @@ export const CatalogExportModal: React.FC<CatalogExportModalProps> = ({ isOpen, 
       >
         <div className="h-14 px-4 flex items-center justify-between border-b border-slate-100">
           <div>
-            <h3 id="catalog-export-title" className="text-[15px] font-[750] text-slate-900 leading-tight">
+            <h3 id="catalog-export-title" className="text-[15px] font-[750] text-mc-ink leading-tight">
               Exporter le catalogue
             </h3>
-            <p className="text-[11px] text-slate-500 leading-tight">
+            <p className="text-[11px] text-mc-soft leading-tight">
               {products.length} produit{products.length > 1 ? 's' : ''} · choisis un format
             </p>
           </div>

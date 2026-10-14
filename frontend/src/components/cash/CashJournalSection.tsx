@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronRight, X } from 'lucide-react';
+import { motion } from 'motion/react';
+import { CountUp, Segmented, staggerChild, staggerParent } from '../sales/SalesKit';
 import { useApp } from '../../context/AppContext';
 import { useCashJournal } from '../../hooks/useCashJournal';
 import type { CashJournalLine } from '../../api/cash';
@@ -57,7 +59,7 @@ const LineRow: React.FC<LineRowProps> = ({ line, singleDay, running, onOpen }) =
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-mono text-slate-500">{when}</span>
+          <span className="text-[11px] font-mono text-mc-soft">{when}</span>
           <span
             className="inline-block whitespace-nowrap font-bold"
             style={{ backgroundColor: pill.bg, color: pill.color, borderRadius: 999, fontSize: 11, padding: '2px 8px' }}
@@ -69,23 +71,23 @@ const LineRow: React.FC<LineRowProps> = ({ line, singleDay, running, onOpen }) =
             <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-200 text-slate-700">Annulé</span>
           )}
         </div>
-        <p className={`text-[13px] font-bold break-words ${line.isCancelled ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+        <p className={`text-[13px] font-bold break-words ${line.isCancelled ? 'text-slate-400 line-through' : 'text-mc-ink'}`}>
           {line.label}
         </p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-mc-soft">
           {[line.category, formatPaymentMethod(line.method), line.by].filter(Boolean).join(' · ')}
         </p>
       </div>
       <div className="text-right shrink-0">
         <div
-          className={`text-sm font-black tabular-nums whitespace-nowrap ${
-            line.isCancelled ? 'text-slate-400 line-through' : line.kind === 'SORTIE' ? 'text-[#991B1B]' : 'text-slate-900'
+          className={`text-sm font-extrabold tabular-nums whitespace-nowrap ${
+            line.isCancelled ? 'text-slate-400 line-through' : line.kind === 'SORTIE' ? 'text-[#991B1B]' : 'text-mc-ink'
           }`}
         >
           {signedAmount(line)}
         </div>
         {running && !line.isCancelled && (
-          <div className="text-[11px] font-semibold text-slate-500 tabular-nums mt-0.5 whitespace-nowrap">
+          <div className="text-[11px] font-semibold text-mc-soft tabular-nums mt-0.5 whitespace-nowrap">
             {running.label} : {formatMoney(running.value)}
           </div>
         )}
@@ -93,9 +95,9 @@ const LineRow: React.FC<LineRowProps> = ({ line, singleDay, running, onOpen }) =
     </div>
   );
 
-  const base = 'w-full min-h-[48px] p-3 rounded-2xl border border-slate-200/80 bg-white text-left';
+  const base = 'w-full min-h-[48px] px-4 py-3 rounded-2xl border border-mc-line bg-white text-left';
   return clickable ? (
-    <button type="button" onClick={() => onOpen!(line)} className={`${base} cursor-pointer hover:border-slate-300 transition-colors`}>
+    <button type="button" onClick={() => onOpen!(line)} className={`${base} mc-lift cursor-pointer`}>
       {content}
     </button>
   ) : (
@@ -108,25 +110,57 @@ interface FigureCardProps {
   hint?: string;
   amount: number;
   color?: string;
+  /** Signe du calcul devant le libellé : « + Entrées », « − Sorties », « = Solde ». */
+  operator?: '+' | '−' | '=';
+  /** La carte du résultat (le solde) : en dégradé, texte blanc. */
+  featured?: boolean;
   onClick: () => void;
 }
 
 /** Un chiffre de la caisse : toute la carte se touche et ouvre son détail. */
-const FigureCard: React.FC<FigureCardProps> = ({ label, hint, amount, color = '#0F172A', onClick }) => (
-  <button
+const FigureCard: React.FC<FigureCardProps> = ({
+  label,
+  hint,
+  amount,
+  color = '#0F1226',
+  operator,
+  featured = false,
+  onClick,
+}) => (
+  <motion.button
     type="button"
+    variants={staggerChild}
     onClick={onClick}
-    className="w-full min-h-[56px] p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center justify-between gap-3 text-left cursor-pointer hover:border-slate-300 transition-colors"
+    className={`mc-lift w-full min-h-[56px] p-4 md:p-5 rounded-mc shadow-mc-card flex items-center justify-between gap-3 text-left cursor-pointer ${
+      featured ? 'mc-gradient text-white' : 'bg-white border border-mc-line'
+    }`}
   >
     <span className="min-w-0">
-      <span className="block text-xs font-bold text-slate-500">{label}</span>
-      <span className="block text-xl font-black tabular-nums tracking-tight" style={{ color }}>
-        {formatMoney(amount)}
+      <span className={`flex items-center gap-1.5 text-[14px] font-semibold ${featured ? 'text-white/80' : 'text-mc-soft'}`}>
+        {operator && (
+          <span
+            aria-hidden="true"
+            className={`w-5 h-5 rounded-full text-[12px] font-extrabold flex items-center justify-center ${
+              featured ? 'bg-white/20 text-white' : 'bg-mc-bg text-mc-ink'
+            }`}
+          >
+            {operator}
+          </span>
+        )}
+        {label}
       </span>
-      {hint && <span className="block text-[11px] text-slate-500 font-medium">{hint}</span>}
+      <span
+        className="block mt-1 text-[24px] md:text-[28px] font-extrabold tabular-nums tracking-tight leading-tight whitespace-nowrap"
+        style={featured ? undefined : { color }}
+      >
+        <CountUp value={amount} format={formatMoney} />
+      </span>
+      {hint && (
+        <span className={`block text-[12px] font-medium ${featured ? 'text-white/75' : 'text-mc-soft'}`}>{hint}</span>
+      )}
     </span>
-    <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" aria-hidden="true" />
-  </button>
+    <ChevronRight className={`w-5 h-5 shrink-0 ${featured ? 'text-white/70' : 'text-mc-soft'}`} aria-hidden="true" />
+  </motion.button>
 );
 
 /**
@@ -242,24 +276,20 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
     ...(journal?.canSeeExits ? [{ id: 'SORTIE' as const, label: 'Sorties' }] : []),
   ];
 
-  const tabClass = (active: boolean) =>
-    `min-h-[48px] px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-      active
-        ? 'bg-[#4F46E5] text-white shadow-xs'
-        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-    }`;
-
   return (
     <>
       {/* SÉLECTEUR DE PÉRIODE */}
       <div id="cash-period-selector" className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {periodTabs.map((tab) => (
-            <button key={tab.id} type="button" onClick={() => { setMode(tab.id); setVisible(PAGE_SIZE); }} className={tabClass(mode === tab.id)}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <Segmented<PeriodMode>
+          id="btn-cash-period"
+          label="Période"
+          value={mode}
+          onChange={(id) => {
+            setMode(id);
+            setVisible(PAGE_SIZE);
+          }}
+          options={periodTabs}
+        />
         {mode === 'DAY' && (
           <input
             id="cash-day"
@@ -268,7 +298,7 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
             value={day}
             max={toDateInputValue(new Date())}
             onChange={(e) => setDay(e.target.value)}
-            className="min-h-[48px] px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 cursor-pointer"
+            className="min-h-[44px] px-4 rounded-full border border-mc-line bg-white text-[14px] font-semibold text-mc-ink cursor-pointer"
           />
         )}
         {mode === 'RANGE' && (
@@ -289,43 +319,70 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
       </div>
 
       {!journal ? (
-        <div className="p-6 rounded-2xl bg-white border border-slate-200/90 text-center text-xs font-medium text-slate-500">
-          {loading ? 'Chargement de la caisse…' : 'Impossible de charger la caisse. Vérifie ta connexion.'}
-        </div>
+        loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" aria-busy="true" aria-label="Chargement de la caisse">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="p-5 rounded-mc bg-white border border-mc-line space-y-3">
+                <div className="h-3.5 w-24 rounded-full mc-shimmer" />
+                <div className="h-7 w-32 rounded-full mc-shimmer" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 rounded-mc bg-white border border-mc-line text-center text-[14px] font-medium text-mc-soft">
+            Impossible de charger la caisse. Vérifie ta connexion.
+          </div>
+        )
       ) : (
         <>
-          {/* CARTES — chaque chiffre ouvre son détail */}
-          <div id="cash-figures" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* CARTES — le calcul se lit de gauche à droite : Fond + Entrées − Sorties = Solde.
+              Chaque chiffre ouvre son détail. */}
+          <motion.div
+            id="cash-figures"
+            variants={staggerParent}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
+          >
             <FigureCard label="Fond de départ" amount={journal.fondDepart} onClick={() => setDetail({ kind: 'FOND' })} />
             <FigureCard
               label="Entrées"
+              operator="+"
               hint="Paiements à la commande et versements"
               amount={journal.entrees}
-              color="#166534"
+              color="#15803D"
               onClick={() => setDetail({ kind: 'ENTREE' })}
             />
             {journal.canSeeExits && journal.sorties !== null && (
               <FigureCard
                 label="Sorties"
+                operator="−"
                 hint="Dépenses et argent sorti"
                 amount={journal.sorties}
-                color="#991B1B"
+                color="#DC2626"
                 onClick={() => setDetail({ kind: 'SORTIE' })}
               />
             )}
             {journal.canSeeExits && journal.solde !== null && (
               <FigureCard
                 label="Solde"
+                operator="="
+                featured
                 hint="Fond + Entrées − Sorties"
                 amount={journal.solde}
-                color="#4F46E5"
                 onClick={() => setDetail({ kind: 'SOLDE' })}
               />
             )}
-          </div>
+          </motion.div>
 
           {journal.modes.length > 0 && (
-            <div id="cash-modes" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <motion.div
+              id="cash-modes"
+              variants={staggerParent}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
+            >
               {journal.modes.map((m) => (
                 <FigureCard
                   key={m.method}
@@ -334,41 +391,42 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
                   onClick={() => setDetail({ kind: 'MODE', method: m.method })}
                 />
               ))}
-            </div>
+            </motion.div>
           )}
 
-          <FigureCard
-            label="Ce que les clients nous doivent"
-            hint={`${journal.creances.nbClients} client${journal.creances.nbClients > 1 ? 's' : ''} — pas encore encaissé, donc pas dans la caisse`}
-            amount={journal.creances.total}
-            color="#BE123C"
-            onClick={goToDebtors}
-          />
+          <motion.div variants={staggerParent} initial="hidden" animate="show">
+            <FigureCard
+              label="Ce que les clients nous doivent"
+              hint={`${journal.creances.nbClients} client${journal.creances.nbClients > 1 ? 's' : ''} — pas encore encaissé, donc pas dans la caisse`}
+              amount={journal.creances.total}
+              color="#DC2626"
+              onClick={goToDebtors}
+            />
+          </motion.div>
 
           {children}
 
           {/* JOURNAL DE LA CAISSE */}
-          <section id="cash-journal" className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-slate-100 space-y-3">
+          <section id="cash-journal" className="bg-white rounded-mc border border-mc-line shadow-mc-card overflow-hidden">
+            <div className="p-4 md:p-6 border-b border-mc-line flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">Journal de la caisse</h3>
-                <p className="text-xs text-slate-500">{period.label}</p>
+                <h3 className="text-[16px] font-bold text-mc-ink">Journal de la caisse</h3>
+                <p className="text-[12px] text-mc-soft">{period.label}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {filterTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => { setFilter(tab.id); setVisible(PAGE_SIZE); }}
-                    className={tabClass(filter === tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              <Segmented<JournalFilter>
+                id="btn-cash-filter"
+                label="Type de mouvements"
+                tone="ink"
+                value={filter}
+                onChange={(id) => {
+                  setFilter(id);
+                  setVisible(PAGE_SIZE);
+                }}
+                options={filterTabs}
+              />
             </div>
 
-            <div className="p-3 space-y-2">
+            <div className="p-3 space-y-2 bg-mc-bg/60">
               {filter !== 'SORTIE' &&
                 pendingInPeriod.map((v) => (
                   <button
@@ -379,21 +437,21 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
                   >
                     <span className="min-w-0 space-y-1">
                       <span className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-mono text-slate-500">{formatShortDate(v.createdAt)}</span>
+                        <span className="text-[11px] font-mono text-mc-soft">{formatShortDate(v.createdAt)}</span>
                         <VersementBadge versement={v} />
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900">
                           En attente d’envoi
                         </span>
                       </span>
-                      <span className="block text-[13px] font-bold text-slate-900 break-words">{v.customerName || 'Client'}</span>
-                      <span className="block text-[11px] text-slate-500">{formatPaymentMethod(v.method)}</span>
+                      <span className="block text-[13px] font-bold text-mc-ink break-words">{v.customerName || 'Client'}</span>
+                      <span className="block text-[11px] text-mc-soft">{formatPaymentMethod(v.method)}</span>
                     </span>
-                    <span className="text-sm font-black tabular-nums whitespace-nowrap text-slate-900">+ {formatMoney(v.amount)}</span>
+                    <span className="text-sm font-extrabold tabular-nums whitespace-nowrap text-mc-ink">+ {formatMoney(v.amount)}</span>
                   </button>
                 ))}
 
               {journalLines.length === 0 && (filter === 'SORTIE' || pendingInPeriod.length === 0) ? (
-                <p className="py-10 text-center text-xs text-slate-400">{EMPTY_TEXT}</p>
+                <p className="py-10 text-center text-[14px] text-mc-soft">{EMPTY_TEXT}</p>
               ) : (
                 journalLines.slice(0, visible).map((line) => (
                   <LineRow
@@ -410,7 +468,7 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
                 <button
                   type="button"
                   onClick={() => setVisible((n) => n + PAGE_SIZE)}
-                  className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-slate-50 text-xs font-bold text-[#4F46E5] cursor-pointer hover:bg-slate-100"
+                  className="w-full min-h-[44px] rounded-full border border-mc-line bg-white text-[14px] font-bold text-mc-primary cursor-pointer hover:border-mc-primary"
                 >
                   Voir plus
                 </button>
@@ -418,17 +476,17 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
             </div>
 
             {/* RÉCAP */}
-            <div className="p-4 sm:p-6 border-t border-slate-100 bg-slate-50/70 space-y-3 text-xs">
+            <div className="p-4 md:p-6 border-t border-mc-line space-y-3 text-[14px]">
               {journal.canSeeExits && journal.sorties !== null && journal.solde !== null ? (
                 <p className="font-bold text-slate-700 leading-relaxed">
-                  Fond de départ <span className="tabular-nums text-slate-900">{formatMoney(journal.fondDepart)}</span> + Entrées{' '}
+                  Fond de départ <span className="tabular-nums text-mc-ink">{formatMoney(journal.fondDepart)}</span> + Entrées{' '}
                   <span className="tabular-nums text-[#166534]">{formatMoney(journal.entrees)}</span> − Sorties{' '}
                   <span className="tabular-nums text-[#991B1B]">{formatMoney(journal.sorties)}</span> = Solde{' '}
-                  <span className="tabular-nums font-black text-[#4F46E5]">{formatMoney(journal.solde)}</span>
+                  <span className="tabular-nums font-extrabold text-[#5B4BF0]">{formatMoney(journal.solde)}</span>
                 </p>
               ) : (
                 <p className="font-bold text-slate-700 leading-relaxed">
-                  Fond de départ <span className="tabular-nums text-slate-900">{formatMoney(journal.fondDepart)}</span> · Entrées{' '}
+                  Fond de départ <span className="tabular-nums text-mc-ink">{formatMoney(journal.fondDepart)}</span> · Entrées{' '}
                   <span className="tabular-nums text-[#166534]">{formatMoney(journal.entrees)}</span>
                 </p>
               )}
@@ -441,7 +499,7 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
                   Ce que les clients nous doivent :{' '}
                   <span className="tabular-nums text-[#BE123C]">{formatMoney(journal.creances.total)}</span>
                 </span>
-                <span className="font-bold text-[#4F46E5] whitespace-nowrap">Voir qui me doit ›</span>
+                <span className="font-bold text-[#5B4BF0] whitespace-nowrap">Voir qui me doit ›</span>
               </button>
             </div>
           </section>
@@ -461,11 +519,11 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
             onClick={(e) => e.stopPropagation()}
             className="bg-slate-50 w-full md:w-[440px] max-h-[92vh] md:max-h-none md:h-full rounded-t-3xl md:rounded-none flex flex-col shadow-2xl"
           >
-            <div className="p-4 bg-white border-b border-slate-200 flex items-start justify-between gap-3 rounded-t-3xl md:rounded-none">
+            <div className="p-4 bg-white border-b border-mc-line flex items-start justify-between gap-3 rounded-t-3xl md:rounded-none">
               <div className="min-w-0">
-                <h3 className="text-sm font-extrabold text-slate-900">{detailView.title}</h3>
-                <p className="text-xs text-slate-500">{period.label}</p>
-                <p className="text-3xl font-black text-slate-900 tabular-nums tracking-tight mt-2">
+                <h3 className="text-sm font-extrabold text-mc-ink">{detailView.title}</h3>
+                <p className="text-xs text-mc-soft">{period.label}</p>
+                <p className="text-3xl font-extrabold text-mc-ink tabular-nums tracking-tight mt-2">
                   {formatMoney(detailView.total)}
                 </p>
               </div>
@@ -473,14 +531,14 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
                 type="button"
                 aria-label="Fermer"
                 onClick={() => setDetail(null)}
-                className="w-12 h-12 -mr-2 -mt-2 flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 cursor-pointer shrink-0"
+                className="w-12 h-12 -mr-2 -mt-2 flex items-center justify-center rounded-xl text-mc-soft hover:text-mc-ink cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {detailView.lines.length === 0 ? (
-                <p className="py-10 text-center text-xs text-slate-400">{EMPTY_TEXT}</p>
+                <p className="py-10 text-center text-[14px] text-mc-soft">{EMPTY_TEXT}</p>
               ) : (
                 detailView.lines.map((line) => (
                   <LineRow
@@ -508,20 +566,20 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
             aria-modal="true"
             aria-label="Détail de la sortie"
             onClick={(e) => e.stopPropagation()}
-            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl"
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-mc p-5 space-y-4 shadow-2xl"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="text-sm font-extrabold text-slate-900">
+                <h3 className="text-sm font-extrabold text-mc-ink">
                   {sortieOuverte.expenseId ? 'Dépense' : 'Argent sorti de la caisse'}
                 </h3>
-                <p className="text-2xl font-black text-[#991B1B] tabular-nums mt-1">− {formatMoney(sortieOuverte.amount)}</p>
+                <p className="text-2xl font-extrabold text-[#991B1B] tabular-nums mt-1">− {formatMoney(sortieOuverte.amount)}</p>
               </div>
               <button
                 type="button"
                 aria-label="Fermer"
                 onClick={() => setSortieOuverte(null)}
-                className="w-12 h-12 -mr-2 -mt-2 flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 cursor-pointer shrink-0"
+                className="w-12 h-12 -mr-2 -mt-2 flex items-center justify-center rounded-xl text-mc-soft hover:text-mc-ink cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -539,8 +597,8 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
                 .filter(([, value]) => Boolean(value))
                 .map(([label, value]) => (
                   <div key={label} className="py-2.5 flex items-start justify-between gap-4">
-                    <dt className="font-medium text-slate-500 shrink-0">{label}</dt>
-                    <dd className="font-bold text-slate-900 text-right break-words min-w-0">{value}</dd>
+                    <dt className="font-medium text-mc-soft shrink-0">{label}</dt>
+                    <dd className="font-bold text-mc-ink text-right break-words min-w-0">{value}</dd>
                   </div>
                 ))}
             </dl>

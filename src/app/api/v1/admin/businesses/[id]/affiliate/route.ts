@@ -2,6 +2,7 @@ import { requireAdminSession } from '@/server/guards/admin';
 import { changeAffiliateCode, changeAffiliateCodeSchema } from '@/server/modules/admin/affiliation';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -12,6 +13,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const admin = await requireAdminSession();
+    await assertCsrf();
     const body = await request.json().catch(() => null);
     const parsed = changeAffiliateCodeSchema.safeParse(body);
     if (!parsed.success) {

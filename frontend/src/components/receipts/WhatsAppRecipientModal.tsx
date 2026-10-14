@@ -158,7 +158,7 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-100">
-          <h3 id="wa-recipient-title" className="text-[15px] font-[750] text-slate-900">
+          <h3 id="wa-recipient-title" className="text-[15px] font-[750] text-mc-ink">
             Envoyer le reçu à qui ?
           </h3>
           <button
@@ -177,8 +177,8 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
             <div className={rowClass}>
               <Avatar name={clientName} />
               <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-bold text-slate-900 truncate">{clientName}</div>
-                <div className={`text-[12px] ${clientPhone ? 'text-slate-500 tabular-nums' : 'text-slate-400 italic'}`}>
+                <div className="text-[14px] font-bold text-mc-ink truncate">{clientName}</div>
+                <div className={`text-[12px] ${clientPhone ? 'text-mc-soft tabular-nums' : 'text-slate-400 italic'}`}>
                   {clientPhone ? formatPhoneDisplay(clientPhone) : 'Pas de numéro'}
                 </div>
               </div>
@@ -197,7 +197,7 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
                   <button
                     type="button"
                     onClick={() => setAddingClientPhone(true)}
-                    className="h-9 px-3 rounded-lg border border-slate-200 text-slate-700 text-[12px] font-bold flex items-center gap-1 shrink-0 cursor-pointer hover:bg-slate-50"
+                    className="h-9 px-3 rounded-lg border border-mc-line text-slate-700 text-[12px] font-bold flex items-center gap-1 shrink-0 cursor-pointer hover:bg-slate-50"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Ajouter son numéro
@@ -214,13 +214,13 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
                   value={clientPhoneDraft}
                   onChange={(e) => setClientPhoneDraft(e.target.value)}
                   placeholder="07 00 00 00 00"
-                  className="flex-1 min-w-0 h-11 px-3 rounded-xl border border-slate-200 text-[15px] font-semibold tabular-nums focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                  className="flex-1 min-w-0 h-11 px-3 rounded-xl border border-mc-line text-[15px] font-semibold tabular-nums focus:ring-2 focus:ring-mc-primary outline-hidden"
                 />
                 <button
                   type="button"
                   onClick={saveClientPhone}
                   disabled={savingClientPhone}
-                  className="h-11 px-3.5 rounded-xl bg-slate-900 text-white text-[12.5px] font-bold shrink-0 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="h-11 px-3.5 rounded-xl bg-mc-ink text-white text-[12.5px] font-bold shrink-0 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {savingClientPhone && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Enregistrer
@@ -233,8 +233,8 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
           <div className={rowClass}>
             <Avatar name={ownName} />
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-bold text-slate-900">Moi-même</div>
-              <div className={`text-[12px] ${ownPhone ? 'text-slate-500 tabular-nums' : 'text-slate-400 italic'}`}>
+              <div className="text-[14px] font-bold text-mc-ink">Moi-même</div>
+              <div className={`text-[12px] ${ownPhone ? 'text-mc-soft tabular-nums' : 'text-slate-400 italic'}`}>
                 {ownPhone ? formatPhoneDisplay(ownPhone) : 'Pas de numéro sur ton compte'}
               </div>
             </div>
@@ -251,7 +251,7 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
 
           {/* 3. Un autre numéro */}
           <div className="px-4 py-3 space-y-2.5">
-            <div className="text-[14px] font-bold text-slate-900">Un autre numéro</div>
+            <div className="text-[14px] font-bold text-mc-ink">Un autre numéro</div>
             <div className="flex gap-2">
               <input
                 type="tel"
@@ -259,7 +259,7 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
                 value={dial}
                 onChange={(e) => setDial(e.target.value)}
                 aria-label="Indicatif"
-                className="w-[76px] h-11 px-2 rounded-xl border border-slate-200 text-center text-[15px] font-semibold tabular-nums focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                className="w-[76px] h-11 px-2 rounded-xl border border-mc-line text-center text-[15px] font-semibold tabular-nums focus:ring-2 focus:ring-mc-primary outline-hidden"
               />
               <input
                 type="tel"
@@ -268,7 +268,7 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
                 onChange={(e) => setNumber(e.target.value)}
                 placeholder="07 00 00 00 00"
                 aria-label="Numéro"
-                className="flex-1 min-w-0 h-11 px-3 rounded-xl border border-slate-200 text-[15px] font-semibold tabular-nums focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                className="flex-1 min-w-0 h-11 px-3 rounded-xl border border-mc-line text-[15px] font-semibold tabular-nums focus:ring-2 focus:ring-mc-primary outline-hidden"
               />
             </div>
 
@@ -291,12 +291,12 @@ export const WhatsAppRecipientModal: React.FC<WhatsAppRecipientModalProps> = ({ 
             )}
 
             {canEditCustomer && (
-              <label className="flex items-center gap-2 text-[11.5px] text-slate-500 cursor-pointer">
+              <label className="flex items-center gap-2 text-[11.5px] text-mc-soft cursor-pointer">
                 <input
                   type="checkbox"
                   checked={saveForClient}
                   onChange={(e) => setSaveForClient(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500"
+                  className="w-3.5 h-3.5 rounded text-mc-primary focus:ring-mc-primary"
                 />
                 <span>Enregistrer ce numéro pour {clientName}</span>
               </label>

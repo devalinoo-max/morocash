@@ -5,12 +5,14 @@ import { listCodes } from '@/server/modules/products/codes';
 import { generateLabelsSheetPdf } from '@/server/modules/products/labelPdf';
 import { AppError } from '@/server/shared/errors';
 import { fail } from '@/server/shared/response';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 const bodySchema = z.object({ productIds: z.array(z.string().cuid()).min(1).max(200) });
 
 export async function POST(request: Request) {
   try {
     const ctx = await guardRead();
+    await assertCsrf();
 
     const body = await request.json().catch(() => null);
     const parsed = bodySchema.safeParse(body);

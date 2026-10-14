@@ -94,6 +94,9 @@ export const FauxAppProvider: React.FC<{ children: React.ReactNode; ouvrirRecu: 
       sales: [sale],
       customers: [customer],
       receiptDeliveries: [],
+      // Lus par « Mes reçus » depuis l'arrivée des versements.
+      pendingVersements: [],
+      openOrder: noop,
       saleSuccessReceipt,
       setSaleSuccessReceipt,
       selectedSaleForReceipt,

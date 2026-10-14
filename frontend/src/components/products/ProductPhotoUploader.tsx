@@ -153,8 +153,8 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
       onDrop={handleDrop}
       className={`relative rounded-2xl transition-all ${
         isDragging
-          ? 'border-2 border-dashed border-[#4F46E5] bg-indigo-50/50 p-4'
-          : 'border border-slate-200 bg-slate-50/60 p-3 sm:p-3.5'
+          ? 'border-2 border-dashed border-[#5B4BF0] bg-mc-primary-tint p-4'
+          : 'border border-mc-line bg-slate-50/60 p-3 sm:p-3.5'
       }`}
     >
       {/* Hidden file inputs */}
@@ -179,13 +179,13 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
       {/* Header bar with photo count */}
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-slate-800">Photos du produit</span>
+          <span className="text-xs font-bold text-mc-ink">Photos du produit</span>
           <span className="text-[11px] font-semibold text-slate-400">
             ({photos.length}/{maxPhotos} max)
           </span>
         </div>
         {photos.length > 0 && (
-          <span className="text-[10px] text-slate-500 font-medium">
+          <span className="text-[10px] text-mc-soft font-medium">
             Glisse ou utilise les flèches pour réordonner
           </span>
         )}
@@ -193,17 +193,17 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
 
       {/* Processing indicator / Progress bar */}
       {isProcessing && (
-        <div className="mb-3 p-2.5 rounded-xl bg-white border border-indigo-100 shadow-xs space-y-1.5 animate-in fade-in">
-          <div className="flex items-center justify-between text-xs font-bold text-indigo-700">
+        <div className="mb-3 p-2.5 rounded-xl bg-white border border-[#DAD6FC] shadow-xs space-y-1.5 animate-in fade-in">
+          <div className="flex items-center justify-between text-xs font-bold text-mc-primary-dark">
             <div className="flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-mc-primary" />
               <span>Optimisation et conversion WebP...</span>
             </div>
             <span>{progress}%</span>
           </div>
-          <div className="w-full h-1.5 bg-indigo-100 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-mc-primary-tint rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#4F46E5] transition-all duration-200"
+              className="h-full bg-[#5B4BF0] transition-all duration-200"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -234,7 +234,7 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
           return (
             <div
               key={idx}
-              className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-xs group shrink-0"
+              className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border border-mc-line overflow-hidden bg-white shadow-xs group shrink-0"
             >
               <img
                 src={url}
@@ -245,7 +245,7 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
 
               {/* Main Photo Badge */}
               {isMain && (
-                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#4F46E5] text-white text-[9px] font-black tracking-wide shadow-xs">
+                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#5B4BF0] text-white text-[9px] font-extrabold tracking-wide shadow-xs">
                   Principale
                 </span>
               )}
@@ -291,7 +291,7 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30 flex flex-col items-center justify-center text-slate-400 hover:text-[#4F46E5] transition-all cursor-pointer shrink-0"
+            className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-mc-primary-tint flex flex-col items-center justify-center text-slate-400 hover:text-[#5B4BF0] transition-all cursor-pointer shrink-0"
             title="Ajouter une photo"
           >
             <Plus className="w-5 h-5 mb-0.5" />
@@ -302,12 +302,12 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
 
       {/* 3 Entry Action Buttons (Prendre une photo / Choisir un fichier / Info) */}
       {photos.length < maxPhotos && (
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/70">
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-mc-line/70">
           {/* 1. Prendre une photo */}
           <button
             type="button"
             onClick={() => cameraInputRef.current?.click()}
-            className="flex-1 sm:flex-initial h-10 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors"
+            className="flex-1 sm:flex-initial h-10 px-2.5 whitespace-nowrap rounded-xl bg-mc-ink hover:bg-[#1E2140] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-colors"
           >
             <Camera className="w-4 h-4 text-amber-400" />
             <span>Prendre une photo</span>
@@ -317,9 +317,9 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 sm:flex-initial h-10 px-3.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 shadow-2xs cursor-pointer transition-colors"
+            className="flex-1 sm:flex-initial h-10 px-3.5 rounded-xl bg-white hover:bg-slate-100 border border-mc-line text-slate-700 font-bold text-xs flex items-center justify-center gap-2 shadow-2xs cursor-pointer transition-colors"
           >
-            <ImageIcon className="w-4 h-4 text-indigo-600" />
+            <ImageIcon className="w-4 h-4 text-mc-primary" />
             <span>Choisir un fichier</span>
           </button>
 

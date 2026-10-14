@@ -31,6 +31,21 @@ function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
 }
 
+/**
+ * En-tête anti-CSRF à joindre à toute écriture : le serveur refuse celles qui
+ * n'en portent pas. Le jeton vit dans un cookie lisible, posé à la connexion et
+ * à chaque lecture authentifiée ; s'il manque (cookie effacé, session ouverte
+ * avant ce contrôle), une lecture de /auth/me le fait revenir avant l'envoi.
+ */
+export async function csrfHeaders(): Promise<Record<string, string>> {
+  let token = readCookie(CSRF_COOKIE);
+  if (!token) {
+    await fetch('/api/v1/auth/me', { credentials: 'include' }).catch(() => undefined);
+    token = readCookie(CSRF_COOKIE);
+  }
+  return token ? { [CSRF_HEADER]: token } : {};
+}
+
 // Compteur de requêtes en cours — sert uniquement à faire patienter la mise à
 // jour auto-appliquée du Service Worker (PwaUpdateToast) : un rechargement
 // pendant qu'une requête est en vol (ex. connexion/inscription) l'annule net,
@@ -58,10 +73,7 @@ async function request<T>(
   }
 
   if (method !== 'GET') {
-    const csrfToken = readCookie(CSRF_COOKIE);
-    if (csrfToken) {
-      headers[CSRF_HEADER] = csrfToken;
-    }
+    Object.assign(headers, await csrfHeaders());
   }
 
   let response: Response;

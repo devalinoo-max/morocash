@@ -1,13 +1,26 @@
 import { registerSchema, registerBusiness } from '@/server/modules/auth/register';
 import { requestMeta, setSessionCookie } from '@/server/modules/auth/session';
 import { issueCsrfToken } from '@/server/middleware/csrf';
+import { assertNotRateLimited, recordFailedAttempt } from '@/server/middleware/rateLimit';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
 import { getTrialDaysLeft } from '@/server/shared/subscription';
 import { forgetReferral, resolveSignupAffiliate } from '@/server/modules/affiliation/referral';
 
+// Au plus 10 inscriptions par adresse IP toutes les 5 minutes : assez large
+// pour plusieurs commerçants derrière la même connexion, assez serré pour
+// qu'un script ne crée pas des boutiques à la chaîne.
+const MAX_SIGNUPS_PER_WINDOW = 10;
+
 export async function POST(request: Request) {
   try {
+    const { ip } = requestMeta(request);
+    const signupKey = ip ? `register:${ip}` : null;
+    if (signupKey) {
+      await assertNotRateLimited(signupKey, MAX_SIGNUPS_PER_WINDOW);
+      await recordFailedAttempt(signupKey);
+    }
+
     const body = await request.json().catch(() => null);
     const parsed = registerSchema.safeParse(body);
     if (!parsed.success) {

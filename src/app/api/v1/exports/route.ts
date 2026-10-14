@@ -10,8 +10,9 @@ import {
   resolveMonthRange,
 } from '@/server/modules/reports/queries';
 import { generateExcelTable, generatePdfTable } from '@/server/modules/exports/render';
-import { ok, fail } from '@/server/shared/response';
+import { fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 const exportSchema = z.object({
   type: z.enum(['daily', 'monthly', 'products', 'customers', 'expenses', 'payment-methods']),
@@ -86,6 +87,7 @@ async function buildTable(
 export async function POST(request: Request) {
   try {
     const ctx = await guardRead();
+    await assertCsrf();
     requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
     requirePermission(ctx, 'EXPORTER_DONNEES');
 

@@ -2,6 +2,7 @@ import { guardRead, requireRole } from '@/server/guards';
 import { checkoutSchema, startCheckout } from '@/server/modules/subscriptions/service';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 /**
  * Adresse de l'app où pawaPay renvoie le client après paiement. APP_PUBLIC_URL
@@ -32,6 +33,7 @@ function appBaseUrl(request: Request): string {
 export async function POST(request: Request) {
   try {
     const ctx = await guardRead();
+    await assertCsrf();
     requireRole(ctx.role, ['OWNER']);
 
     const body = await request.json().catch(() => null);

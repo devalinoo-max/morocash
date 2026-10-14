@@ -43,12 +43,31 @@ function withTenant<T>(
  * transactionnel à Prisma depuis un module métier — `prisma` lui-même ne doit
  * jamais être importé en dehors de ce dossier (spec §3.2).
  */
-export function runInTenantTransaction<T>(
+export async function runInTenantTransaction<T>(
   businessId: string,
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
   options?: { isolationLevel?: Prisma.TransactionIsolationLevel; timeout?: number; maxWait?: number }
 ): Promise<T> {
-  return withTenant(businessId, fn, options);
+  // En Serializable, deux transactions de la même boutique qui se croisent
+  // (deux vendeurs qui encaissent en même temps, ou le renvoi d'une vente déjà
+  // en cours) font échouer l'une des deux sur un conflit d'écriture (P2034).
+  // Postgres demande alors de rejouer la transaction : sans ça la vente perdante
+  // repartait en erreur 500 alors que rien ne l'empêchait de passer.
+  const attempts = options?.isolationLevel === 'Serializable' ? SERIALIZABLE_MAX_ATTEMPTS : 1;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await withTenant(businessId, fn, options);
+    } catch (error) {
+      if (attempt >= attempts || !isWriteConflict(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 40 * attempt + Math.random() * 80));
+    }
+  }
+}
+
+const SERIALIZABLE_MAX_ATTEMPTS = 5;
+
+function isWriteConflict(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'P2034';
 }
 
 /**

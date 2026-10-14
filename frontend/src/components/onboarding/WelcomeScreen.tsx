@@ -23,13 +23,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ shopName, onContin
   const trialDays = useApp().settings.trialDays ?? TRIAL_DAYS;
   return (
     <div className="min-h-screen bg-[#F4F4F8] flex items-center justify-center p-5 sm:p-8">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/60 p-7 sm:p-8 space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
+      <div className="w-full max-w-md bg-white rounded-mc border border-mc-line shadow-xl shadow-slate-200/60 p-7 sm:p-8 space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
           <CheckCircle2 className="w-9 h-9" strokeWidth={2.2} />
         </div>
   
         <div className="space-y-2">
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-mc-ink tracking-tight leading-snug">
             Bienvenue chez {shopName} !
           </h1>
           <p className="text-sm font-semibold text-slate-600">
@@ -50,7 +50,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ shopName, onContin
               <Gift className="w-4 h-4" strokeWidth={2.4} />
             </div>
             <div className="min-w-0">
-              <span className="text-sm font-black text-slate-900 block">
+              <span className="text-sm font-extrabold text-mc-ink block">
                 Essai gratuit — {trialDays} jours
               </span>
               <span className="text-[11px] font-semibold text-emerald-800 block mt-0.5">
@@ -75,7 +75,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ shopName, onContin
           type="button"
           onClick={onContinue}
           autoFocus
-          className="w-full py-3.5 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 cursor-pointer transition-all"
+          className="w-full py-3.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 cursor-pointer transition-all"
         >
           <span>Aller à mon tableau de bord</span>
           <ArrowRight className="w-4 h-4" />
@@ -92,13 +92,13 @@ const PlanPreview: React.FC<{ name: string; price: number; highlighted?: boolean
 }) => (
   <div
     className={`p-3.5 rounded-2xl border text-left ${
-      highlighted ? 'bg-indigo-50/70 border-indigo-200' : 'bg-slate-50/80 border-slate-200'
+      highlighted ? 'bg-mc-primary-tint border-[#DAD6FC]' : 'bg-slate-50/80 border-mc-line'
     }`}
   >
-    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 block">
+    <span className="text-[11px] font-extrabold uppercase tracking-wider text-mc-soft block">
       {name}
     </span>
-    <span className="text-base font-black text-slate-900 block mt-0.5">{formatMoney(price)}</span>
-    <span className="text-[11px] text-slate-500">/ mois</span>
+    <span className="text-base font-extrabold text-mc-ink block mt-0.5">{formatMoney(price)}</span>
+    <span className="text-[11px] text-mc-soft">/ mois</span>
   </div>
 );

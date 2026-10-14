@@ -46,6 +46,7 @@ export async function generateLabelsSheetPdf(items: LabelItem[]): Promise<Buffer
           <View style={styles.label} key={idx}>
             <Text style={styles.nom}>{item.nom}</Text>
             <Text style={styles.prix}>{item.prixVente} FCFA</Text>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- Image de @react-pdf/renderer (PDF), pas une balise <img> */}
             <Image src={images[idx]} style={styles.code} />
           </View>
         ))}

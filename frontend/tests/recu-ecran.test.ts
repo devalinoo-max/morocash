@@ -160,7 +160,14 @@ describe.skipIf(!chrome)('Reçu à l écran — dans un vrai navigateur', () => 
   async function ouvrir(query: string, ecran: { width: number; height: number }): Promise<Page> {
     const page = await browser.newPage({ viewport: { width: ecran.width, height: ecran.height } });
     await page.goto(`${base}/?${query}`);
-    await page.waitForSelector('[id^="receipt-view-"], #products-tab-content, table', { timeout: 60_000 });
+    // « Mes reçus » n'est plus un tableau : la liste est prête quand le bouton
+    // d'aperçu d'un reçu est là.
+    await page.waitForSelector(
+      `[id^="receipt-view-"], #products-tab-content, table, button[title="Voir l'aperçu complet"]`,
+      // 'attached' : le bouton d'aperçu existe en deux exemplaires (téléphone
+      // et grand écran), le premier du document peut être celui qui est masqué.
+      { timeout: 60_000, state: 'attached' }
+    );
     // Le QR code se dessine après le premier affichage.
     await page.waitForTimeout(400);
     return page;
@@ -262,7 +269,7 @@ describe.skipIf(!chrome)('Reçu à l écran — dans un vrai navigateur', () => 
     it(`${ecran.nom} — Mes reçus : le volet d'aperçu montre le reçu et tous ses boutons`, async () => {
       const page = await ouvrir('ecran=mes-recus&articles=20', ecran);
       try {
-        await page.click('button[title="Voir l\'aperçu complet"]');
+        await page.locator('button[title="Voir l\'aperçu complet"]:visible').first().click();
         await page.waitForSelector('[id^="receipt-view-"]');
         await page.waitForTimeout(300);
         attendreToutVisible(await examiner(page, BOUTONS_RECU), `${ecran.nom}, Mes reçus`);

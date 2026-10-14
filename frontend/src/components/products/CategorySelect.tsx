@@ -97,7 +97,7 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({ value, onChange 
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 cursor-pointer hover:border-slate-300"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-mc-line bg-white text-xs font-semibold text-mc-ink cursor-pointer hover:border-slate-300"
       >
         <span className={value.trim() ? '' : 'text-slate-400'}>{label}</span>
         <ChevronDown
@@ -106,7 +106,7 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({ value, onChange 
       </button>
 
       {isOpen && (
-        <div className="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg py-1">
+        <div className="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-mc-line bg-white shadow-lg py-1">
           <Option selected={!value.trim()} onSelect={() => select('')} muted>
             {NO_CATEGORY_LABEL}
           </Option>
@@ -136,13 +136,13 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({ value, onChange 
                     if (e.key === 'Escape') setIsCreating(false);
                   }}
                   placeholder="Nom de la catégorie"
-                  className="w-full px-2.5 py-2 rounded-lg border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                  className="w-full px-2.5 py-2 rounded-lg border border-mc-line text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#5B4BF0]"
                 />
                 {error && <p className="text-[11px] font-semibold text-rose-600">{error}</p>}
                 <button
                   type="button"
                   onClick={() => void confirmCreate()}
-                  className="w-full py-2 rounded-lg bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
+                  className="w-full py-2 rounded-lg bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold cursor-pointer"
                 >
                   Créer et choisir
                 </button>
@@ -151,7 +151,7 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({ value, onChange 
               <button
                 type="button"
                 onClick={() => setIsCreating(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-bold text-[#4F46E5] hover:bg-indigo-50 cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-bold text-[#5B4BF0] hover:bg-mc-primary-tint cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 shrink-0" />
                 <span>Créer une nouvelle catégorie</span>
@@ -174,10 +174,10 @@ const Option: React.FC<{
     type="button"
     onClick={onSelect}
     className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold cursor-pointer hover:bg-slate-50 ${
-      muted ? 'text-slate-500' : 'text-slate-700'
+      muted ? 'text-mc-soft' : 'text-slate-700'
     }`}
   >
     <span className="truncate">{children}</span>
-    {selected && <Check className="w-3.5 h-3.5 text-[#4F46E5] shrink-0" />}
+    {selected && <Check className="w-3.5 h-3.5 text-[#5B4BF0] shrink-0" />}
   </button>
 );

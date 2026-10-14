@@ -102,7 +102,7 @@ export const DefaultPrintFormatSetting: React.FC<{ onSaved: () => void }> = ({ o
           type="button"
           onClick={handleTestPrint}
           disabled={!resolved.page || isGenerating}
-          className="h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-10 px-4 rounded-xl border border-mc-line bg-white hover:bg-slate-50 text-mc-ink text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
           Imprimer un reçu d’essai
@@ -114,14 +114,14 @@ export const DefaultPrintFormatSetting: React.FC<{ onSaved: () => void }> = ({ o
               blockedDownload();
               setBlockedDownload(null);
             }}
-            className="h-10 px-3 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            className="h-10 px-3 rounded-xl bg-mc-ink text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-4 h-4" />
             Télécharger
           </button>
         )}
         {resolved.page && (
-          <span className="text-[11px] text-slate-500 flex items-center gap-1">
+          <span className="text-[11px] text-mc-soft flex items-center gap-1">
             <Check className="w-3.5 h-3.5 text-emerald-600" />
             {resolved.buttonLabel === 'Imprimer' ? 'Format enregistré' : resolved.buttonLabel.replace(/^Imprimer en/, 'Enregistré :')}
           </span>

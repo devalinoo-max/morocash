@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { sendDueBroadcasts, sendInactivityReminders } from '@/server/modules/push/service';
 import { fail } from '@/server/shared/response';
@@ -9,7 +10,9 @@ import { fail } from '@/server/shared/response';
 // Vercel Cron, qui pourra prendre le relais sans changer cette route).
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
+  const expected = Buffer.from(`Bearer ${secret ?? ''}`);
+  const received = Buffer.from(request.headers.get('authorization') ?? '');
+  if (!secret || received.length !== expected.length || !timingSafeEqual(received, expected)) {
     return NextResponse.json({ success: false }, { status: 401 });
   }
 

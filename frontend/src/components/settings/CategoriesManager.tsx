@@ -141,7 +141,7 @@ export const CategoriesManager: React.FC = () => {
                 if (e.target.value === '') return;
                 void handleMove(blocked.category, e.target.value === '__none__' ? null : e.target.value);
               }}
-              className="px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-semibold text-slate-800 cursor-pointer"
+              className="px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-semibold text-mc-ink cursor-pointer"
             >
               <option value="">Choisir…</option>
               <option value="__none__">Sans catégorie</option>
@@ -221,7 +221,7 @@ const CategoryColumn: React.FC<CategoryColumnProps> = ({
             setDraft('');
           }}
           placeholder="Nouvelle catégorie…"
-          className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-hidden"
+          className="flex-1 px-3 py-2 rounded-xl border border-mc-line bg-white text-xs font-medium text-mc-ink focus:ring-2 focus:ring-mc-primary outline-hidden"
         />
         <button
           type="button"
@@ -230,7 +230,7 @@ const CategoryColumn: React.FC<CategoryColumnProps> = ({
             void onCreate(draft.trim());
             setDraft('');
           }}
-          className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold cursor-pointer transition-colors"
+          className="px-3 py-2 rounded-xl bg-mc-primary hover:bg-mc-primary-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold cursor-pointer transition-colors"
           aria-label={`Ajouter une catégorie ${title.toLowerCase()}`}
         >
           <Plus className="w-3.5 h-3.5" />
@@ -259,7 +259,7 @@ const CategoryRow: React.FC<{
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-mc-line bg-white">
       {isEditing ? (
         <input
           autoFocus
@@ -274,11 +274,11 @@ const CategoryRow: React.FC<{
             }
           }}
           onBlur={commit}
-          className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-indigo-200 text-xs font-semibold text-slate-900 outline-hidden focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-[#DAD6FC] text-xs font-semibold text-mc-ink outline-hidden focus:ring-2 focus:ring-mc-primary"
         />
       ) : (
         <>
-          <span className="flex-1 min-w-0 truncate text-xs font-semibold text-slate-800">
+          <span className="flex-1 min-w-0 truncate text-xs font-semibold text-mc-ink">
             {category.nom}
           </span>
           <span className="text-[10px] font-bold text-slate-400 shrink-0">
@@ -309,7 +309,7 @@ const CategoryRow: React.FC<{
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-mc-primary hover:bg-mc-primary-tint cursor-pointer"
             aria-label={`Renommer ${category.nom}`}
           >
             <Pencil className="w-3.5 h-3.5" />

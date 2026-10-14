@@ -229,12 +229,12 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white w-full max-w-xl rounded-mc shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+        <div className="bg-mc-ink text-white px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-mc-primary flex items-center justify-center">
               <ClipboardCheck className="w-5 h-5" />
             </div>
             <div>
@@ -311,7 +311,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
               <button
                 type="button"
                 onClick={() => setCounts({})}
-                className="text-xs text-slate-500 hover:text-rose-600 font-semibold"
+                className="text-xs text-mc-soft hover:text-rose-600 font-semibold"
               >
                 Réinitialiser les scans
               </button>
@@ -342,20 +342,20 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-900 truncate">
+                        <p className="text-xs font-bold text-mc-ink truncate">
                           {item.product.name}
                         </p>
                         <div className="flex items-center gap-2 mt-0.5 text-[11px]">
-                          <span className="text-slate-500">
+                          <span className="text-mc-soft">
                             Théorique : <strong>{item.theoreticalQty}</strong>
                           </span>
                           <span>•</span>
-                          <span className="text-indigo-700 font-bold">
+                          <span className="text-mc-primary-dark font-bold">
                             Compté : <strong>{item.countedQty}</strong>
                           </span>
                           <span>•</span>
                           <span
-                            className={`font-black px-1.5 py-0.2 rounded-md ${
+                            className={`font-extrabold px-1.5 py-0.2 rounded-md ${
                               isMatch
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : diff > 0
@@ -369,7 +369,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
                       </div>
 
                       {/* Stepper */}
-                      <div className="flex items-center gap-1.5 shrink-0 bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
+                      <div className="flex items-center gap-1.5 shrink-0 bg-white p-1 rounded-xl border border-mc-line shadow-xs">
                         <button
                           type="button"
                           onClick={() => updateItemCount(item.product.id, -1)}
@@ -377,7 +377,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
                         >
                           <Minus className="w-3 h-3" />
                         </button>
-                        <span className="w-6 text-center font-bold text-xs text-slate-900">
+                        <span className="w-6 text-center font-bold text-xs text-mc-ink">
                           {item.countedQty}
                         </span>
                         <button
@@ -410,7 +410,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
                   }
                 }}
                 placeholder="Ou taper un code (MC-... ou EAN)"
-                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold"
+                className="flex-1 px-3 py-2 rounded-xl border border-mc-line text-xs font-mono font-bold"
               />
               <button
                 type="button"
@@ -418,7 +418,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
                   handleRegisterScan(manualCode);
                   setManualCode('');
                 }}
-                className="px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800"
+                className="px-3 py-2 bg-mc-ink text-white rounded-xl text-xs font-bold hover:bg-slate-800"
               >
                 Ajouter
               </button>
@@ -431,7 +431,7 @@ export const InventoryScanModal: React.FC<InventoryScanModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100"
+            className="py-2.5 px-4 rounded-xl border border-mc-line text-slate-700 text-xs font-bold hover:bg-slate-100"
           >
             Fermer
           </button>

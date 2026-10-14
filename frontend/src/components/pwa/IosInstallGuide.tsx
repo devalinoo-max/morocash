@@ -18,19 +18,19 @@ export const IosInstallGuide: React.FC<IosInstallGuideProps> = ({ onClose }) => 
   const steps = (
     <ol className="space-y-3 text-xs text-slate-700 font-medium">
       <li className="flex items-start gap-3">
-        <span className="w-6 h-6 rounded-full bg-indigo-50 text-[#4338CA] flex items-center justify-center font-black shrink-0">1</span>
+        <span className="w-6 h-6 rounded-full bg-mc-primary-tint text-[#3B2FC9] flex items-center justify-center font-extrabold shrink-0">1</span>
         <div className="space-y-1">
           <span className="flex items-center gap-1.5 flex-wrap">
             Appuie sur
-            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 border border-slate-200">
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 border border-mc-line">
               <Share className="w-4 h-4 text-sky-600" />
             </span>
             <strong>{isIpad ? 'en haut à droite' : 'en bas de l’écran'}</strong>
           </span>
           {!isIpad && (
-            <span className="flex items-center gap-1 text-[11px] text-slate-500">
+            <span className="flex items-center gap-1 text-[11px] text-mc-soft">
               Pas visible ? Appuie d’abord sur
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-100 border border-slate-200">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-100 border border-mc-line">
                 <MoreHorizontal className="w-3.5 h-3.5 text-slate-600" />
               </span>
             </span>
@@ -38,17 +38,17 @@ export const IosInstallGuide: React.FC<IosInstallGuideProps> = ({ onClose }) => 
         </div>
       </li>
       <li className="flex items-start gap-3">
-        <span className="w-6 h-6 rounded-full bg-indigo-50 text-[#4338CA] flex items-center justify-center font-black shrink-0">2</span>
+        <span className="w-6 h-6 rounded-full bg-mc-primary-tint text-[#3B2FC9] flex items-center justify-center font-extrabold shrink-0">2</span>
         <div className="space-y-1.5 flex-1">
           <span>Fais défiler et choisis :</span>
-          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-900 font-semibold">
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100 border border-mc-line text-mc-ink font-semibold">
             <span>Sur l’écran d’accueil</span>
             <SquarePlus className="w-4 h-4 text-slate-700" />
           </div>
         </div>
       </li>
       <li className="flex items-center gap-3">
-        <span className="w-6 h-6 rounded-full bg-indigo-50 text-[#4338CA] flex items-center justify-center font-black shrink-0">3</span>
+        <span className="w-6 h-6 rounded-full bg-mc-primary-tint text-[#3B2FC9] flex items-center justify-center font-extrabold shrink-0">3</span>
         <span>Appuie sur <strong className="text-sky-600">Ajouter</strong> en haut à droite</span>
       </li>
     </ol>
@@ -56,7 +56,7 @@ export const IosInstallGuide: React.FC<IosInstallGuideProps> = ({ onClose }) => 
 
   const card = (
     <div
-      className="bg-white w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl border border-slate-100 relative"
+      className="bg-white w-full max-w-sm rounded-mc p-5 space-y-4 shadow-2xl border border-slate-100 relative"
       onClick={(e) => e.stopPropagation()}
     >
       <button
@@ -68,7 +68,7 @@ export const IosInstallGuide: React.FC<IosInstallGuideProps> = ({ onClose }) => 
       </button>
       <div className="flex items-center gap-3 pr-6">
         <img src="/icons/icon-192.png" alt="" className="w-10 h-10 rounded-xl shadow-sm" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-        <h3 className="font-extrabold text-base text-slate-900">
+        <h3 className="font-extrabold text-base text-mc-ink">
           Ajoute MoroCash à ton écran d’accueil
         </h3>
       </div>

@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import type { Affiliate } from '@prisma/client';
 import { AppError } from '@/server/shared/errors';
+import { ensureCsrfToken, issueCsrfToken } from '@/server/middleware/csrf';
 import {
   createAffiliateSession,
   deleteAffiliateSessionByHash,
@@ -43,6 +44,7 @@ export async function startAffiliateSession(affiliateId: string): Promise<void> 
   });
   const store = await cookies();
   store.set(COOKIE, token, cookieOptions());
+  await issueCsrfToken();
 }
 
 /** Affilié connecté, sinon AUTH_SESSION_EXPIRED. */
@@ -62,6 +64,7 @@ export async function requireAffiliate(): Promise<Affiliate> {
       // contexte en lecture seule : la session reste bonne côté serveur
     }
   }
+  await ensureCsrfToken();
   return session.affiliate;
 }
 

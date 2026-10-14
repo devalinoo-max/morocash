@@ -345,15 +345,15 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-mc max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-bold text-mc-ink">
               Ajouter un code scannable
             </h3>
-            <p className="text-xs text-slate-500 line-clamp-1">
+            <p className="text-xs text-mc-soft line-clamp-1">
               Pour : {product.name}
             </p>
           </div>
@@ -373,8 +373,8 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
             onClick={() => setActiveTab('CAMERA')}
             className={`py-2 px-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'CAMERA'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-mc-primary-dark shadow-xs'
+                : 'text-slate-600 hover:text-mc-ink'
             }`}
           >
             <Camera className="w-3.5 h-3.5 shrink-0" />
@@ -386,8 +386,8 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
             onClick={() => setActiveTab('PHOTO')}
             className={`py-2 px-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'PHOTO'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-mc-primary-dark shadow-xs'
+                : 'text-slate-600 hover:text-mc-ink'
             }`}
           >
             <Upload className="w-3.5 h-3.5 shrink-0" />
@@ -399,8 +399,8 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
             onClick={() => setActiveTab('MANUAL')}
             className={`py-2 px-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'MANUAL'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-mc-primary-dark shadow-xs'
+                : 'text-slate-600 hover:text-mc-ink'
             }`}
           >
             <Keyboard className="w-3.5 h-3.5 shrink-0" />
@@ -451,7 +451,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
           {/* TAB 1: CAMERA SCANNER */}
           {activeTab === 'CAMERA' && !conflict && (
             <div className="space-y-3">
-              <div className="relative aspect-square max-w-[280px] mx-auto rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
+              <div className="relative aspect-square max-w-[280px] mx-auto rounded-mc overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
                 <video
                   ref={videoRef}
                   playsInline
@@ -471,7 +471,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
                     onClick={toggleTorch}
                     className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md ${
                       isTorchOn
-                        ? 'bg-amber-400 text-slate-900 ring-2 ring-white'
+                        ? 'bg-amber-400 text-mc-ink ring-2 ring-white'
                         : 'bg-slate-800/80 text-white hover:bg-slate-700'
                     }`}
                     title="Allumer la lampe / torche"
@@ -489,7 +489,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setActiveTab('PHOTO')}
-                      className="mt-3 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+                      className="mt-3 px-3 py-1.5 rounded-xl bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold"
                     >
                       Essayer l'import photo
                     </button>
@@ -497,7 +497,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
                 )}
               </div>
 
-              <p className="text-center text-xs text-slate-500 font-medium">
+              <p className="text-center text-xs text-mc-soft font-medium">
                 Pointe l’appareil vers le code-barres imprimé sur l'emballage.
                 <br />
                 Avec une douchette USB ou Bluetooth, scanne simplement l’article.
@@ -520,21 +520,21 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
               {!photoDetectionResult && (
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-3xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 hover:bg-indigo-50/20 transition-all text-center"
+                  className="border-2 border-dashed border-mc-line hover:border-indigo-400 rounded-mc p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 hover:bg-mc-primary-tint transition-all text-center"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-2xl bg-mc-primary-tint text-mc-primary flex items-center justify-center">
                     <Upload className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="text-sm font-bold text-slate-900 block">
+                    <span className="text-sm font-bold text-mc-ink block">
                       {isAnalyzingPhoto ? 'Analyse de l’image...' : 'Prendre ou choisir une photo'}
                     </span>
-                    <span className="text-xs text-slate-500 block mt-0.5">
+                    <span className="text-xs text-mc-soft block mt-0.5">
                       Formats supportés : EAN-13, EAN-8, UPC-A, Code 128, QR Code...
                     </span>
                   </div>
                   {isAnalyzingPhoto && (
-                    <div className="flex items-center gap-2 text-xs text-indigo-600 font-bold">
+                    <div className="flex items-center gap-2 text-xs text-mc-primary font-bold">
                       <RotateCw className="w-4 h-4 animate-spin" />
                       <span>Optimisation du contraste et lecture...</span>
                     </div>
@@ -552,7 +552,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
                         Code trouvé avec succès !
                       </span>
                       <div className="mt-1 flex items-baseline gap-2">
-                        <span className="text-base font-black font-mono text-emerald-950 tracking-wider">
+                        <span className="text-base font-extrabold font-mono text-emerald-950 tracking-wider">
                           {photoDetectionResult.code}
                         </span>
                         <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-200 text-emerald-800">
@@ -639,7 +639,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
                       setChecksumWarningDismissed(false);
                     }}
                     placeholder="Ex: 6009510800210"
-                    className="w-full px-3.5 py-3 rounded-xl border border-slate-200 font-mono text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                    className="w-full px-3.5 py-3 rounded-xl border border-mc-line font-mono text-base font-bold text-mc-ink focus:outline-none focus:ring-2 focus:ring-[#5B4BF0]"
                   />
                   {manualCode.trim() && (
                     <span className="absolute right-3 top-3.5 text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
@@ -647,7 +647,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-[11px] text-mc-soft mt-1">
                   Détection automatique du format (EAN-13, EAN-8, UPC, Code 128...).
                 </p>
               </div>
@@ -668,7 +668,7 @@ export const AddCodeModal: React.FC<AddCodeModalProps> = ({
               <button
                 id="btn-confirm-manual-code"
                 type="submit"
-                className="w-full py-3.5 px-4 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-3.5 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>
                   {checksumWarningDismissed ? 'Enregistrer quand même' : 'Associer ce code au produit'}

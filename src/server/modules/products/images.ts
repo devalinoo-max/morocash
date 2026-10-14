@@ -3,8 +3,18 @@ import { scoped } from '@/server/repositories/base';
 import { AppError } from '@/server/shared/errors';
 import { uploadProductImage, deleteProductImage } from '@/server/integrations/cloudinary';
 
+// Une photo encodée, et rien d'autre : la chaîne part telle quelle chez
+// Cloudinary, qui accepte aussi une adresse web ou un chemin de fichier — et,
+// sans Cloudinary, elle est enregistrée en base. ~6 Mo encodés au plus.
+const IMAGE_DATA_URL = /^data:image\/(jpeg|jpg|png|webp|gif|heic|heif|avif);base64,[A-Za-z0-9+/=\s]+$/;
+const MAX_IMAGE_DATA_URL_LENGTH = 6_000_000;
+
 export const addImageSchema = z.object({
-  dataUrl: z.string().min(1),
+  dataUrl: z
+    .string()
+    .min(1)
+    .max(MAX_IMAGE_DATA_URL_LENGTH, 'Photo trop lourde.')
+    .regex(IMAGE_DATA_URL, 'Format de photo non pris en charge.'),
   isPrincipale: z.boolean().default(false),
 });
 

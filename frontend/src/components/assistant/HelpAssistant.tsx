@@ -128,8 +128,8 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Déploiement intermittent (téléphone). Sur ordinateur la pilule est
-  // toujours ouverte par le CSS, cet état n'y change rien.
+  // Déploiement intermittent. Sur ordinateur la pilule reste un rond et
+  // s’ouvre aussi au survol : ouverte en permanence, elle couvrait les boutons des listes.
   useEffect(() => {
     // Masqué : aucun déploiement automatique.
     if (isOpen || isHidden) return;
@@ -226,7 +226,7 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
         >
           <span
             className="w-4 h-14 rounded-l-lg flex items-center justify-center shadow-md"
-            style={{ backgroundColor: '#4F46E5' }}
+            style={{ backgroundColor: '#5B4BF0' }}
           >
             <ChevronLeft className="w-4 h-4 text-white" strokeWidth={3} />
           </span>
@@ -248,7 +248,7 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
             className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-sm"
             style={{ border: '1px solid #E5E7EB' }}
           >
-            <ChevronDown className="w-4 h-4" style={{ color: '#4F46E5' }} strokeWidth={2.5} />
+            <ChevronDown className="w-4 h-4" style={{ color: '#5B4BF0' }} strokeWidth={2.5} />
           </span>
         </button>
         <button
@@ -256,13 +256,13 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
           id="btn-help-assistant"
           onClick={() => setIsOpen(true)}
           aria-label="Besoin d’aide ? Ouvrir l’assistant MoroCash"
-          className={`relative h-[42px] rounded-full bg-gradient-to-br from-[#4F46E5] to-[#8B5CF6] text-white shadow-lg shadow-indigo-500/30 flex items-center cursor-pointer transition-all duration-300 active:scale-95 ${
-            isExpanded ? 'pl-3 pr-4 gap-2' : 'px-[9px] gap-0 md:pl-3 md:pr-4 md:gap-2'
+          className={`group relative h-[42px] rounded-full bg-gradient-to-br from-[#5B4BF0] to-[#8B5CF6] text-white shadow-lg shadow-indigo-500/30 flex items-center cursor-pointer transition-all duration-300 active:scale-95 ${
+            isExpanded ? 'pl-3 pr-4 gap-2' : 'px-[9px] gap-0 md:hover:pl-3 md:hover:pr-4 md:hover:gap-2 md:focus-visible:pl-3 md:focus-visible:pr-4 md:focus-visible:gap-2'
           }`}
         >
           <MessageCircleMore className="w-6 h-6 shrink-0" />
           <span
-            className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-all duration-300 md:max-w-[9rem] md:opacity-100 ${
+            className={`overflow-hidden whitespace-nowrap text-xs font-bold transition-all duration-300 md:group-hover:max-w-[9rem] md:group-hover:opacity-100 md:group-focus-visible:max-w-[9rem] md:group-focus-visible:opacity-100 ${
               isExpanded ? 'max-w-[9rem] opacity-100' : 'max-w-0 opacity-0'
             }`}
           >
@@ -284,9 +284,9 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
           <div
             role="dialog"
             aria-label="Assistant MoroCash"
-            className="fixed z-[80] inset-x-0 bottom-0 h-[75dvh] rounded-t-3xl md:inset-x-auto md:right-6 md:bottom-6 md:w-[380px] md:h-[560px] md:max-h-[calc(100vh-3rem)] md:rounded-3xl bg-white shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+            className="fixed z-[80] inset-x-0 bottom-0 h-[75dvh] rounded-t-3xl md:inset-x-auto md:right-6 md:bottom-6 md:w-[380px] md:h-[560px] md:max-h-[calc(100vh-3rem)] md:rounded-mc bg-white shadow-2xl border border-mc-line flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
           >
-            <div className="shrink-0 px-4 py-3 bg-gradient-to-br from-[#4F46E5] to-[#8B5CF6] text-white flex items-center gap-3">
+            <div className="shrink-0 px-4 py-3 bg-gradient-to-br from-[#5B4BF0] to-[#8B5CF6] text-white flex items-center gap-3">
               <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
                 <MessageCircleMore className="w-5 h-5" />
               </span>
@@ -308,20 +308,20 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
               {messages.map((m) =>
                 m.from === 'user' ? (
                   <div key={m.id} className="flex justify-end">
-                    <p className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-br-md bg-[#4F46E5] text-white text-sm">
+                    <p className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-br-md bg-[#5B4BF0] text-white text-sm">
                       {m.text}
                     </p>
                   </div>
                 ) : (
                   <div key={m.id} className="flex flex-col items-start gap-2">
-                    <p className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-white border border-slate-200 text-slate-800 text-sm">
+                    <p className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-white border border-mc-line text-mc-ink text-sm">
                       {m.text}
                     </p>
                     {m.button && (
                       <button
                         type="button"
                         onClick={() => go(m.button!.target)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold cursor-pointer transition-colors"
                       >
                         {m.button.label}
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -343,7 +343,7 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="shrink-0 p-3 border-t border-slate-200 bg-white flex items-center gap-2">
+            <form onSubmit={handleSubmit} className="shrink-0 p-3 border-t border-mc-line bg-white flex items-center gap-2">
               <input
                 ref={inputRef}
                 type="text"
@@ -351,13 +351,13 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Écris ta question…"
                 aria-label="Ta question"
-                className="flex-1 min-w-0 h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-base md:text-sm text-slate-900 focus:outline-none focus:border-[#4F46E5] focus:bg-white"
+                className="flex-1 min-w-0 h-11 px-3.5 rounded-xl border border-mc-line bg-slate-50 text-base md:text-sm text-mc-ink focus:outline-none focus:border-[#5B4BF0] focus:bg-white"
               />
               <button
                 type="submit"
                 disabled={!draft.trim()}
                 aria-label="Envoyer"
-                className="w-11 h-11 shrink-0 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 disabled:opacity-40 text-white flex items-center justify-center cursor-pointer"
+                className="w-11 h-11 shrink-0 rounded-full bg-mc-primary hover:bg-mc-primary-dark disabled:opacity-40 text-white flex items-center justify-center cursor-pointer"
               >
                 <SendHorizontal className="w-5 h-5" />
               </button>

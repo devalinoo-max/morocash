@@ -46,8 +46,8 @@ const ACTIVITY_TYPES: { code: ActivityType; label: string; description: string; 
 
 type Mode = 'LOGIN' | 'REGISTER';
 
-const BRAND_INDIGO = '#4338CA';
-const ONBOARDING_INDIGO = '#4F46E5';
+const BRAND_INDIGO = '#3B2FC9';
+const ONBOARDING_INDIGO = '#5B4BF0';
 
 interface AuthScreenProps {
   initialMode?: Mode;
@@ -241,7 +241,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row">
+    <main className="min-h-screen bg-white flex flex-col md:flex-row">
       {/* PANNEAU GAUCHE : branding (masqué sur mobile) */}
       <div className="hidden md:flex md:w-1/2 relative bg-[#0a0d18] text-white p-10 lg:p-14 flex-col justify-between overflow-hidden">
         <div
@@ -277,7 +277,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
               { icon: ShieldCheck, text: 'Mode Protection Patron : marges masquées aux employés' },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-3 text-sm text-slate-200">
-                <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center shrink-0 border border-indigo-500/30">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-[#B9B2FF] flex items-center justify-center shrink-0 border border-mc-primary/30">
                   <Icon className="w-4 h-4" />
                 </div>
                 <span>{text}</span>
@@ -321,16 +321,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
         <div className="w-full max-w-[420px] space-y-5 my-auto">
           <div className="text-center space-y-2 md:hidden">
             <LogoMark size={44} className="mx-auto" />
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">MoroCash</h2>
+            <h2 className="text-xl font-extrabold text-mc-ink tracking-tight">MoroCash</h2>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/60 overflow-hidden">
+          <div className="bg-white rounded-mc border border-mc-line shadow-xl shadow-slate-200/60 overflow-hidden">
             <div className="grid grid-cols-2 p-1.5 m-4 mb-0 bg-slate-100 rounded-xl text-xs font-bold">
               <button
                 type="button"
                 onClick={() => switchMode('REGISTER')}
                 className={`py-2.5 rounded-lg transition-all cursor-pointer ${
-                  mode === 'REGISTER' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                  mode === 'REGISTER' ? 'bg-white text-mc-ink shadow-xs' : 'text-mc-soft hover:text-slate-700'
                 }`}
               >
                 Créer ma boutique
@@ -339,7 +339,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                 type="button"
                 onClick={() => switchMode('LOGIN')}
                 className={`py-2.5 rounded-lg transition-all cursor-pointer ${
-                  mode === 'LOGIN' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                  mode === 'LOGIN' ? 'bg-white text-mc-ink shadow-xs' : 'text-mc-soft hover:text-slate-700'
                 }`}
               >
                 Se connecter
@@ -370,11 +370,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                   <button
                     type="button"
                     onClick={resetBusinessChoices}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-500 cursor-pointer"
+                    className="flex items-center gap-1 text-xs font-bold text-mc-soft cursor-pointer"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" /> Retour
                   </button>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-mc-soft">
                     Ce numéro est utilisé dans plusieurs boutiques. Laquelle veux-tu ouvrir ?
                   </p>
                   {businessChoices.map((b) => (
@@ -383,10 +383,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                       type="button"
                       disabled={isSubmitting}
                       onClick={(e) => handleLogin(e, b.businessId)}
-                      className="w-full p-3.5 rounded-xl border border-slate-200 text-left text-sm font-bold text-slate-800 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                      className="w-full p-3.5 rounded-xl border border-mc-line text-left text-sm font-bold text-mc-ink hover:bg-slate-50 cursor-pointer flex items-center justify-between"
                     >
                       <span className="flex items-center gap-2">
-                        <Store className="w-4 h-4 text-indigo-500" /> {b.businessNom}
+                        <Store className="w-4 h-4 text-mc-primary" /> {b.businessNom}
                       </span>
                       <ArrowRight className="w-4 h-4 text-slate-300" />
                     </button>
@@ -408,8 +408,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                   {registerStep === 1 ? (
                     <form onSubmit={handleContinueStep1} className="space-y-4">
                       <div className="space-y-1">
-                        <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Parle-nous de ta boutique</h2>
-                        <p className="text-xs text-slate-500">Ça change les mots qu'on utilise avec toi.</p>
+                        <h2 className="text-lg font-extrabold text-mc-ink tracking-tight">Parle-nous de ta boutique</h2>
+                        <p className="text-xs text-mc-soft">Ça change les mots qu'on utilise avec toi.</p>
                       </div>
 
                       <div>
@@ -424,7 +424,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                             value={businessNom}
                             onChange={(e) => setBusinessNom(e.target.value)}
                             placeholder="Ex: Boutique Étoile d'Afrique"
-                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
+                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-mc-line text-sm font-semibold text-mc-ink focus:ring-2 focus:ring-[#5B4BF0] focus:border-[#5B4BF0] outline-none"
                           />
                         </div>
                       </div>
@@ -466,8 +466,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                                 >
                                   <Icon className="w-4 h-4" />
                                 </span>
-                                <span className="block text-xs font-extrabold text-slate-900">{label}</span>
-                                <span className="block text-[10px] leading-snug text-slate-500 mt-0.5">{description}</span>
+                                <span className="block text-xs font-extrabold text-mc-ink">{label}</span>
+                                <span className="block text-[10px] leading-snug text-mc-soft mt-0.5">{description}</span>
                               </button>
                             );
                           })}
@@ -486,7 +486,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                             value={ville}
                             onChange={(e) => setVille(e.target.value)}
                             placeholder="Ex: Abidjan"
-                            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-mc-line text-sm font-semibold text-mc-ink focus:ring-2 focus:ring-[#5B4BF0] focus:border-[#5B4BF0] outline-none"
                           />
                         </div>
                       </div>
@@ -499,7 +499,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                           id="register-country"
                           value={country.code}
                           onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
-                          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 bg-white cursor-pointer focus:ring-2 focus:ring-[#4F46E5] outline-none"
+                          className="w-full px-3 py-2.5 rounded-xl border border-mc-line text-sm font-semibold text-mc-ink bg-white cursor-pointer focus:ring-2 focus:ring-[#5B4BF0] outline-none"
                         >
                           {COUNTRIES.map((c) => (
                             <option key={c.code} value={c.code}>
@@ -525,7 +525,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                           setErrorMessage(null);
                           setRegisterStep(1);
                         }}
-                        className="flex items-center gap-1 text-xs font-bold text-slate-500 cursor-pointer"
+                        className="flex items-center gap-1 text-xs font-bold text-mc-soft cursor-pointer"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" /> Retour
                       </button>
@@ -534,8 +534,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                         <label htmlFor="register-phone" className="text-xs font-bold text-slate-700 block mb-1">
                           Numéro WhatsApp
                         </label>
-                        <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4F46E5] focus-within:border-[#4F46E5] transition-all">
-                          <span className="bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-600 border-r border-slate-200 flex items-center shrink-0">
+                        <div className="flex rounded-xl border border-mc-line overflow-hidden focus-within:ring-2 focus-within:ring-[#5B4BF0] focus-within:border-[#5B4BF0] transition-all">
+                          <span className="bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-600 border-r border-mc-line flex items-center shrink-0">
                             {country.code} {country.dialCode}
                           </span>
                           <input
@@ -545,7 +545,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                             value={telephone}
                             onChange={(e) => setTelephone(e.target.value.replace(/\D/g, ''))}
                             placeholder="0708091011"
-                            className="w-full px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none font-mono"
+                            className="w-full px-3 py-2.5 text-sm font-semibold text-mc-ink outline-none font-mono"
                           />
                         </div>
                       </div>
@@ -562,7 +562,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="boutique@exemple.com"
-                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4F46E5] focus:border-[#4F46E5] outline-none"
+                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-mc-line text-sm font-semibold text-mc-ink focus:ring-2 focus:ring-[#5B4BF0] focus:border-[#5B4BF0] outline-none"
                           />
                         </div>
                         <p className="text-[11px] text-slate-400 mt-1">Pour recevoir tes bilans de caisse en plus de WhatsApp.</p>
@@ -581,7 +581,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                                 value={linkCode}
                                 readOnly
                                 aria-readonly="true"
-                                className="w-full pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold font-mono outline-none cursor-not-allowed"
+                                className="w-full pl-3.5 pr-9 py-2.5 rounded-xl border border-mc-line text-sm font-semibold font-mono outline-none cursor-not-allowed"
                                 style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
                               />
                               <Lock className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#6B7280' }} />
@@ -601,7 +601,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                               onChange={(e) => setAffiliateCode(e.target.value.replace(/\s+/g, '').toUpperCase())}
                               placeholder="Ex. 79HC9M"
                               aria-invalid={codeStatus === 'invalid'}
-                              className="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold font-mono text-slate-900 outline-none focus:ring-2"
+                              className="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold font-mono text-mc-ink outline-none focus:ring-2"
                               style={{ borderColor: codeStatus === 'invalid' ? '#DC2626' : '#E2E8F0' }}
                             />
                             {codeStatus === 'invalid' ? (
@@ -692,7 +692,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                           setErrorMessage(null);
                         }}
                         className={`py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          loginCanal === value ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                          loginCanal === value ? 'bg-white text-mc-ink shadow-xs' : 'text-mc-soft hover:text-slate-700'
                         }`}
                       >
                         <Icon className="w-3.5 h-3.5" /> {label}
@@ -713,7 +713,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                           value={loginEmail}
                           onChange={(e) => setLoginEmail(e.target.value)}
                           placeholder="boutique@exemple.com"
-                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#4338CA] focus:border-[#4338CA] outline-none"
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-mc-line text-sm font-semibold text-mc-ink focus:ring-2 focus:ring-[#3B2FC9] focus:border-[#3B2FC9] outline-none"
                         />
                       </div>
                       <p className="text-[11px] text-slate-400 mt-1">
@@ -723,14 +723,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                   ) : (
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">Numéro WhatsApp</label>
-                    <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#4338CA] focus-within:border-[#4338CA] transition-all">
+                    <div className="flex rounded-xl border border-mc-line overflow-hidden focus-within:ring-2 focus-within:ring-[#3B2FC9] focus-within:border-[#3B2FC9] transition-all">
                       {/* Indicatif affiché comme à l'inscription. Il n'est pas
                           envoyé : le numéro est enregistré sans indicatif. */}
                       <select
                         aria-label="Indicatif pays"
                         value={country.code}
                         onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? DEFAULT_COUNTRY)}
-                        className="bg-slate-50 pl-3 pr-1 py-2.5 text-xs font-bold text-slate-600 border-r border-slate-200 shrink-0 cursor-pointer outline-none"
+                        className="bg-slate-50 pl-3 pr-1 py-2.5 text-xs font-bold text-slate-600 border-r border-mc-line shrink-0 cursor-pointer outline-none"
                       >
                         {COUNTRIES.map((c) => (
                           <option key={c.code} value={c.code}>
@@ -744,7 +744,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                         value={telephone}
                         onChange={(e) => setTelephone(e.target.value.replace(/\D/g, ''))}
                         placeholder="0708091011"
-                        className="w-full px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none font-mono"
+                        className="w-full px-3 py-2.5 text-sm font-semibold text-mc-ink outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -770,7 +770,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                       setErrorMessage(null);
                       setIsForgotPinOpen(true);
                     }}
-                    className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer pt-1"
+                    className="w-full text-center text-xs font-bold text-mc-soft hover:text-mc-ink cursor-pointer pt-1"
                   >
                     Mot de passe oublié ?
                   </button>
@@ -787,6 +787,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 };

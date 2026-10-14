@@ -21,6 +21,7 @@ import { relativeDay } from '../../utils/versements';
 import { CollectDebtSheet } from './CollectDebtSheet';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { CustomerDetailPanel } from './CustomerDetailPanel';
+import { Segmented } from '../sales/SalesKit';
 
 export const CustomersTab: React.FC = () => {
   const {
@@ -134,72 +135,70 @@ export const CustomersTab: React.FC = () => {
   };
 
   return (
-    <div id="customers-tab-content" className="space-y-4 pb-24 animate-in fade-in duration-200">
-      {/* Header with Debt Summary */}
-      <div className="mx-4 sm:mx-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            Clients & Dettes (Carnet de crédit)
-          </h2>
-          <p className="text-xs text-slate-500">
-            {customers.length} clients enregistrés • {debtorCount} avec dette en cours
+    <div id="customers-tab-content" className="space-y-4 md:space-y-6 pb-24">
+      {/* En-tête — sur téléphone le titre est déjà dans la barre haute */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="hidden md:block text-[28px] font-extrabold text-mc-ink tracking-tight leading-tight">
+            {filterDebtorsOnly ? 'Qui me doit' : 'Mes clients'}
+          </h1>
+          <p className="text-[14px] text-mc-soft">
+            {countLabel(customers.length, 'client')} · {debtorCount} avec une dette
           </p>
         </div>
         <button
           id="btn-open-add-customer"
           onClick={() => gateWrite(() => setIsAddCustomerOpen(true))}
-          className={`px-4 py-2.5 rounded-2xl bg-[#5B4DFB] hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer self-start sm:self-auto ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+          className={`h-10 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark active:scale-[0.97] text-white font-bold text-[14px] flex items-center gap-1.5 shadow-mc-card transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 stroke-[3]" />
           <span>Ajouter un client</span>
         </button>
       </div>
 
-      {/* Debt KPI Card */}
-      <div className="mx-4 sm:mx-0 p-4 rounded-3xl bg-rose-50 border border-rose-200 flex items-center justify-between shadow-xs">
-        <div>
-          <span className="text-xs font-extrabold text-rose-800 uppercase tracking-wider">
-            Total Dettes à recouvrer
-          </span>
-          <div className="text-xl sm:text-2xl font-black text-rose-700 mt-0.5">
+      {/* Ce qu'on te doit, en un chiffre */}
+      <div className="p-4 md:p-6 rounded-mc bg-mc-danger-bg flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[14px] font-semibold text-[#B91C1C]">On te doit en tout</span>
+          <div className="text-[28px] md:text-[40px] font-extrabold text-[#DC2626] tabular-nums tracking-tight leading-tight">
             {formatMoney(totalDebts)}
           </div>
-          <p className="text-xs text-rose-600 font-medium">
+          <p className="text-[12px] text-[#B91C1C] font-medium">
             Réparti sur {countLabel(debtorCount, 'client')}
           </p>
         </div>
-        <button
-          id="btn-filter-debtors"
-          onClick={() => setFilterDebtorsOnly(!filterDebtorsOnly)}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-            filterDebtorsOnly
-              ? 'bg-rose-600 text-white border-rose-600'
-              : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-100/50'
-          }`}
-        >
-          {filterDebtorsOnly ? '✓ Voir tous' : 'Voir uniquement débiteurs'}
-        </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="mx-4 sm:mx-0">
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      {/* Tous les clients, ou seulement ceux qui doivent */}
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <Segmented<'ALL' | 'DEBT'>
+          id="btn-filter-debtors"
+          label="Clients affichés"
+          tone="ink"
+          value={filterDebtorsOnly ? 'DEBT' : 'ALL'}
+          onChange={(v) => setFilterDebtorsOnly(v === 'DEBT')}
+          options={[
+            { id: 'ALL', label: 'Tous les clients', count: customers.length },
+            { id: 'DEBT', label: 'Qui me doit', count: debtorCount },
+          ]}
+        />
+        <div className="relative flex-1 min-w-0">
+          <Search className="w-4 h-4 text-mc-soft absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             id="input-search-customers"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher par nom, téléphone, quartier..."
-            className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#5B4DFB] transition-all shadow-xs"
+            placeholder="Cherche un nom, un téléphone, un quartier…"
+            className="w-full h-11 pl-11 pr-4 rounded-full bg-white border border-mc-line text-[14px] font-medium text-mc-ink placeholder:text-mc-soft/70 focus:outline-none focus:ring-2 focus:ring-mc-primary transition-all"
           />
         </div>
       </div>
 
       {/* Customer List (§11: Objectif mesurable : identifier une dette en < 5s) */}
-      <div className="mx-4 sm:mx-0">
+      <div>
         {filteredCustomers.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 space-y-2">
+          <div className="p-12 text-center bg-white rounded-mc border border-mc-line text-slate-400 space-y-2">
             <Users className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
             <p className="text-sm font-semibold text-slate-600">Aucun client trouvé</p>
             <p className="text-xs">Ajoute un client pour suivre ses achats et ses crédits.</p>
@@ -207,10 +206,10 @@ export const CustomersTab: React.FC = () => {
         ) : (
           <>
             {/* DESKTOP TABLE (BLOC 3: VRAIS TABLEAUX, hauteur de ligne 46px) */}
-            <div className="hidden lg:block bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div className="hidden lg:block bg-white rounded-mc border border-mc-line shadow-mc-card overflow-hidden">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                  <tr className="bg-slate-50 border-b border-mc-line text-[11px] font-extrabold text-mc-soft uppercase tracking-wider">
                     <th className="py-3 px-4">Client</th>
                     <th className="py-3 px-4">Téléphone</th>
                     <th className="py-3 px-4">Ville</th>
@@ -237,15 +236,15 @@ export const CustomersTab: React.FC = () => {
                       >
                         <td className="py-2.5 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-indigo-100 text-[#4F46E5] font-bold text-xs flex items-center justify-center shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-mc-primary-tint text-[#5B4BF0] font-bold text-xs flex items-center justify-center shrink-0">
                               {initials}
                             </div>
                             <div>
-                              <span className="font-extrabold text-slate-900 block">
+                              <span className="font-extrabold text-mc-ink block">
                                 {cust.name}
                               </span>
                               {(hasDebt || cust.lastPayment) && (
-                                <span className="text-[10.5px] text-slate-500 block">{lastPaymentText(cust)}</span>
+                                <span className="text-[10.5px] text-mc-soft block">{lastPaymentText(cust)}</span>
                               )}
                               {cust.notes && (
                                 <span className="text-[10px] text-slate-400 block truncate max-w-[160px]">
@@ -258,12 +257,12 @@ export const CustomersTab: React.FC = () => {
                         <td className="py-2.5 px-4 font-mono text-slate-600 whitespace-nowrap">
                           {cust.phone}
                         </td>
-                        <td className="py-2.5 px-4 text-slate-500 whitespace-nowrap">
+                        <td className="py-2.5 px-4 text-mc-soft whitespace-nowrap">
                           {cust.city || '—'}
                         </td>
                         <td className="py-2.5 px-4 text-right whitespace-nowrap">
                           <span
-                            className={`font-black text-sm ${
+                            className={`font-extrabold text-sm ${
                               hasDebt ? 'text-[#DC2626]' : 'text-[#059669]'
                             }`}
                           >
@@ -310,7 +309,7 @@ export const CustomersTab: React.FC = () => {
                             {hasDebt && (
                               <button
                                 onClick={() => gateWrite(() => setRepayingCustomer(cust))}
-                                className={`px-2.5 py-1 rounded-lg bg-[#4F46E5] hover:bg-indigo-700 text-white font-extrabold text-[11px] transition-colors cursor-pointer shadow-xs ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+                                className={`px-2.5 py-1 rounded-lg bg-mc-primary hover:bg-mc-primary-dark text-white font-extrabold text-[11px] transition-colors cursor-pointer shadow-xs ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
                               >
                                 Encaisser
                               </button>
@@ -333,21 +332,21 @@ export const CustomersTab: React.FC = () => {
                     key={cust.id}
                     id={`customer-card-${cust.id}`}
                     onClick={() => setDetailCustomerId(cust.id)}
-                    className={`p-4 rounded-3xl bg-white border transition-all shadow-xs cursor-pointer ${
+                    className={`p-4 rounded-mc bg-white border transition-all shadow-xs cursor-pointer ${
                       hasDebt
                         ? 'border-rose-300 bg-rose-50/10 hover:border-rose-400'
-                        : 'border-slate-200/80 hover:border-slate-300'
+                        : 'border-mc-line hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       {/* Left: Customer Info */}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+                          <h3 className="text-sm sm:text-base font-extrabold text-mc-ink truncate">
                             {cust.name}
                           </h3>
                           {cust.city && (
-                            <span className="text-[10px] text-slate-500 font-semibold px-2 py-0.5 rounded-full bg-slate-100">
+                            <span className="text-[10px] text-mc-soft font-semibold px-2 py-0.5 rounded-full bg-slate-100">
                               {cust.city}
                             </span>
                           )}
@@ -357,7 +356,7 @@ export const CustomersTab: React.FC = () => {
                           {cust.phone}
                         </p>
                         {(hasDebt || cust.lastPayment) && (
-                          <p className="text-[11px] text-slate-500 mt-0.5">{lastPaymentText(cust)}</p>
+                          <p className="text-[11px] text-mc-soft mt-0.5">{lastPaymentText(cust)}</p>
                         )}
                         {cust.notes && (
                           <p className="text-[11px] text-slate-400 italic mt-1 line-clamp-1">
@@ -372,7 +371,7 @@ export const CustomersTab: React.FC = () => {
                           {hasDebt ? (cust.debtProvisional ? 'Montant dû (provisoire)' : 'Montant dû') : 'Solde'}
                         </span>
                         <div
-                          className={`text-base sm:text-lg font-black tracking-tight ${
+                          className={`text-base sm:text-lg font-extrabold tracking-tight ${
                             hasDebt ? 'text-rose-600' : 'text-emerald-600'
                           }`}
                         >
@@ -417,7 +416,7 @@ export const CustomersTab: React.FC = () => {
                         <button
                           id={`btn-repay-${cust.id}`}
                           onClick={() => gateWrite(() => setRepayingCustomer(cust))}
-                          className={`min-h-[48px] px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center gap-1 shadow-sm transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+                          className={`min-h-[48px] px-4 py-1.5 rounded-xl bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-extrabold flex items-center gap-1 shadow-sm transition-all cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                           <span>Encaisser</span>
@@ -443,12 +442,12 @@ export const CustomersTab: React.FC = () => {
       {/* MODAL: CREATE CUSTOMER */}
       {isAddCustomerOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white max-w-md w-full rounded-3xl shadow-2xl p-5 space-y-4 border border-slate-100">
+          <div className="bg-white max-w-md w-full rounded-mc shadow-2xl p-5 space-y-4 border border-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="font-extrabold text-base text-slate-900">Nouveau client</h3>
+              <h3 className="font-extrabold text-base text-mc-ink">Nouveau client</h3>
               <button
                 onClick={() => setIsAddCustomerOpen(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                className="w-7 h-7 rounded-full bg-slate-100 text-mc-soft hover:bg-slate-200 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -464,7 +463,7 @@ export const CustomersTab: React.FC = () => {
                   value={newCustName}
                   onChange={(e) => setNewCustName(e.target.value)}
                   placeholder="Ex: Mme Fatou Diop"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#5B4DFB]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-mc-line text-xs sm:text-sm font-semibold text-mc-ink focus:ring-2 focus:ring-[#5B4BF0]"
                 />
               </div>
 
@@ -477,7 +476,7 @@ export const CustomersTab: React.FC = () => {
                   value={newCustPhone}
                   onChange={(e) => setNewCustPhone(e.target.value)}
                   placeholder="+225 07 00 00 00 00"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-[#5B4DFB]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-mc-line text-xs sm:text-sm font-semibold text-mc-ink focus:ring-2 focus:ring-[#5B4BF0]"
                 />
               </div>
 
@@ -488,7 +487,7 @@ export const CustomersTab: React.FC = () => {
                   value={newCustCity}
                   onChange={(e) => setNewCustCity(e.target.value)}
                   placeholder="Ex: Abidjan Cocody"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-mc-line text-xs sm:text-sm font-semibold text-mc-ink"
                 />
               </div>
 
@@ -499,7 +498,7 @@ export const CustomersTab: React.FC = () => {
                   value={newCustNotes}
                   onChange={(e) => setNewCustNotes(e.target.value)}
                   placeholder="Habite près du carrefour..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-900"
+                  className="w-full px-3.5 py-2 rounded-xl border border-mc-line text-xs text-mc-ink"
                 />
               </div>
 
@@ -507,13 +506,13 @@ export const CustomersTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddCustomerOpen(false)}
-                  className="flex-1 py-3 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  className="flex-1 py-3 rounded-2xl border border-mc-line text-xs font-bold text-slate-600 hover:bg-slate-50"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-2xl bg-[#5B4DFB] text-white text-xs font-bold shadow-md hover:bg-indigo-700"
+                  className="flex-1 py-3 rounded-full bg-mc-primary text-white text-xs font-bold shadow-md hover:bg-mc-primary-dark"
                 >
                   Enregistrer client
                 </button>
@@ -531,15 +530,15 @@ export const CustomersTab: React.FC = () => {
       {/* MODAL: WHATSAPP REMINDER TEMPLATE (§11: Relance préremplie mais modifiable) */}
       {reminderCustomer && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white max-w-md w-full rounded-3xl shadow-2xl p-5 space-y-4 border border-slate-100">
+          <div className="bg-white max-w-md w-full rounded-mc shadow-2xl p-5 space-y-4 border border-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <MessageCircle className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-extrabold text-base text-slate-900">Relance de dette WhatsApp</h3>
+                <h3 className="font-extrabold text-base text-mc-ink">Relance de dette WhatsApp</h3>
               </div>
               <button
                 onClick={() => setReminderCustomer(null)}
-                className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                className="w-7 h-7 rounded-full bg-slate-100 text-mc-soft hover:bg-slate-200 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -562,7 +561,7 @@ export const CustomersTab: React.FC = () => {
                 rows={5}
                 value={reminderMessage}
                 onChange={(e) => setReminderMessage(e.target.value)}
-                className="w-full p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                className="w-full p-3 rounded-2xl bg-slate-50 border border-mc-line text-xs sm:text-sm text-mc-ink focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
               />
             </div>
 
@@ -570,7 +569,7 @@ export const CustomersTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setReminderCustomer(null)}
-                className="flex-1 py-3 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600"
+                className="flex-1 py-3 rounded-2xl border border-mc-line text-xs font-bold text-slate-600"
               >
                 Annuler
               </button>

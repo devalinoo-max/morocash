@@ -5,6 +5,9 @@ import { SyncStatusBadge } from '../common/UIStates';
 import { usePageMenuEntries } from '../../context/PageMenuContext';
 import { avatarInitials } from '../../utils/avatar';
 
+/** Pages dont le contenu affiche déjà son titre en grand sur ordinateur. */
+const PAGES_AVEC_GRAND_TITRE: string[] = ['sales', 'receipts', 'cash', 'customers', 'movements'];
+
 interface TopBarProps {
   isMobileFrame: boolean;
   setIsMobileFrame: (val: boolean) => void;
@@ -32,6 +35,9 @@ export const TopBar: React.FC<TopBarProps> = () => {
     isRefreshing,
     customersDebtorsFilter,
   } = useApp();
+
+  const aGrandTitre =
+    PAGES_AVEC_GRAND_TITRE.includes(activeTab) || (activeTab === 'more' && activeMoreSubTab === 'settings');
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPageMenu, setShowPageMenu] = useState(false);
@@ -93,7 +99,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
   return (
     <header
       id="top-navigation-bar"
-      className="h-[56px] bg-white border-b border-slate-200/90 px-3 sm:px-6 sticky top-0 z-30 flex items-center gap-3 shadow-xs select-none"
+      className="h-[56px] bg-white border-b border-mc-line px-3 sm:px-6 sticky top-0 z-30 flex items-center gap-3 shadow-xs select-none"
     >
       {/* GAUCHE : le titre de la page, puis le nom réel de la boutique.
           Le titre ne se coupe jamais — c'est lui qui dit où on est ; c'est le
@@ -101,12 +107,25 @@ export const TopBar: React.FC<TopBarProps> = () => {
           la place en s'abrégeant. */}
       <div className="flex-1 flex flex-col justify-center min-w-0">
         <h1
-          className="text-[16px] text-slate-900 tracking-tight leading-none whitespace-nowrap"
+          className="text-[16px] text-mc-ink tracking-tight leading-none whitespace-nowrap"
           style={{ fontWeight: 750 }}
         >
-          {getPageTitle()}
+          {/* Sur ordinateur, ces pages portent leur propre grand titre :
+              la barre haute y affiche la boutique, pour ne pas l'écrire deux fois. */}
+          {aGrandTitre ? (
+            <>
+              <span className="md:hidden">{getPageTitle()}</span>
+              <span className="hidden md:inline">{settings.shopName || 'Ma boutique'}</span>
+            </>
+          ) : (
+            getPageTitle()
+          )}
         </h1>
-        <p className="text-[10.5px] text-slate-500 font-medium truncate mt-[3px] leading-none">
+        <p
+          className={`text-[10.5px] text-mc-soft font-medium truncate mt-[3px] leading-none ${
+            aGrandTitre ? 'md:hidden' : ''
+          }`}
+        >
           {settings.shopName || 'Ma boutique'}
         </p>
       </div>
@@ -127,7 +146,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
           type="button"
           onClick={() => void refreshNow()}
           disabled={isRefreshing}
-          className={`${CIBLE} border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 disabled:cursor-wait`}
+          className={`${CIBLE} border border-mc-line bg-white hover:bg-slate-50 text-slate-600 hover:text-mc-ink disabled:cursor-wait`}
           aria-label="Actualiser"
           title="Actualiser"
         >
@@ -143,7 +162,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
               setShowPageMenu(false);
               setShowNotifications(!showNotifications);
             }}
-            className={`${CIBLE} border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 relative`}
+            className={`${CIBLE} border border-mc-line bg-white hover:bg-slate-50 text-slate-600 hover:text-mc-ink relative`}
             aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
@@ -154,11 +173,11 @@ export const TopBar: React.FC<TopBarProps> = () => {
 
           {showNotifications && (
             <div
-              className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-24px))] bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95 duration-150"
+              className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-24px))] bg-white rounded-2xl shadow-xl border border-mc-line p-3 z-50 animate-in fade-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
-                <span className="text-xs font-extrabold text-slate-900">Notifications & Alertes</span>
+                <span className="text-xs font-extrabold text-mc-ink">Notifications & Alertes</span>
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
                   {totalAlerts} urgentes
                 </span>
@@ -177,10 +196,10 @@ export const TopBar: React.FC<TopBarProps> = () => {
                   >
                     <Clock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <p className="font-bold text-slate-900 truncate">
+                      <p className="font-bold text-mc-ink truncate">
                         Dette &gt; 30 jours : {cust.name}
                       </p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] text-mc-soft">
                         Doit {cust.totalDebt.toLocaleString()} FCFA depuis {cust.debtAgeDays} jours
                       </p>
                     </div>
@@ -198,10 +217,10 @@ export const TopBar: React.FC<TopBarProps> = () => {
                   >
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <p className="font-bold text-slate-900 truncate">
+                      <p className="font-bold text-mc-ink truncate">
                         Rupture de stock : {prod.name}
                       </p>
-                      <p className="text-[11px] text-slate-500">Stock épuisé (0 disponible)</p>
+                      <p className="text-[11px] text-mc-soft">Stock épuisé (0 disponible)</p>
                     </div>
                   </div>
                 ))}
@@ -220,7 +239,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
         {/* Avatar : deux lettres, jamais un tiret ni un caractère de remplissage */}
         <div
           title={`${settings.ownerName} (${settings.role})`}
-          className={`${CIBLE} bg-gradient-to-tr from-[#4F46E5] to-purple-600 text-white font-extrabold text-[12px] shadow-xs ring-2 ring-indigo-100`}
+          className={`${CIBLE} bg-gradient-to-tr from-[#5B4BF0] to-purple-600 text-white font-extrabold text-[12px] shadow-xs ring-2 ring-[#DAD6FC]`}
         >
           {avatarInitials(settings.ownerName)}
         </div>
@@ -235,7 +254,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
                 setShowNotifications(false);
                 setShowPageMenu(!showPageMenu);
               }}
-              className={`${CIBLE} border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900`}
+              className={`${CIBLE} border border-mc-line bg-white hover:bg-slate-50 text-slate-600 hover:text-mc-ink`}
               aria-label="Actions de la page"
             >
               <MoreHorizontal className="w-4 h-4" />
@@ -244,7 +263,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
             {showPageMenu && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="absolute right-0 mt-2 w-[min(15rem,calc(100vw-24px))] bg-white rounded-2xl border border-slate-200 shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute right-0 mt-2 w-[min(15rem,calc(100vw-24px))] bg-white rounded-2xl border border-mc-line shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
               >
                 {pageMenuEntries.map((entry) => {
                   const Icone = entry.icon;

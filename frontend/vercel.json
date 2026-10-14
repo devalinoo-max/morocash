@@ -10,6 +10,17 @@
       "includeFiles": "node_modules/pdfkit/**"
     }
   },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ],
   "redirects": [
     { "source": "/dashboard", "destination": "/accueil", "permanent": true },
     { "source": "/home", "destination": "/accueil", "permanent": true },

@@ -128,8 +128,8 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white w-full max-w-lg rounded-mc shadow-2xl overflow-hidden border border-mc-line flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-[#25D366] text-white px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -168,14 +168,14 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Ex: 2 laits bonnet rouge&#10;1 paquet biscuit&#10;3 savons"
-              className="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all"
+              className="w-full p-3 rounded-2xl border border-mc-line bg-slate-50 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all"
             />
           </div>
 
           {/* Analysis / Preview */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-mc-soft uppercase tracking-wider">
                 Articles détectés ({matchedCount}/{parsedResults.length})
               </span>
               <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">
@@ -190,7 +190,7 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
                   className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${
                     res.matchedProduct
                       ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
-                      : 'bg-slate-50 border-slate-200 text-slate-500'
+                      : 'bg-slate-50 border-mc-line text-mc-soft'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -219,7 +219,7 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
                   </div>
 
                   {res.matchedProduct && (
-                    <span className="font-black text-slate-900 shrink-0">
+                    <span className="font-extrabold text-mc-ink shrink-0">
                       {formatMoney(res.matchedProduct.salePrice * res.quantity)}
                     </span>
                   )}
@@ -230,7 +230,7 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+        <div className="p-4 bg-slate-50 border-t border-mc-line flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onClose}

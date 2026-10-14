@@ -1,30 +1,34 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import { useActivity } from '../../hooks/useActivity';
 import {
-  TrendingUp,
-  AlertCircle,
   Plus,
   ArrowUpRight,
   ArrowDownRight,
   Clock,
   Sparkles,
-  Users,
   ChevronRight,
-  Receipt,
   Wallet,
-  Calendar,
-  AlertTriangle,
   CheckCircle2,
-  Lock,
   ArrowRight,
-  Eye,
-  Store,
-  CreditCard,
-  Banknote,
-  Send,
   Package,
 } from 'lucide-react';
+import { avatarColor, avatarInitials } from '../../utils/avatar';
+import {
+  CountUp,
+  EmptyState,
+  KpiCard,
+  MC_EASE,
+  PASTILLES_STATUT,
+  Segmented,
+  TrialPill,
+  staggerChild,
+  staggerParent,
+} from '../sales/SalesKit';
+
+// recharts ne sert qu'au graphique horaire du mode détaillé : chargé à part.
+const HourlyChart = lazy(() => import('./HourlyChart'));
 import { formatMoney, formatMoneyCompact, formatDate, formatPaymentMethod, getTerminology } from '../../utils/formatters';
 import type { CashMovement, Expense, Sale } from '../../types';
 import { DashboardDetailSheet, type DashboardDetail, type DetailRow } from './DashboardDetailSheet';
@@ -99,7 +103,6 @@ export const DashboardTab: React.FC = () => {
   const [compareYesterday, setCompareYesterday] = useState<boolean>(
     settings.comparerParDefaut !== undefined ? settings.comparerParDefaut : true
   );
-  const [activeHourlyTooltip, setActiveHourlyTooltip] = useState<number | null>(null);
 
   React.useEffect(() => {
     if (settings.periodeParDefaut) {
@@ -254,7 +257,6 @@ export const DashboardTab: React.FC = () => {
     yesterday: yesterdayHourlyTotals[idx],
     isPeak: idx === peakHourIndex,
   }));
-  const maxHourlyValue = Math.max(1, ...hourlyData.map((d) => Math.max(d.today, d.yesterday)));
 
   // Cash register balances (§ BLOC 4: 9. Caisse du jour)
   const currentSessionMovements = activeCashSession
@@ -479,990 +481,818 @@ export const DashboardTab: React.FC = () => {
     );
   };
 
-  return (
-    <div id="dashboard-tab-content" className="space-y-6 pb-20 max-w-[1460px] mx-auto animate-in fade-in duration-200">
-      {/* Premiers pas : la carte « premier produit » seule laissait le
-          commerçant devant un tableau de bord vide dès le produit créé, sans
-          rien indiquer ensuite. La liste se retire d'elle-même une fois les
-          trois étapes faites — c'est une invitation, jamais un blocage. */}
-      <StartupChecklist
-        hasProduct={products.length > 0}
-        hasSale={sales.length > 0}
-        hasCustomer={customers.length > 0}
-        isServices={settings.activityType === 'SERVICES'}
-        onAddProduct={() => {
-          setActiveTab('products');
-          setIsNewProductOpen(true);
-        }}
-        onNewSale={() => attemptNewSale()}
-        onAddCustomer={() => setActiveTab('customers')}
-      />
+  const prenom = settings.ownerName?.trim().split(/\s+/)[0] || '';
+  const nbDebiteurs = customers.filter((c) => c.totalDebt > 0).length;
+  const dernieresVentes = sales.slice(0, 5);
 
-      {/* ========================================================================= */}
-      {/* 1. FILTRES (BLOC 4: Segment [Aujourd'hui | Cette semaine | Ce mois] + Date + Switch) */}
-      {/* ========================================================================= */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 sm:p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-        {/* Segment buttons — même vocabulaire que Caisse et Réglages > Mon affichage */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto no-scrollbar">
-          {(
-            [
-              { id: 'TODAY' as const, label: "Aujourd'hui" },
-              { id: 'YESTERDAY' as const, label: 'Hier' },
-              { id: 'WEEK' as const, label: 'Cette semaine' },
-              { id: 'MONTH' as const, label: 'Ce mois' },
-              { id: 'RANGE' as const, label: DATE_RANGE_LABEL },
-            ]
-          ).map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPeriod(p.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                period === p.id
-                  ? 'bg-white text-[#4F46E5] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+  // Carte vedette, commune aux deux modes. Sur le dégradé, le vert et le rouge
+  // sont éclaircis pour rester lisibles : positif = vert, négatif = rouge avec « - ».
+  const renderHero = (detaille: boolean) => (
+    <motion.div
+      id={detaille ? 'hero-net-profit-card' : 'hero-net-profit-card-simple'}
+      variants={staggerChild}
+      role="button"
+      tabIndex={0}
+      onClick={() => setDetailKind('GAGNE')}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setDetailKind('GAGNE');
+        }
+      }}
+      className="mc-lift mc-gradient text-white rounded-mc shadow-mc-card p-5 md:px-8 md:py-5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="space-y-3 md:space-y-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[14px] font-semibold text-white/80">Ce que tu as gagné {periodWord}</span>
+            {renderBeneficeDeltaBadge()}
+          </div>
 
-        {/* Date Selector & Compare Switch */}
-        <div className="flex flex-wrap items-center gap-3">
-          {period === 'RANGE' ? (
-            <DateRangeInputs
-              id="dashboard-range"
-              start={rangeStart}
-              end={rangeEnd}
-              onStartChange={setRangeStart}
-              onEndChange={setRangeEnd}
-            />
-          ) : (
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
-              <Calendar className="w-3.5 h-3.5 text-[#4F46E5]" />
-              <span>
-                {period === 'WEEK' || period === 'MONTH'
-                  ? `Du ${formatDayLabel(periodRange.start)} au ${formatDayLabel(periodRange.end)}`
-                  : formatDayLabel(periodRange.start)}
-              </span>
-            </div>
-          )}
-
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={compareYesterday}
-              onChange={(e) => setCompareYesterday(e.target.checked)}
-              className="w-4 h-4 rounded text-[#4F46E5] focus:ring-[#4F46E5] cursor-pointer"
-            />
-            <span>Comparer avec {previousRange.label}</span>
-          </label>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* MODE SIMPLE VS MODE DÉTAILLÉ */}
-      {/* ========================================================================= */}
-      {isSimpleMode ? (
-        <div className="space-y-6">
-          {/* Main Hero Net Profit Card */}
           <div
-            id="hero-net-profit-card-simple"
-            role="button"
-            onClick={() => setDetailKind('GAGNE')}
-            className="bg-white rounded-3xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer hover:border-emerald-300 transition-all"
-          >
-            <div className="p-6 sm:p-8">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    {period === 'TODAY'
-                      ? 'Ce que tu as gagné aujourd’hui'
-                      : period === 'YESTERDAY'
-                      ? 'Ce que tu as gagné hier'
-                      : period === 'WEEK'
-                      ? 'Ce que tu as gagné cette semaine'
-                      : period === 'MONTH'
-                      ? 'Ce que tu as gagné ce mois'
-                      : `Ce que tu as gagné — ${periodRange.label.toLowerCase()}`}
-                  </span>
-                  {renderBeneficeDeltaBadge()}
-                </div>
-
-                {/* 54px number */}
-                <div
-                  className={`text-4xl sm:text-[54px] font-black tracking-tight leading-none ${
-                    beneficeNetReel >= 0 ? 'text-[#059669]' : 'text-[#DC2626]'
-                  }`}
-                >
-                  {beneficeNetReel >= 0
-                    ? `+${formatMoney(beneficeNetReel)}`
-                    : `-${formatMoney(Math.abs(beneficeNetReel))}`}
-                </div>
-
-                {/* Plain language explanation */}
-                <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-xl leading-relaxed">
-                  Tu as vendu pour <strong className="text-slate-900">{formatMoney(totalVendu)}</strong>.
-                  Après tes achats ({formatMoney(totalCostOfGoods)}) et tes frais ({formatMoney(totalDepenses)}), voici ton bénéfice réel.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className={`h-1.5 w-full ${
-                beneficeNetReel >= 0 ? 'bg-[#059669]' : 'bg-[#DC2626]'
-              }`}
-            />
-          </div>
-
-          {/* 3 chiffres essentiels */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div
-              role="button"
-              onClick={ouvrirListeDuJour}
-              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-indigo-300 transition-all"
-            >
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                1. Total vendu
-              </span>
-              <div className="text-2xl font-black text-slate-900">
-                {totalVenduServeur === null ? '…' : formatMoneyCompact(totalVenduServeur)}
-              </div>
-              <p className="text-xs text-slate-400">{ventesDuJourLabel}</p>
-            </div>
-
-            <div
-              role="button"
-              onClick={() => setDetailKind('DEPENSES')}
-              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-amber-300 transition-all"
-            >
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                2. Dépenses totales
-              </span>
-              <div className="text-2xl font-black text-[#DC2626]">
-                {formatMoneyCompact(totalDepenses)}
-              </div>
-              <p className="text-xs text-slate-400">
-                {periodExpenses.length} dépense{periodExpenses.length > 1 ? 's' : ''} notée{periodExpenses.length > 1 ? 's' : ''}
-              </p>
-            </div>
-
-            <div
-              role="button"
-              onClick={() => setDetailKind('RECEVOIR')}
-              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-rose-300 transition-all"
-            >
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                3. Reste à encaisser
-              </span>
-              <div className="text-2xl font-black text-amber-600">
-                {formatMoneyCompact(argentARecevoir)}
-              </div>
-              <p className="text-xs text-slate-400">
-                {customers.filter((c) => c.totalDebt > 0).length} clients avec crédit
-              </p>
-            </div>
-
-            <div
-              role="button"
-              onClick={() => setDetailKind('ANNULEES')}
-              className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5 cursor-pointer hover:border-slate-300 transition-all"
-            >
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                4. Ventes annulées
-              </span>
-              <div className="text-2xl font-black text-slate-500">
-                {formatMoneyCompact(cancelledPeriodTotal)}
-              </div>
-              <p className="text-xs text-slate-400">
-                {cancelledPeriodSales.length} vente{cancelledPeriodSales.length > 1 ? 's' : ''} annulée{cancelledPeriodSales.length > 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-
-          {/* Actions rapides */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={attemptNewSale}
-                className={`px-4 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
-              >
-                <Plus className="w-4 h-4" />
-                <span>Nouvelle vente</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('more');
-                  setActiveMoreSubTab('expenses');
-                }}
-                className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Saisir une dépense</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('cash')}
-                className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
-              >
-                <Wallet className="w-4 h-4 text-emerald-600" />
-                <span>Ma caisse</span>
-              </button>
-            </div>
-
-            <button
-              onClick={() => updateSettings({ dashboardMode: 'DETAILED' })}
-              className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer flex items-center gap-1"
-            >
-              <span>Afficher les graphiques et alertes (mode détaillé)</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="flex justify-end">
-            <button
-              onClick={() => updateSettings({ dashboardMode: 'SIMPLE' })}
-              className="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer flex items-center gap-1"
-            >
-              <span>Basculer en vue simple (l'essentiel)</span>
-            </button>
-          </div>
-
-          {/* ========================================================================= */}
-          {/* 2. BANDEAU D'ALERTE ACTIONNABLE (BLOC 4: fond rouge doux, seulement si alertes) */}
-          {/* ========================================================================= */}
-          {(overdueCustomers.length > 0 || outOfStockProducts.length > 0) && (
-        <div
-          id="actionable-alert-banner"
-          className="p-3.5 sm:p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4 h-4 stroke-[2.5]" />
-            </div>
-            <div>
-              <p className="font-extrabold text-rose-950">
-                {overdueCustomers.length} clients te doivent depuis plus de 30 jours ·{' '}
-                {formatMoney(totalOverdueAmount)} à récupérer · {outOfStockProducts.length} produit en rupture
-              </p>
-              <p className="text-[11px] text-rose-800/80 mt-0.5">
-                Des actions immédiates sont requises pour préserver ta trésorerie.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setCustomersDebtorsFilter(true);
-              setActiveTab('customers');
-            }}
-            className="self-start sm:self-auto px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-          >
-            <span>M'en occuper</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 3. CARTE PRINCIPALE : "Ce que tu as gagné aujourd'hui" (BLOC 4) */}
-      {/* Chiffre 54px VERT si positif, ROUGE avec - si négatif (JAMAIS 0 si négatif) */}
-      {/* ========================================================================= */}
-      <div
-        id="hero-net-profit-card"
-        role="button"
-        onClick={() => setDetailKind('GAGNE')}
-        className="bg-white rounded-3xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer hover:border-emerald-300 transition-all"
-      >
-        <div className="p-6 sm:p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            {/* Left side: The Big Metric */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Ce que tu as gagné {periodWord}
-                </span>
-                {renderBeneficeDeltaBadge()}
-              </div>
-
-              {/* 54px number: Green if positive, Red with minus sign if negative */}
-              <div
-                className={`text-4xl sm:text-[54px] font-black tracking-tight leading-none ${
-                  beneficeNetReel >= 0 ? 'text-[#059669]' : 'text-[#DC2626]'
-                }`}
-              >
-                {beneficeNetReel >= 0
-                  ? `+${formatMoney(beneficeNetReel)}`
-                  : `-${formatMoney(Math.abs(beneficeNetReel))}`}
-              </div>
-
-              {/* Plain language explanation (§ BLOC 4 mandate) */}
-              <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-xl leading-relaxed">
-                Tu as vendu pour <strong className="text-slate-900">{formatMoney(totalVendu)}</strong>.
-                Après tes achats et tes frais, il te reste{' '}
-                {beneficeNetReel >= 0 ? 'un résultat positif' : 'moins que rien'}. Marge sur les ventes{' '}
-                <strong className="text-slate-900">{formatMoney(margeVentes)}</strong> − frais{' '}
-                <strong className="text-slate-900">{formatMoney(totalDepenses)}</strong>.
-              </p>
-            </div>
-
-            {/* Right side: 3 Detailed figures */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 shrink-0">
-              <div className="space-y-1">
-                <span className="text-[11px] font-bold text-slate-500 block">
-                  Marge sur tes ventes
-                </span>
-                <span className="text-sm sm:text-base font-extrabold text-slate-900 block">
-                  {formatMoney(margeVentes)}
-                </span>
-                <span className="text-[10px] text-emerald-600 font-bold block">
-                  {totalVendu > 0 ? `${Math.round((margeVentes / totalVendu) * 100)}% s/ CA` : '—'}
-                </span>
-              </div>
-              <div className="space-y-1 border-l border-slate-200 pl-3 sm:pl-4">
-                <span className="text-[11px] font-bold text-slate-500 block">
-                  Frais de la période
-                </span>
-                <span className="text-sm sm:text-base font-extrabold text-slate-900 block">
-                  {formatMoney(totalDepenses)}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium block">
-                  {periodExpenses.length} note{periodExpenses.length > 1 ? 's' : ''} de frais
-                </span>
-              </div>
-              <div className="space-y-1 border-l border-slate-200 pl-3 sm:pl-4">
-                <span className="text-[11px] font-bold text-slate-500 block">
-                  Marchandise achetée
-                </span>
-                <span className="text-sm sm:text-base font-extrabold text-slate-900 block">
-                  {formatMoney(totalCostOfGoods)}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium block">
-                  Coût de revient
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 4px colored bottom bar (BLOC 4) */}
-        <div
-          className={`h-1 w-full ${
-            beneficeNetReel >= 0 ? 'bg-[#059669]' : 'bg-[#DC2626]'
-          }`}
-        ></div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4. QUATRE INDICATEURS EN LIGNE (BLOC 4: Indigo, Rouge, Ambre, Vert) */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {/* 1. TOTAL VENDU (Barre indigo) */}
-        <div
-          role="button"
-          onClick={ouvrirListeDuJour}
-          className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-indigo-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
-        >
-          <div className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500">Total vendu</span>
-              {venduPercentChange !== null && (
-                <span
-                  className={`inline-flex items-center gap-0.5 text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
-                    venduPercentChange >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'
-                  }`}
-                >
-                  {venduPercentChange >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                  {venduPercentChange >= 0 ? '+' : ''}
-                  {venduPercentChange } %
-                </span>
-              )}
-            </div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {totalVenduServeur === null ? '…' : formatMoneyCompact(totalVenduServeur)}
-            </div>
-            <p className="text-xs text-slate-500 font-medium">
-              {ventesDuJourLabel}
-              {periodSales.length > 0 &&
-                ` · ${[
-                  paidSalesCount > 0 ? `${paidSalesCount} payée${paidSalesCount > 1 ? 's' : ''}` : null,
-                  partialSalesCount > 0 ? `${partialSalesCount} partielle${partialSalesCount > 1 ? 's' : ''}` : null,
-                  creditSalesCount > 0 ? `${creditSalesCount} à crédit` : null,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}`}
-            </p>
-          </div>
-          <div className="h-1 w-full bg-[#4F46E5]"></div>
-        </div>
-
-        {/* 2. ARGENT À RECEVOIR (Barre rouge - hausse est ROUGE) */}
-        <div
-          role="button"
-          onClick={() => setDetailKind('RECEVOIR')}
-          className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-rose-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
-        >
-          <div className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500">Argent à recevoir</span>
-              {overdueCustomers.length > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-                  {overdueCustomers.length} en retard
-                </span>
-              )}
-            </div>
-            <div className="text-2xl font-black text-[#DC2626] tracking-tight">
-              {formatMoneyCompact(argentARecevoir)}
-            </div>
-            <p className="text-xs text-slate-500 font-medium">
-              {customers.filter((c) => c.totalDebt > 0).length} client{customers.filter((c) => c.totalDebt > 0).length > 1 ? 's' : ''} avec dette
-              {overdueCustomers.length > 0 && ` · ${overdueCustomers.length} depuis plus de 30 j`}
-            </p>
-          </div>
-          <div className="h-1 w-full bg-[#DC2626]"></div>
-        </div>
-
-        {/* 3. CE QUE TU AS DÉPENSÉ (Barre ambre - hausse est ROUGE) */}
-        <div
-          role="button"
-          onClick={() => setDetailKind('DEPENSES')}
-          className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-amber-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
-        >
-          <div className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500">Ce que tu as dépensé</span>
-              {depensesPercentChange !== null && (
-                <span
-                  className={`inline-flex items-center gap-0.5 text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
-                    depensesPercentChange > 0 ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50'
-                  }`}
-                >
-                  {depensesPercentChange > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                  {depensesPercentChange > 0 ? '+' : ''}
-                  {depensesPercentChange} %
-                </span>
-              )}
-            </div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatMoneyCompact(totalDepenses)}
-            </div>
-            <p className="text-xs text-slate-500 font-medium">
-              {periodExpenses.length} dépense{periodExpenses.length > 1 ? 's' : ''}
-              {merchandiseExpenses > 0 && ` · dont ${formatMoney(merchandiseExpenses)} marchandise`}
-            </p>
-          </div>
-          <div className="h-1 w-full bg-[#D97706]"></div>
-        </div>
-
-        {/* 4. ARGENT EN CAISSE (Barre verte) */}
-        <div
-          role="button"
-          onClick={() => setDetailKind('CAISSE')}
-          className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-emerald-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
-        >
-          <div className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500">Argent en caisse</span>
-              <span className="text-[11px] font-bold text-slate-400">
-                {activeCashSession ? 'Session active' : 'Fermée'}
-              </span>
-            </div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatMoneyCompact(soldeCaisseTheorique)}
-            </div>
-            <p className="text-xs text-slate-500 font-medium truncate">
-              Espèces {formatMoney(encaisseEspeces)} · MM {formatMoney(encaisseMobileMoney)}
-            </p>
-          </div>
-          <div className="h-1 w-full bg-[#059669]"></div>
-        </div>
-
-        {/* 5. VENTES ANNULÉES (Barre grise) — retirées de tous les chiffres ci-dessus */}
-        <div
-          role="button"
-          onClick={() => setDetailKind('ANNULEES')}
-          className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
-        >
-          <div className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500">Ventes annulées</span>
-            </div>
-            <div className="text-2xl font-black text-slate-500 tracking-tight">
-              {formatMoneyCompact(cancelledPeriodTotal)}
-            </div>
-            <p className="text-xs text-slate-500 font-medium">
-              {cancelledPeriodSales.length} vente{cancelledPeriodSales.length > 1 ? 's' : ''} annulée{cancelledPeriodSales.length > 1 ? 's' : ''} · non comptée{cancelledPeriodSales.length > 1 ? 's' : ''}
-            </p>
-          </div>
-          <div className="h-1 w-full bg-[#94A3B8]"></div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 5. GRAPHIQUE "TES VENTES HEURE PAR HEURE" (BLOC 4: DOUBLE BARRE) */}
-      {/* Inspiré de la maquette 1: barres aujourd'hui (--indigo-600) vs hier (--indigo-50 avec bordure) */}
-      {/* Vue détaillée réservée à l'abonnement actif (§ paywall) — floutée si expiré. */}
-      {/* ========================================================================= */}
-      <PaywallOverlay title="Débloque tes analyses détaillées" message="Le graphique heure par heure et les alertes de stock font partie de ton abonnement.">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200/90 shadow-xs space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-                Tes ventes heure par heure
-              </h3>
-              <p className="text-xs text-slate-500">
-                Aujourd'hui vs hier, de 07h à 16h — toujours ces deux jours, quel que soit le filtre choisi plus haut
-              </p>
-            </div>
-
-            {/* Tag / Badge: "Ta meilleure heure" & Legend */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-indigo-50 text-[#4F46E5] border border-indigo-100">
-                {hasTodaySales
-                  ? `Ta meilleure heure : ${hourlyData[peakHourIndex].hour} (${formatMoney(hourlyData[peakHourIndex].today)})`
-                  : "Pas encore de vente aujourd'hui"}
-              </span>
-              <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded bg-[#4F46E5]"></span>
-                  Aujourd'hui
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded bg-[#EEF2FF] border border-[#C7D2FE]"></span>
-                  Hier
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Double Bar Chart Canvas */}
-          <div className="h-56 w-full flex items-end justify-between gap-2 pt-6 pb-2 px-2 border-b border-slate-100">
-            {hourlyData.map((d, index) => {
-              const todayHeight = d.today > 0 ? Math.max(12, (d.today / maxHourlyValue) * 160) : 2;
-              const yesterdayHeight = d.yesterday > 0 ? Math.max(12, (d.yesterday / maxHourlyValue) * 160) : 2;
-              const isHovered = activeHourlyTooltip === index;
-
-              return (
-                <div
-                  key={d.hour}
-                  className="flex-1 flex flex-col items-center justify-end h-full relative group cursor-pointer"
-                  onMouseEnter={() => setActiveHourlyTooltip(index)}
-                  onMouseLeave={() => setActiveHourlyTooltip(null)}
-                >
-                  {/* Tooltip on hover */}
-                  {isHovered && (
-                    <div className="absolute -top-12 z-20 px-2.5 py-1.5 bg-slate-900 text-white rounded-xl text-[10px] font-bold shadow-lg pointer-events-none whitespace-nowrap animate-in fade-in">
-                      <div>Auj : {formatMoney(d.today)}</div>
-                      <div className="text-indigo-300">Hier : {formatMoney(d.yesterday)}</div>
-                    </div>
-                  )}
-
-                  {/* Dual Bars Container */}
-                  <div className="flex items-end justify-center gap-1 w-full max-w-[28px]">
-                    {/* Yesterday Bar (lighter with border) */}
-                    <div
-                      style={{ height: `${yesterdayHeight}px` }}
-                      className="w-1/2 rounded-t-md bg-[#EEF2FF] border border-[#C7D2FE] transition-all group-hover:bg-indigo-100"
-                    ></div>
-
-                    {/* Today Bar (Solid indigo) */}
-                    <div
-                      style={{ height: `${todayHeight}px` }}
-                      className={`w-1/2 rounded-t-md transition-all ${
-                        d.isPeak
-                          ? 'bg-[#4F46E5] ring-2 ring-indigo-400 ring-offset-1'
-                          : 'bg-[#4F46E5] group-hover:bg-indigo-700'
-                      }`}
-                    ></div>
-                  </div>
-
-                  {/* X-axis label */}
-                  <span
-                    className={`text-[11px] mt-2 font-medium ${
-                      d.isPeak ? 'font-black text-[#4F46E5]' : 'text-slate-400'
-                    }`}
-                  >
-                    {d.hour}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ========================================================================= */}
-        {/* 6. "CE QUI VA MANQUER" (BLOC 4: barres de progression colorées) */}
-        {/* ========================================================================= */}
-        <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200/90 shadow-xs space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-                Ce qui va manquer
-              </h3>
-              {lowStockProducts.length > 0 && (
-                <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                  {lowStockProducts.length} alerte{lowStockProducts.length > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500">
-              Articles approchant de la rupture
-            </p>
-          </div>
-
-          {lowStockProducts.length === 0 ? (
-            <div className="my-2 p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-xs text-emerald-800 font-medium text-center">
-              🎉 Aucun produit proche de la rupture pour le moment.
-            </div>
-          ) : (
-            <div className="space-y-3.5 my-2">
-              {lowStockProducts.map((p) => {
-                const target = Math.max(1, p.alertThreshold);
-                const ratio = Math.min(100, Math.round((p.stock / target) * 100));
-                return (
-                  <div key={p.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-extrabold text-slate-900 truncate">
-                        {p.name}
-                      </span>
-                      <span
-                        className={`font-black ${
-                          p.stock === 0 ? 'text-[#DC2626]' : 'text-[#D97706]'
-                        }`}
-                      >
-                        {p.stock === 0
-                          ? 'Rupture (0)'
-                          : `Reste ${p.stock} / ${p.alertThreshold}`}
-                      </span>
-                    </div>
-
-                    {/* Progress bar (BLOC 4 mandate) */}
-                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          p.stock === 0 ? 'bg-[#DC2626] w-1' : 'bg-[#D97706]'
-                        }`}
-                        style={{ width: `${Math.max(4, ratio)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <button
-            onClick={() => setActiveTab('products')}
-            className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Réapprovisionner le stock</span>
-          </button>
-        </div>
-      </div>
-      </PaywallOverlay>
-
-      {/* ========================================================================= */}
-      {/* 7. "CE QUE DISENT TES CHIFFRES" (BLOC 4: 5 phrases calculées selon règles) */}
-      {/* Vue détaillée réservée à l'abonnement actif (§ paywall) — floutée si expiré. */}
-      {/* ========================================================================= */}
-      <PaywallOverlay title="Débloque tes analyses détaillées" message="Ces 5 indicateurs calculés font partie de ton abonnement.">
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-xs space-y-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#4F46E5]" />
-          <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-            Ce que disent tes chiffres — {periodRange.label.toLowerCase()}
-          </h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-          {/* 1. Meilleure vente */}
-          <div className="p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 text-xs space-y-1">
-            <span className="font-extrabold text-[#4F46E5] block">🏆 Vente record de la période</span>
-            <p className="text-slate-700 leading-snug">
-              {bestSaleOfPeriod ? (
-                <>
-                  Ta meilleure vente est de <strong>{formatMoney(bestSaleOfPeriod.totalAmount)}</strong> avec{' '}
-                  {bestSaleOfPeriod.customerName || 'un client de passage'} à{' '}
-                  {new Date(bestSaleOfPeriod.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.
-                </>
-              ) : (
-                'Aucune vente enregistrée sur cette période pour le moment.'
-              )}
-            </p>
-          </div>
-
-          {/* 2. Produit star */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 text-xs space-y-1">
-            <span className="font-extrabold text-slate-900 block">⚡ Rotation la plus rapide</span>
-            <p className="text-slate-700 leading-snug">
-              {topProductOfPeriod ? (
-                <>
-                  Le produit le plus vendu est <strong>{topProductOfPeriod.name}</strong> avec {topProductOfPeriod.qty} unité
-                  {topProductOfPeriod.qty > 1 ? 's' : ''} écoulée{topProductOfPeriod.qty > 1 ? 's' : ''}.
-                </>
-              ) : (
-                'Pas encore de vente sur cette période.'
-              )}
-            </p>
-          </div>
-
-          {/* 3. Dettes critiques */}
-          <div className="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-100 text-xs space-y-1">
-            <span className="font-extrabold text-[#DC2626] block">⚠️ Argent bloqué</span>
-            <p className="text-slate-700 leading-snug">
-              {totalOverdueAmount > 0 ? (
-                <>
-                  Tu as <strong>{formatMoney(totalOverdueAmount)}</strong> en attente chez {overdueCustomers.length} client
-                  {overdueCustomers.length > 1 ? 's' : ''} depuis plus de 30 jours.
-                </>
-              ) : (
-                'Aucune dette de plus de 30 jours en ce moment. 👍'
-              )}
-            </p>
-          </div>
-
-          {/* 4. Ratio dépenses/ventes */}
-          <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-100 text-xs space-y-1">
-            <span className="font-extrabold text-[#D97706] block">📊 Pression des frais</span>
-            <p className="text-slate-700 leading-snug">
-              {pressionFrais !== null ? (
-                <>
-                  Tes dépenses de la période représentent <strong>{pressionFrais} %</strong> de tes encaissements bruts.
-                </>
-              ) : (
-                'Pas encore de vente sur cette période pour calculer ce ratio.'
-              )}
-            </p>
-          </div>
-
-          {/* 5. Conseil pratique d'action */}
-          <div
-            onClick={
-              topOverdueCustomer
-                ? () => {
-                    setCustomersDebtorsFilter(true);
-                    setActiveTab('customers');
-                  }
-                : undefined
-            }
-            className={`p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-xs space-y-1 md:col-span-2 ${
-              topOverdueCustomer ? 'cursor-pointer hover:bg-emerald-50 transition-colors' : ''
+            className={`text-[36px] md:text-[40px] font-extrabold tracking-tight leading-none tabular-nums whitespace-nowrap ${
+              beneficeNetReel >= 0 ? 'text-[#86EFAC]' : 'text-[#FCA5A5]'
             }`}
           >
-            <span className="font-extrabold text-[#059669] block">💡 Conseil d'action immédiat</span>
-            <p className="text-slate-700 leading-snug">
-              {topOverdueCustomer ? (
-                <>
-                  Relance <strong>{topOverdueCustomer.name}</strong> pour récupérer ses {formatMoney(topOverdueCustomer.totalDebt)} de
-                  reliquat.
-                </>
-              ) : (
-                "Rien à relancer aujourd'hui : aucun client en retard de plus de 30 jours."
-              )}
-            </p>
+            <CountUp
+              value={Math.abs(beneficeNetReel)}
+              format={(n) => `${beneficeNetReel >= 0 ? '+' : '-'}${formatMoney(n)}`}
+            />
           </div>
+
+          <p className={`text-[14px] text-white/80 leading-relaxed ${detaille ? 'max-w-xl' : 'max-w-4xl'}`}>
+            Tu as vendu pour <strong className="text-white">{formatMoney(totalVendu)}</strong>. Après tes
+            achats ({formatMoney(totalCostOfGoods)}) et tes frais ({formatMoney(totalDepenses)}),{' '}
+            {beneficeNetReel >= 0 ? 'voici ton bénéfice réel.' : 'il te reste moins que rien.'}
+          </p>
         </div>
+
+        {detaille && (
+          /* Téléphone : trois lignes, libellé à gauche et montant à droite —
+             trois colonnes de 90 px coupaient les libellés. Ordinateur : trois colonnes. */
+          <div className="bg-white/10 px-4 py-1 lg:py-4 rounded-2xl lg:shrink-0 divide-y lg:divide-y-0 lg:divide-x divide-white/20 lg:grid lg:grid-cols-3">
+            {[
+              {
+                libelle: 'Marge sur tes ventes',
+                montant: margeVentes,
+                note: totalVendu > 0 ? `${Math.round((margeVentes / totalVendu) * 100)}% s/ CA` : '—',
+                noteClasse: 'text-[#86EFAC] font-bold',
+              },
+              {
+                libelle: 'Frais de la période',
+                montant: totalDepenses,
+                note: `${periodExpenses.length} note${periodExpenses.length > 1 ? 's' : ''} de frais`,
+                noteClasse: 'text-white/60',
+              },
+              {
+                libelle: 'Marchandise achetée',
+                montant: totalCostOfGoods,
+                note: 'Coût de revient',
+                noteClasse: 'text-white/60',
+              },
+            ].map((ligne) => (
+              <div
+                key={ligne.libelle}
+                className="flex lg:block items-center justify-between gap-3 py-3 lg:py-0 lg:px-4 lg:first:pl-0 lg:last:pr-0 lg:space-y-1 min-w-0"
+              >
+                <span className="text-[12px] font-semibold text-white/70 block">{ligne.libelle}</span>
+                <span className="text-right lg:text-left shrink-0">
+                  <span className="text-[16px] font-extrabold block tabular-nums whitespace-nowrap">
+                    {formatMoney(ligne.montant)}
+                  </span>
+                  <span className={`text-[12px] block ${ligne.noteClasse}`}>{ligne.note}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      </PaywallOverlay>
+    </motion.div>
+  );
 
-      {/* ========================================================================= */}
-      {/* 8. "TES DERNIÈRES VENTES" (BLOC 4: VRAI TABLEAU SUR ORDINATEUR) */}
-      {/* Colonnes: Heure, Client (avatar initiales), Vendu par, Articles, Total, Reste, Statut */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-              Tes dernières ventes
-            </h3>
-            <p className="text-xs text-slate-500">
-              Flux des encaissements en temps réel
-            </p>
+  return (
+    <div id="dashboard-tab-content" className="font-jakarta text-mc-ink pb-20 max-w-[1460px] mx-auto">
+      <MotionConfig reducedMotion="user">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, ease: MC_EASE }}
+          className="space-y-4 md:space-y-6"
+        >
+          {/* ================================================================
+              EN-TÊTE — bonjour, date, pastille d'essai, nouvelle commande
+              ================================================================ */}
+          <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 className="text-[20px] md:text-[28px] font-extrabold tracking-tight leading-tight">
+                  Bonjour{prenom ? ` ${prenom}` : ''}
+                </h1>
+                <TrialPill />
+              </div>
+              <p className="text-[14px] text-mc-soft">
+                {period === 'WEEK' || period === 'MONTH' || period === 'RANGE'
+                  ? `Du ${formatDayLabel(periodRange.start)} au ${formatDayLabel(periodRange.end)}`
+                  : formatDayLabel(periodRange.start)}
+              </p>
+            </div>
+            <button
+              id="btn-home-new-order"
+              type="button"
+              onClick={attemptNewSale}
+              className={`hidden md:inline-flex h-10 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-[14px] font-bold items-center gap-1.5 shadow-mc-card cursor-pointer transition-all duration-200 active:scale-[0.97] ${
+                isWriteLocked ? LOCKED_BTN_CLASS : ''
+              }`}
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>Nouvelle commande</span>
+            </button>
+          </header>
+
+          {/* Premiers pas : la carte « premier produit » seule laissait le
+              commerçant devant un tableau de bord vide dès le produit créé, sans
+              rien indiquer ensuite. La liste se retire d'elle-même une fois les
+              trois étapes faites — c'est une invitation, jamais un blocage. */}
+          <StartupChecklist
+            hasProduct={products.length > 0}
+            hasSale={sales.length > 0}
+            hasCustomer={customers.length > 0}
+            isServices={settings.activityType === 'SERVICES'}
+            onAddProduct={() => {
+              setActiveTab('products');
+              setIsNewProductOpen(true);
+            }}
+            onNewSale={() => attemptNewSale()}
+            onAddCustomer={() => setActiveTab('customers')}
+          />
+
+          {/* ================================================================
+              FILTRES — période segmentée, plage libre, comparaison
+              ================================================================ */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+            <Segmented<DashboardPeriod>
+              id="btn-home-period"
+              label="Période"
+              value={period}
+              onChange={setPeriod}
+              options={
+                [
+                  { id: 'TODAY', label: "Aujourd'hui" },
+                  { id: 'YESTERDAY', label: 'Hier' },
+                  { id: 'WEEK', label: 'Cette semaine' },
+                  { id: 'MONTH', label: 'Ce mois' },
+                  { id: 'RANGE', label: DATE_RANGE_LABEL },
+                ] as const
+              }
+            />
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {period === 'RANGE' && (
+                <DateRangeInputs
+                  id="dashboard-range"
+                  start={rangeStart}
+                  end={rangeEnd}
+                  onStartChange={setRangeStart}
+                  onEndChange={setRangeEnd}
+                />
+              )}
+              <label className="flex items-center gap-2 text-[14px] font-medium text-mc-soft cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={compareYesterday}
+                  onChange={(e) => setCompareYesterday(e.target.checked)}
+                  className="w-4 h-4 rounded accent-[#5B4BF0] cursor-pointer"
+                />
+                <span>Comparer avec {previousRange.label}</span>
+              </label>
+            </div>
           </div>
-          <button
-            onClick={() => setActiveTab('sales')}
-            className="text-xs font-extrabold text-[#4F46E5] hover:underline cursor-pointer"
-          >
-            Voir tout l'historique ({sales.length}) →
-          </button>
-        </div>
 
-        {/* Real Table on Desktop (BLOC 3 & BLOC 4 mandate) */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                <th className="py-3 px-4">Heure</th>
-                <th className="py-3 px-4">Client</th>
-                <th className="py-3 px-4">Vendu par</th>
-                <th className="py-3 px-4">Articles</th>
-                <th className="py-3 px-4 text-right">Total</th>
-                <th className="py-3 px-4 text-right">Reste</th>
-                <th className="py-3 px-4 text-center">Statut</th>
-                <th className="py-3 px-4 text-center">Reçu</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sales.slice(0, 5).map((sale) => {
-                const clientInitials = sale.customerName
-                  ? sale.customerName
-                      .split(' ')
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join('')
-                      .toUpperCase()
-                  : 'C';
+          {/* ================================================================
+              MODE SIMPLE VS MODE DÉTAILLÉ
+              ================================================================ */}
+          {isSimpleMode ? (
+            <motion.div variants={staggerParent} initial="hidden" animate="show" className="space-y-4 md:space-y-6">
+              {renderHero(false)}
 
-                return (
-                  <tr
-                    key={sale.id}
-                    onClick={() => setSelectedSaleForReceipt(sale)}
-                    className="h-[46px] hover:bg-slate-50/80 transition-colors cursor-pointer"
+              {/* Les chiffres essentiels */}
+              <motion.div variants={staggerParent} className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+                <KpiCard
+                  label="Total vendu"
+                  value={totalVenduServeur}
+                  format={formatMoneyCompact}
+                  hint={ventesDuJourLabel}
+                  onOpen={ouvrirListeDuJour}
+                  openLabel="Voir les commandes"
+                />
+                <KpiCard
+                  label="Dépenses totales"
+                  value={totalDepenses}
+                  format={formatMoneyCompact}
+                  tone="danger"
+                  hint={`${periodExpenses.length} dépense${periodExpenses.length > 1 ? 's' : ''} notée${periodExpenses.length > 1 ? 's' : ''}`}
+                  onOpen={() => setDetailKind('DEPENSES')}
+                  openLabel="Voir le détail des dépenses"
+                />
+                <KpiCard
+                  label="Reste à encaisser"
+                  value={argentARecevoir}
+                  format={formatMoneyCompact}
+                  tone="warning"
+                  hint={`${nbDebiteurs} client${nbDebiteurs > 1 ? 's' : ''} avec crédit`}
+                  onOpen={() => setDetailKind('RECEVOIR')}
+                  openLabel="Voir qui me doit"
+                />
+                <KpiCard
+                  label="Ventes annulées"
+                  value={cancelledPeriodTotal}
+                  format={formatMoneyCompact}
+                  tone="muted"
+                  hint={`${cancelledPeriodSales.length} vente${cancelledPeriodSales.length > 1 ? 's' : ''} annulée${cancelledPeriodSales.length > 1 ? 's' : ''}`}
+                  onOpen={() => setDetailKind('ANNULEES')}
+                  openLabel="Voir les ventes annulées"
+                />
+              </motion.div>
+
+              {/* Actions rapides */}
+              <motion.div
+                variants={staggerChild}
+                className="p-4 rounded-mc bg-white border border-mc-line shadow-mc-card flex flex-wrap items-center justify-between gap-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={attemptNewSale}
+                    className={`h-10 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white font-bold text-[14px] flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
                   >
-                    <td className="py-2.5 px-4 font-semibold text-slate-600 whitespace-nowrap">
-                      {new Date(sale.createdAt).toLocaleTimeString('fr-FR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="py-2.5 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
-                          {clientInitials}
-                        </div>
-                        <span className="font-extrabold text-slate-900">
-                          {sale.customerName || 'Client de passage'}
+                    <Plus className="w-4 h-4" />
+                    <span>Nouvelle vente</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('more');
+                      setActiveMoreSubTab('expenses');
+                    }}
+                    className="h-10 px-4 rounded-full bg-white hover:border-mc-primary hover:text-mc-primary text-mc-ink border border-mc-line font-semibold text-[14px] flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.97]"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Saisir une dépense</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('cash')}
+                    className="h-10 px-4 rounded-full bg-white hover:border-mc-primary hover:text-mc-primary text-mc-ink border border-mc-line font-semibold text-[14px] flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.97]"
+                  >
+                    <Wallet className="w-4 h-4 text-mc-success" />
+                    <span>Ma caisse</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => updateSettings({ dashboardMode: 'DETAILED' })}
+                  className="text-[14px] font-bold text-mc-primary hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <span>Afficher les graphiques et alertes (mode détaillé)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div variants={staggerParent} initial="hidden" animate="show" className="space-y-4 md:space-y-6">
+              <div className="flex justify-start md:justify-end">
+                <button
+                  onClick={() => updateSettings({ dashboardMode: 'SIMPLE' })}
+                  className="min-h-[36px] text-[14px] md:text-[12px] font-bold text-mc-primary md:text-mc-soft hover:text-mc-ink cursor-pointer text-left"
+                >
+                  Basculer en vue simple (l'essentiel)
+                </button>
+              </div>
+
+              {/* ============================================================
+                  À FAIRE — les alertes qui demandent un geste, une ligne chacune
+                  ============================================================ */}
+              {(overdueCustomers.length > 0 || outOfStockProducts.length > 0) && (
+                <motion.section
+                  id="actionable-alert-banner"
+                  variants={staggerChild}
+                  className="rounded-mc bg-white border border-mc-line shadow-mc-card p-4 md:p-6"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <h2 className="text-[16px] font-bold">À faire</h2>
+                    <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-mc-danger text-white text-[12px] font-bold flex items-center justify-center tabular-nums">
+                      {(overdueCustomers.length > 0 ? 1 : 0) + (outOfStockProducts.length > 0 ? 1 : 0)}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {overdueCustomers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomersDebtorsFilter(true);
+                          setActiveTab('customers');
+                        }}
+                        className="mc-lift w-full flex items-center gap-3 p-3 rounded-2xl bg-mc-danger-bg text-left cursor-pointer"
+                      >
+                        <span className="w-10 h-10 rounded-full bg-white text-[#DC2626] flex items-center justify-center shrink-0">
+                          <Clock className="w-5 h-5" />
                         </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[14px] font-bold text-mc-ink">
+                            {overdueCustomers.length} client{overdueCustomers.length > 1 ? 's te doivent' : ' te doit'} depuis
+                            plus de 30 jours
+                          </span>
+                          <span className="block text-[12px] text-[#B91C1C] font-semibold tabular-nums">
+                            {formatMoney(totalOverdueAmount)} à récupérer
+                          </span>
+                        </span>
+                        <span className="shrink-0 hidden sm:inline-flex items-center gap-1 h-8 px-3 rounded-full bg-[#DC2626] text-white text-[12px] font-bold">
+                          M'en occuper
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </span>
+                        <ChevronRight className="sm:hidden w-5 h-5 text-[#DC2626] shrink-0" />
+                      </button>
+                    )}
+                    {outOfStockProducts.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('products')}
+                        className="mc-lift w-full flex items-center gap-3 p-3 rounded-2xl bg-mc-warning-bg text-left cursor-pointer"
+                      >
+                        <span className="w-10 h-10 rounded-full bg-white text-[#B45309] flex items-center justify-center shrink-0">
+                          <Package className="w-5 h-5" />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[14px] font-bold text-mc-ink">
+                            {outOfStockProducts.length} produit{outOfStockProducts.length > 1 ? 's' : ''} en rupture
+                          </span>
+                          <span className="block text-[12px] text-[#92400E] font-semibold truncate">
+                            {outOfStockProducts
+                              .slice(0, 3)
+                              .map((p) => p.name)
+                              .join(', ')}
+                            {outOfStockProducts.length > 3 ? '…' : ''}
+                          </span>
+                        </span>
+                        <ChevronRight className="w-5 h-5 text-[#B45309] shrink-0" />
+                      </button>
+                    )}
+                  </div>
+                </motion.section>
+              )}
+
+              {/* Chiffre : vert si positif, rouge avec « - » si négatif (jamais 0 si négatif) */}
+              {renderHero(true)}
+
+              {/* ============================================================
+                  LES CINQ INDICATEURS
+                  ============================================================ */}
+              <motion.div
+                variants={staggerParent}
+                className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4"
+              >
+                <KpiCard
+                  label="Total vendu"
+                  value={totalVenduServeur}
+                  format={formatMoneyCompact}
+                  variation={venduPercentChange}
+                  hint={`${ventesDuJourLabel}${
+                    periodSales.length > 0
+                      ? ` · ${[
+                          paidSalesCount > 0 ? `${paidSalesCount} payée${paidSalesCount > 1 ? 's' : ''}` : null,
+                          partialSalesCount > 0 ? `${partialSalesCount} partielle${partialSalesCount > 1 ? 's' : ''}` : null,
+                          creditSalesCount > 0 ? `${creditSalesCount} à crédit` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(', ')}`
+                      : ''
+                  }`}
+                  onOpen={ouvrirListeDuJour}
+                  openLabel="Voir les commandes"
+                />
+                <KpiCard
+                  label="Argent à recevoir"
+                  value={argentARecevoir}
+                  format={formatMoneyCompact}
+                  tone="danger"
+                  badge={
+                    overdueCustomers.length > 0 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-mc-danger-bg text-[#DC2626] text-[12px] font-bold">
+                        {overdueCustomers.length} en retard
+                      </span>
+                    ) : undefined
+                  }
+                  hint={`${nbDebiteurs} client${nbDebiteurs > 1 ? 's' : ''} avec dette`}
+                  onOpen={() => setDetailKind('RECEVOIR')}
+                  openLabel="Voir qui me doit"
+                />
+                <KpiCard
+                  label="Ce que tu as dépensé"
+                  value={totalDepenses}
+                  format={formatMoneyCompact}
+                  variation={depensesPercentChange}
+                  variationGoodWhen="down"
+                  hint={`${periodExpenses.length} dépense${periodExpenses.length > 1 ? 's' : ''}${
+                    merchandiseExpenses > 0 ? ` · dont ${formatMoney(merchandiseExpenses)} marchandise` : ''
+                  }`}
+                  onOpen={() => setDetailKind('DEPENSES')}
+                  openLabel="Voir le détail des dépenses"
+                />
+                <KpiCard
+                  label="Argent en caisse"
+                  value={soldeCaisseTheorique}
+                  format={formatMoneyCompact}
+                  badge={
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[12px] font-bold ${
+                        activeCashSession ? 'bg-mc-success-bg text-[#15803D]' : 'bg-mc-bg text-mc-soft'
+                      }`}
+                    >
+                      {activeCashSession ? 'Session active' : 'Fermée'}
+                    </span>
+                  }
+                  hint={`Espèces ${formatMoney(encaisseEspeces)} · MM ${formatMoney(encaisseMobileMoney)}`}
+                  onOpen={() => setDetailKind('CAISSE')}
+                  openLabel="Voir le détail de la caisse"
+                />
+                <KpiCard
+                  label="Ventes annulées"
+                  value={cancelledPeriodTotal}
+                  format={formatMoneyCompact}
+                  tone="muted"
+                  hint={`${cancelledPeriodSales.length} vente${cancelledPeriodSales.length > 1 ? 's' : ''} annulée${cancelledPeriodSales.length > 1 ? 's' : ''} · non comptée${cancelledPeriodSales.length > 1 ? 's' : ''}`}
+                  onOpen={() => setDetailKind('ANNULEES')}
+                  openLabel="Voir les ventes annulées"
+                />
+              </motion.div>
+
+              {/* ============================================================
+                  VENTES HEURE PAR HEURE + CE QUI VA MANQUER
+                  Vue détaillée réservée à l'abonnement actif — floutée si expiré.
+                  ============================================================ */}
+              <PaywallOverlay title="Débloque tes analyses détaillées" message="Le graphique heure par heure et les alertes de stock font partie de ton abonnement.">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <motion.section
+                    variants={staggerChild}
+                    className="lg:col-span-2 min-w-0 rounded-mc bg-white border border-mc-line shadow-mc-card p-4 md:p-6"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                      <div className="min-w-0">
+                        <h2 className="text-[16px] font-bold">Tes ventes heure par heure</h2>
+                        <p className="text-[12px] text-mc-soft">
+                          Aujourd'hui vs hier, de 07h à 16h — toujours ces deux jours, quel que soit le filtre choisi plus haut
+                        </p>
                       </div>
-                    </td>
-                    <td className="py-2.5 px-4 text-slate-500 whitespace-nowrap">
-                      {sale.sellerName}
-                    </td>
-                    <td className="py-2.5 px-4 text-slate-600 max-w-[200px] truncate">
-                      {sale.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                      {formatMoney(sale.totalAmount)}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-bold text-slate-500 whitespace-nowrap">
-                      {sale.remainingAmount > 0 ? (
-                        <span className="text-[#DC2626] font-black">
-                          {formatMoney(sale.remainingAmount)}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-[12px] font-bold px-3 py-1 rounded-full bg-mc-primary-tint text-mc-primary-dark tabular-nums">
+                          {hasTodaySales
+                            ? `Ta meilleure heure : ${hourlyData[peakHourIndex].hour} (${formatMoney(hourlyData[peakHourIndex].today)})`
+                            : "Pas encore de vente aujourd'hui"}
+                        </span>
+                        <div className="flex items-center gap-3 text-[12px] font-semibold text-mc-soft">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded-full bg-mc-primary" />
+                            Aujourd'hui
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded-full bg-[#DAD6FC]" />
+                            Hier
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 h-[200px] md:h-[220px]">
+                      <Suspense fallback={<div className="w-full h-full rounded-2xl mc-shimmer" />}>
+                        <HourlyChart data={hourlyData} />
+                      </Suspense>
+                    </div>
+                  </motion.section>
+
+                  <motion.section
+                    variants={staggerChild}
+                    className="min-w-0 rounded-mc bg-white border border-mc-line shadow-mc-card p-4 md:p-6 flex flex-col gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <h2 className="text-[16px] font-bold">Ce qui va manquer</h2>
+                        {lowStockProducts.length > 0 && (
+                          <span className="text-[12px] font-bold text-[#B45309] bg-mc-warning-bg px-2.5 py-0.5 rounded-full">
+                            {lowStockProducts.length} alerte{lowStockProducts.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-mc-soft">Articles approchant de la rupture</p>
+                    </div>
+
+                    {lowStockProducts.length === 0 ? (
+                      <div className="flex-1 flex items-center justify-center p-4 rounded-2xl bg-mc-success-bg text-[14px] text-[#15803D] font-semibold text-center">
+                        Aucun produit proche de la rupture pour le moment.
+                      </div>
+                    ) : (
+                      <div className="flex-1 space-y-4">
+                        {lowStockProducts.map((p) => {
+                          const target = Math.max(1, p.alertThreshold);
+                          const ratio = Math.min(100, Math.round((p.stock / target) * 100));
+                          return (
+                            <div key={p.id} className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-2 text-[14px]">
+                                <span className="font-bold truncate">{p.name}</span>
+                                <span
+                                  className={`shrink-0 text-[12px] font-bold tabular-nums ${
+                                    p.stock === 0 ? 'text-[#DC2626]' : 'text-[#B45309]'
+                                  }`}
+                                >
+                                  {p.stock === 0 ? 'Rupture (0)' : `Reste ${p.stock} / ${p.alertThreshold}`}
+                                </span>
+                              </div>
+                              <div className="w-full bg-mc-bg h-2 rounded-full overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${Math.max(4, ratio)}%` }}
+                                  transition={{ duration: 0.6, ease: MC_EASE }}
+                                  className={`h-full rounded-full ${p.stock === 0 ? 'bg-mc-danger' : 'bg-mc-warning'}`}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setActiveTab('products')}
+                      className="w-full h-10 rounded-full border border-mc-line hover:border-mc-primary hover:text-mc-primary text-[14px] font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.97]"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Réapprovisionner le stock</span>
+                    </button>
+                  </motion.section>
+                </div>
+              </PaywallOverlay>
+
+              {/* ============================================================
+                  CE QUE DISENT TES CHIFFRES — 5 phrases calculées
+                  Vue détaillée réservée à l'abonnement actif — floutée si expiré.
+                  ============================================================ */}
+              <PaywallOverlay title="Débloque tes analyses détaillées" message="Ces 5 indicateurs calculés font partie de ton abonnement.">
+                <motion.section
+                  variants={staggerChild}
+                  className="rounded-mc bg-white border border-mc-line shadow-mc-card p-4 md:p-6"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-mc-primary" />
+                    <h2 className="text-[16px] font-bold">
+                      Ce que disent tes chiffres — {periodRange.label.toLowerCase()}
+                    </h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                    <div className="p-4 rounded-2xl bg-mc-primary-tint text-[14px] space-y-1">
+                      <span className="font-bold text-mc-primary-dark block">Vente record de la période</span>
+                      <p className="text-mc-ink/80 leading-snug">
+                        {bestSaleOfPeriod ? (
+                          <>
+                            Ta meilleure vente est de <strong>{formatMoney(bestSaleOfPeriod.totalAmount)}</strong> avec{' '}
+                            {bestSaleOfPeriod.customerName || 'un client de passage'} à{' '}
+                            {new Date(bestSaleOfPeriod.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.
+                          </>
+                        ) : (
+                          'Aucune vente enregistrée sur cette période pour le moment.'
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-mc-bg text-[14px] space-y-1">
+                      <span className="font-bold text-mc-ink block">Rotation la plus rapide</span>
+                      <p className="text-mc-ink/80 leading-snug">
+                        {topProductOfPeriod ? (
+                          <>
+                            Le produit le plus vendu est <strong>{topProductOfPeriod.name}</strong> avec {topProductOfPeriod.qty} unité
+                            {topProductOfPeriod.qty > 1 ? 's' : ''} écoulée{topProductOfPeriod.qty > 1 ? 's' : ''}.
+                          </>
+                        ) : (
+                          'Pas encore de vente sur cette période.'
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-mc-danger-bg text-[14px] space-y-1">
+                      <span className="font-bold text-[#DC2626] block">Argent bloqué</span>
+                      <p className="text-mc-ink/80 leading-snug">
+                        {totalOverdueAmount > 0 ? (
+                          <>
+                            Tu as <strong>{formatMoney(totalOverdueAmount)}</strong> en attente chez {overdueCustomers.length} client
+                            {overdueCustomers.length > 1 ? 's' : ''} depuis plus de 30 jours.
+                          </>
+                        ) : (
+                          'Aucune dette de plus de 30 jours en ce moment.'
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-mc-warning-bg text-[14px] space-y-1">
+                      <span className="font-bold text-[#B45309] block">Pression des frais</span>
+                      <p className="text-mc-ink/80 leading-snug">
+                        {pressionFrais !== null ? (
+                          <>
+                            Tes dépenses de la période représentent <strong>{pressionFrais} %</strong> de tes encaissements bruts.
+                          </>
+                        ) : (
+                          'Pas encore de vente sur cette période pour calculer ce ratio.'
+                        )}
+                      </p>
+                    </div>
+
+                    <div
+                      onClick={
+                        topOverdueCustomer
+                          ? () => {
+                              setCustomersDebtorsFilter(true);
+                              setActiveTab('customers');
+                            }
+                          : undefined
+                      }
+                      className={`p-4 rounded-2xl bg-mc-success-bg text-[14px] space-y-1 md:col-span-2 ${
+                        topOverdueCustomer ? 'mc-lift cursor-pointer' : ''
+                      }`}
+                    >
+                      <span className="font-bold text-[#15803D] block">Conseil d'action immédiat</span>
+                      <p className="text-mc-ink/80 leading-snug">
+                        {topOverdueCustomer ? (
+                          <>
+                            Relance <strong>{topOverdueCustomer.name}</strong> pour récupérer ses {formatMoney(topOverdueCustomer.totalDebt)} de
+                            reliquat.
+                          </>
+                        ) : (
+                          "Rien à relancer aujourd'hui : aucun client en retard de plus de 30 jours."
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </motion.section>
+              </PaywallOverlay>
+
+              {/* ============================================================
+                  TES DERNIÈRES VENTES — une ligne par vente, un clic ouvre le reçu
+                  ============================================================ */}
+              <motion.section variants={staggerChild}>
+                <div className="flex items-end justify-between gap-3 mb-3">
+                  <div>
+                    <h2 className="text-[16px] font-bold">Tes dernières ventes</h2>
+                    <p className="text-[12px] text-mc-soft">Flux des encaissements en temps réel</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('sales')}
+                    className="text-[14px] font-bold text-mc-primary hover:underline cursor-pointer whitespace-nowrap"
+                  >
+                    Voir tout l'historique ({sales.length}) →
+                  </button>
+                </div>
+
+                {dernieresVentes.length === 0 ? (
+                  <EmptyState
+                    title="Aucune vente pour l’instant"
+                    text="Dès que tu enregistres une vente, elle apparaît ici."
+                    actionLabel="Faire une vente"
+                    onAction={attemptNewSale}
+                    withPlus
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {dernieresVentes.map((sale) => {
+                      const statut = saleStatusStyle(sale);
+                      const pastille = PASTILLES_STATUT[statut.key];
+                      const nom = sale.customerName || 'Client de passage';
+                      return (
+                        <div
+                          key={sale.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedSaleForReceipt(sale)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelectedSaleForReceipt(sale);
+                            }
+                          }}
+                          className="mc-lift flex items-center gap-3 md:gap-4 px-3 md:px-4 py-3 bg-white border border-mc-line rounded-2xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-mc-primary"
+                        >
+                          <div
+                            className="w-10 h-10 rounded-full text-white font-bold text-[14px] flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: avatarColor(nom) }}
+                            aria-hidden="true"
+                          >
+                            {avatarInitials(nom)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold truncate">{nom}</p>
+                            <p className="text-[12px] text-mc-soft truncate">
+                              {new Date(sale.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              {sale.sellerName ? ` · ${sale.sellerName}` : ''}
+                            </p>
+                          </div>
+                          <div className="hidden lg:block w-[26%] min-w-0 text-[14px] text-mc-soft truncate">
+                            {sale.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p
+                              className={`text-[16px] font-extrabold tabular-nums whitespace-nowrap ${
+                                sale.isCancelled ? 'line-through text-slate-400' : ''
+                              }`}
+                            >
+                              {formatMoney(sale.totalAmount)}
+                            </p>
+                            {!sale.isCancelled && sale.remainingAmount > 0 && (
+                              <p className="text-[12px] font-bold text-[#DC2626] tabular-nums whitespace-nowrap">
+                                Reste {formatMoney(sale.remainingAmount)}
+                              </p>
+                            )}
+                          </div>
+                          <span
+                            className="shrink-0 px-2 sm:px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap"
+                            style={{ backgroundColor: pastille.bg, color: pastille.fg }}
+                          >
+                            {statut.label}
+                          </span>
+                          <span className="hidden md:inline-flex shrink-0 h-8 px-3 rounded-full bg-mc-bg text-mc-soft text-[12px] font-bold items-center">
+                            Voir reçu
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.section>
+
+              {/* ============================================================
+                  CAISSE DU JOUR — le calcul se lit de gauche à droite
+                  ============================================================ */}
+              <motion.section
+                variants={staggerChild}
+                className="rounded-mc bg-white border border-mc-line shadow-mc-card p-4 md:p-6 space-y-4"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-[16px] font-bold">Caisse du jour</h2>
+                      {activeCashSession ? (
+                        <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#15803D] bg-mc-success-bg px-2.5 py-0.5 rounded-full">
+                          <span className="w-2 h-2 rounded-full bg-mc-success animate-pulse" />
+                          Session ouverte ({new Date(activeCashSession.ouverteLe).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })})
                         </span>
                       ) : (
-                        '—'
+                        <span className="flex items-center gap-1.5 text-[12px] font-bold text-mc-soft bg-mc-bg px-2.5 py-0.5 rounded-full">
+                          <span className="w-2 h-2 rounded-full bg-mc-soft/60" />
+                          Caisse fermée
+                        </span>
                       )}
-                    </td>
-                    <td className="py-2.5 px-4 text-center whitespace-nowrap">
-                      <span
-                        className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold"
-                        style={{ backgroundColor: saleStatusStyle(sale).bg, color: saleStatusStyle(sale).fg }}
-                      >
-                        {saleStatusStyle(sale).label}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4 text-center whitespace-nowrap">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedSaleForReceipt(sale);
-                        }}
-                        className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-[#4F46E5] font-bold text-[10px] transition-colors"
-                      >
-                        Voir reçu
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    </div>
+                    <p className="text-[12px] text-mc-soft mt-0.5">
+                      Contrôle, encaissements et réconciliation des espèces physiques
+                    </p>
+                  </div>
 
-      {/* ========================================================================= */}
-      {/* 9. "CAISSE DU JOUR" (BLOC 4: Fond départ, Espèces, MM, Sorties, Ce que tu dois avoir) */}
-      {/* ========================================================================= */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-                Caisse du jour
-              </h3>
-              {activeCashSession ? (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Session ouverte ({new Date(activeCashSession.ouverteLe).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })})
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                  <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                  Caisse fermée
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Contrôle, encaissements et réconciliation des espèces physiques
-            </p>
-          </div>
+                  <button
+                    onClick={() => setActiveTab('cash')}
+                    className="h-10 px-4 rounded-full bg-mc-ink hover:bg-[#1E2140] text-white font-bold text-[14px] transition-all cursor-pointer self-start sm:self-auto flex items-center gap-1.5 active:scale-[0.97]"
+                  >
+                    <span>{activeCashSession ? 'Gérer & Clôturer la caisse' : 'Ouvrir la caisse'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
 
-          <button
-            onClick={() => setActiveTab('cash')}
-            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer self-start sm:self-auto flex items-center gap-1.5"
-          >
-            <span>{activeCashSession ? 'Gérer & Clôturer la caisse' : 'Ouvrir la caisse'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Breakdown row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
-            <span className="text-[11px] font-bold text-slate-500 block">Fond de départ</span>
-            <span className="text-sm font-black text-slate-900 block">
-              {formatMoney(fondDepart)}
-            </span>
-            <span className="text-[10px] text-slate-400 block">Ouverture caisse</span>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-emerald-50/40 border border-emerald-100 space-y-1">
-            <span className="text-[11px] font-bold text-emerald-700 block">+ Espèces encaissées</span>
-            <span className="text-sm font-black text-[#059669] block">
-              +{formatMoney(encaisseEspeces)}
-            </span>
-            <span className="text-[10px] text-slate-400 block">Tiroir-caisse</span>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-1">
-            <span className="text-[11px] font-bold text-indigo-700 block">+ Mobile Money</span>
-            <span className="text-sm font-black text-[#4F46E5] block">
-              +{formatMoney(encaisseMobileMoney)}
-            </span>
-            <span className="text-[10px] text-slate-400 block">Wave & OM</span>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-rose-50/40 border border-rose-100 space-y-1">
-            <span className="text-[11px] font-bold text-rose-700 block">- Sorties d'espèces</span>
-            <span className="text-sm font-black text-[#DC2626] block">
-              -{formatMoney(sortiesEspeces)}
-            </span>
-            <span className="text-[10px] text-slate-400 block">Achats & frais</span>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900 text-white space-y-1 col-span-2 sm:col-span-1">
-            <span className="text-[11px] font-bold text-slate-300 block">Ce que tu dois avoir</span>
-            <span className="text-base font-black text-emerald-400 block">
-              {formatMoney(soldeCaisseTheorique)}
-            </span>
-            <span className="text-[10px] text-slate-400 block">Espèces physiques</span>
-          </div>
-        </div>
-      </div>
-        </div>
-      )}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div className="p-4 rounded-2xl bg-mc-bg space-y-1 min-w-0">
+                    <span className="text-[12px] font-semibold text-mc-soft block">Fond de départ</span>
+                    <span className="text-[16px] font-extrabold block tabular-nums truncate">{formatMoney(fondDepart)}</span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-mc-success-bg space-y-1 min-w-0">
+                    <span className="text-[12px] font-semibold text-[#15803D] block">+ Espèces encaissées</span>
+                    <span className="text-[16px] font-extrabold text-[#15803D] block tabular-nums truncate">
+                      +{formatMoney(encaisseEspeces)}
+                    </span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-mc-primary-tint space-y-1 min-w-0">
+                    <span className="text-[12px] font-semibold text-mc-primary-dark block">+ Mobile Money</span>
+                    <span className="text-[16px] font-extrabold text-mc-primary-dark block tabular-nums truncate">
+                      +{formatMoney(encaisseMobileMoney)}
+                    </span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-mc-danger-bg space-y-1 min-w-0">
+                    <span className="text-[12px] font-semibold text-[#DC2626] block">− Sorties d'espèces</span>
+                    <span className="text-[16px] font-extrabold text-[#DC2626] block tabular-nums truncate">
+                      -{formatMoney(sortiesEspeces)}
+                    </span>
+                  </div>
+                  <div className="p-4 rounded-2xl mc-gradient text-white space-y-1 col-span-2 sm:col-span-1 min-w-0">
+                    <span className="text-[12px] font-semibold text-white/80 block">= Ce que tu dois avoir</span>
+                    <span className="text-[16px] font-extrabold block tabular-nums truncate">
+                      {formatMoney(soldeCaisseTheorique)}
+                    </span>
+                  </div>
+                </div>
+              </motion.section>
+            </motion.div>
+          )}
+        </motion.div>
+      </MotionConfig>
 
       {detailKind && <DashboardDetailSheet detail={buildDetail(detailKind)} onClose={() => setDetailKind(null)} />}
       {detailCustomer && (
@@ -1529,16 +1359,16 @@ const StartupChecklist: React.FC<{
   return (
     <div
       id="dashboard-startup-checklist"
-      className="bg-white p-5 rounded-2xl border border-dashed border-indigo-200 shadow-xs space-y-4"
+      className="bg-white p-4 md:p-6 rounded-mc border border-dashed border-[#C9C3FB] shadow-mc-card space-y-4"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-extrabold text-slate-900">Tes premiers pas</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h3 className="text-sm font-extrabold text-mc-ink">Tes premiers pas</h3>
+          <p className="text-xs text-mc-soft mt-0.5">
             Trois gestes pour être opérationnel. Tu peux les faire dans l’ordre que tu veux.
           </p>
         </div>
-        <span className="shrink-0 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-[#EEF2FF] text-[#4F46E5]">
+        <span className="shrink-0 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-mc-primary-tint text-mc-primary-dark">
           {faits} / {steps.length}
         </span>
       </div>
@@ -1546,7 +1376,7 @@ const StartupChecklist: React.FC<{
       {/* Progression : la barre se remplit à chaque étape franchie. */}
       <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden" aria-hidden="true">
         <div
-          className="bg-[#4F46E5] h-full rounded-full transition-all duration-500"
+          className="bg-[#5B4BF0] h-full rounded-full transition-all duration-500"
           style={{ width: `${(faits / steps.length) * 100}%` }}
         />
       </div>
@@ -1555,13 +1385,13 @@ const StartupChecklist: React.FC<{
         {steps.map((step, index) => (
           <li
             key={step.titre}
-            className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border ${
-              step.fait ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50/70 border-slate-200'
+            className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl border ${
+              step.fait ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50/70 border-mc-line'
             }`}
           >
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-black ${
-                step.fait ? 'bg-emerald-500 text-white' : 'bg-white text-[#4F46E5] border-2 border-indigo-200'
+              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-extrabold ${
+                step.fait ? 'bg-emerald-500 text-white' : 'bg-white text-[#5B4BF0] border-2 border-[#DAD6FC]'
               }`}
             >
               {step.fait ? <CheckCircle2 className="w-4 h-4" /> : index + 1}
@@ -1569,18 +1399,18 @@ const StartupChecklist: React.FC<{
             <div className="flex-1 min-w-0">
               <span
                 className={`text-xs font-extrabold block ${
-                  step.fait ? 'text-emerald-900 line-through decoration-emerald-400' : 'text-slate-900'
+                  step.fait ? 'text-emerald-900 line-through decoration-emerald-400' : 'text-mc-ink'
                 }`}
               >
                 {step.titre}
               </span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">{step.aide}</span>
+              <span className="text-[11px] text-mc-soft block mt-0.5">{step.aide}</span>
             </div>
             {!step.fait && (
               <button
                 type="button"
                 onClick={step.action}
-                className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm cursor-pointer transition-colors"
+                className="shrink-0 inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-[12px] font-bold cursor-pointer transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 {step.cta}

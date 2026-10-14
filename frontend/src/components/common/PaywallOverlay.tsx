@@ -29,13 +29,13 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
         {children}
       </div>
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="max-w-xs w-full bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-xl p-5 text-center space-y-3">
+        <div className="max-w-xs w-full bg-white/95 backdrop-blur-sm rounded-2xl border border-mc-line shadow-xl p-5 text-center space-y-3">
           <div className="w-10 h-10 mx-auto rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
             <Lock className="w-5 h-5" />
           </div>
           <div className="space-y-1">
-            <h4 className="text-sm font-extrabold text-slate-900">{title}</h4>
-            <p className="text-xs text-slate-500 leading-relaxed">{message}</p>
+            <h4 className="text-sm font-extrabold text-mc-ink">{title}</h4>
+            <p className="text-xs text-mc-soft leading-relaxed">{message}</p>
           </div>
           <button
             onClick={() => {

@@ -162,3 +162,12 @@ export function versementWhatsAppText(v: Versement, settings: ShopSettings): str
   text += '✨ _Reçu généré avec MoroCash_';
   return text;
 }
+
+/**
+ * Le versement qui vient d'être encaissé sur une commande : celui que le
+ * serveur a ajouté depuis `idsAvant`. Sert à proposer son reçu tout de suite.
+ */
+export function newVersementOfSale(sale: Sale | undefined, idsAvant: Set<string>): Versement | null {
+  if (!sale) return null;
+  return versementsOfSale(sale).filter((v) => !idsAvant.has(v.id)).pop() ?? null;
+}

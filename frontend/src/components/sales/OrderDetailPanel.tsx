@@ -130,9 +130,12 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
     window.location.href = `tel:${numero}`;
   };
 
+  // Après un encaissement, la fenêtre reste ouverte pour proposer le reçu ;
+  // le panneau se ferme avec elle, comme avant.
+  const aEncaisse = useRef(false);
   const encaisser = async (montant: number, methode: PaymentMethod) => {
     const ok = await collectSalePayment(sale.id, montant, methode);
-    if (ok) onClose();
+    if (ok) aEncaisse.current = true;
     return ok;
   };
 
@@ -157,7 +160,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
       />
 
       <div className="relative w-full md:w-[480px] h-full bg-[#F8FAFC] flex flex-col shadow-2xl">
-        <div className="h-14 shrink-0 bg-white border-b border-slate-200 px-3 flex items-center gap-2">
+        <div className="h-14 shrink-0 bg-white border-b border-mc-line px-3 flex items-center gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -167,12 +170,12 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
             <ArrowLeft className="w-5 h-5 md:hidden" />
             <X className="w-5 h-5 hidden md:block" />
           </button>
-          <span className="text-sm font-black text-slate-900">Détail de la commande</span>
+          <span className="text-sm font-extrabold text-mc-ink">Détail de la commande</span>
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 pb-4">
           {/* B1 — Est-ce payé, et combien */}
-          <section className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+          <section className="bg-white rounded-2xl border border-mc-line p-5 text-center">
             <span
               className="inline-block rounded-full"
               style={{
@@ -186,12 +189,12 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               {statut.symbol} {statut.longLabel}
             </span>
             <div
-              className={`mt-3 tabular-nums ${annulee ? 'line-through text-slate-400' : 'text-slate-900'}`}
+              className={`mt-3 tabular-nums ${annulee ? 'line-through text-slate-400' : 'text-mc-ink'}`}
               style={{ fontSize: '34px', fontWeight: 800, letterSpacing: '-0.035em' }}
             >
               {formatMoney(sale.totalAmount)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">{sousTitreStatut}</p>
+            <p className="text-xs text-mc-soft mt-1">{sousTitreStatut}</p>
           </section>
 
           {/* B2 — Le client */}
@@ -203,7 +206,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               onClose();
             }}
             disabled={!client}
-            className="w-full bg-white rounded-2xl border border-slate-200 p-3 flex items-center gap-3 text-left enabled:hover:bg-slate-50 enabled:cursor-pointer transition-colors"
+            className="w-full bg-white rounded-2xl border border-mc-line p-3 flex items-center gap-3 text-left enabled:hover:bg-slate-50 enabled:cursor-pointer transition-colors"
           >
             <div
               className="w-[38px] h-[38px] rounded-full shrink-0 flex items-center justify-center text-white font-extrabold text-[13px]"
@@ -213,8 +216,8 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               {avatarInitials(nomClient)}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[14.5px] font-bold text-slate-900 truncate">{nomClient}</div>
-              <div className="text-[11.5px] text-slate-500 truncate">
+              <div className="text-[14.5px] font-bold text-mc-ink truncate">{nomClient}</div>
+              <div className="text-[11.5px] text-mc-soft truncate">
                 {sale.customerPhone || 'Pas de numéro'}
                 {client && (
                   <>
@@ -234,10 +237,10 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
           </button>
 
           {/* B3 — Quand, par qui, et sous quel numéro */}
-          <section className="bg-white rounded-2xl border border-slate-200 grid grid-cols-3 divide-x divide-slate-100">
+          <section className="bg-white rounded-2xl border border-mc-line grid grid-cols-3 divide-x divide-slate-100">
             <div className="p-3 min-w-0">
               <div className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Date</div>
-              <div className="text-[11px] font-bold text-slate-800 mt-1 truncate">
+              <div className="text-[11px] font-bold text-mc-ink mt-1 truncate">
                 {dateRelative(sale.createdAt)}
               </div>
             </div>
@@ -245,7 +248,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               <div className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
                 Vendu par
               </div>
-              <div className="text-[11px] font-bold text-slate-800 mt-1 truncate">
+              <div className="text-[11px] font-bold text-mc-ink mt-1 truncate">
                 {sale.sellerName || '—'}
               </div>
             </div>
@@ -263,14 +266,14 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               }}
             >
               <div className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">N°</div>
-              <div className="text-[10.5px] font-semibold text-slate-500 mt-1 truncate">
+              <div className="text-[10.5px] font-semibold text-mc-soft mt-1 truncate">
                 {sale.reference}
               </div>
             </div>
           </section>
 
           {/* B4 — Ce qui a été vendu */}
-          <section className="bg-white rounded-2xl border border-slate-200 p-3">
+          <section className="bg-white rounded-2xl border border-mc-line p-3">
             <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
               Ce qui a été vendu
             </h3>
@@ -288,14 +291,14 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                     {item.name.trim().charAt(0).toUpperCase() || '?'}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-semibold text-slate-900 truncate">
+                    <div className="text-[12.5px] font-semibold text-mc-ink truncate">
                       {item.name}
                     </div>
-                    <div className="text-[10.5px] text-slate-500 tabular-nums">
+                    <div className="text-[10.5px] text-mc-soft tabular-nums">
                       {item.quantity} × {formatMoney(item.unitPrice)}
                     </div>
                   </div>
-                  <span className="text-[12.5px] font-bold text-slate-900 tabular-nums shrink-0">
+                  <span className="text-[12.5px] font-bold text-mc-ink tabular-nums shrink-0">
                     {formatMoney(item.total)}
                   </span>
                 </div>
@@ -327,7 +330,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                 <span className="text-[12px] font-bold text-slate-600">Total</span>
                 <span
-                  className="tabular-nums text-slate-900"
+                  className="tabular-nums text-mc-ink"
                   style={{ fontSize: '22px', fontWeight: 800 }}
                 >
                   {formatMoney(sale.totalAmount)}
@@ -337,14 +340,14 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
           </section>
 
           {/* B5 — Historique des paiements : la commande, chaque versement, le reste */}
-          <section id="order-payments" className="bg-white rounded-2xl border border-slate-200 p-3">
+          <section id="order-payments" className="bg-white rounded-2xl border border-mc-line p-3">
             <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
               Historique des paiements
             </h3>
 
             <div className="flex items-center justify-between py-2 text-[12.5px]">
               <span className="font-semibold text-slate-600">Commande</span>
-              <span className="font-bold text-slate-900 tabular-nums">{formatMoney(sale.totalAmount)}</span>
+              <span className="font-bold text-mc-ink tabular-nums">{formatMoney(sale.totalAmount)}</span>
             </div>
 
             {versements.length === 0 ? (
@@ -370,7 +373,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                             </span>
                           )}
                         </span>
-                        <span className="block text-[11px] text-slate-500 truncate mt-0.5">
+                        <span className="block text-[11px] text-mc-soft truncate mt-0.5">
                           {dateRelative(v.createdAt)} · {formatPaymentMethod(v.method)}
                         </span>
                       </span>
@@ -389,7 +392,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                           setMotifAnnulation('');
                           setVersementAAnnuler(v);
                         }}
-                        className="shrink-0 min-h-[48px] px-2 text-[11px] font-bold text-slate-500 hover:text-[#DC2626] cursor-pointer"
+                        className="shrink-0 min-h-[48px] px-2 text-[11px] font-bold text-mc-soft hover:text-[#DC2626] cursor-pointer"
                       >
                         Annuler
                       </button>
@@ -415,12 +418,12 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
             )}
 
             {phraseDette && (
-              <p className="text-[11.5px] text-slate-500 mt-3 leading-relaxed">{phraseDette}</p>
+              <p className="text-[11.5px] text-mc-soft mt-3 leading-relaxed">{phraseDette}</p>
             )}
           </section>
 
           {/* B6 — Ce qui s'est passé */}
-          <section className="bg-white rounded-2xl border border-slate-200 p-3">
+          <section className="bg-white rounded-2xl border border-mc-line p-3">
             <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
               Historique
             </h3>
@@ -429,8 +432,8 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                 <li key={`${ligne.at}-${index}`} className="flex gap-2 text-[11px] leading-relaxed">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5 shrink-0" />
                   <span className="min-w-0">
-                    <span className="font-semibold text-slate-800">{ligne.titre}</span>
-                    {ligne.detail && <span className="text-slate-500"> — {ligne.detail}</span>}
+                    <span className="font-semibold text-mc-ink">{ligne.titre}</span>
+                    {ligne.detail && <span className="text-mc-soft"> — {ligne.detail}</span>}
                     <span className="text-slate-400"> · {dateRelative(ligne.at)}</span>
                   </span>
                 </li>
@@ -440,7 +443,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
         </div>
 
         {/* B7 — Les actions, qui changent selon le statut */}
-        <div className="shrink-0 bg-white border-t border-slate-200 p-3 space-y-2">
+        <div className="shrink-0 bg-white border-t border-mc-line p-3 space-y-2">
           {annulee ? (
             <button
               type="button"
@@ -454,7 +457,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               <button
                 type="button"
                 onClick={() => setEncaissementOuvert(true)}
-                className="w-full h-[50px] rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-sm font-black shadow-md shadow-indigo-600/20 cursor-pointer"
+                className="w-full h-[50px] rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-sm font-extrabold shadow-md shadow-indigo-600/20 cursor-pointer"
               >
                 Encaisser les {formatMoney(reste)} →
               </button>
@@ -480,7 +483,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               <button
                 type="button"
                 onClick={envoyerRecu}
-                className="w-full h-[50px] rounded-2xl text-white text-sm font-black shadow-md cursor-pointer inline-flex items-center justify-center gap-2"
+                className="w-full h-[50px] rounded-2xl text-white text-sm font-extrabold shadow-md cursor-pointer inline-flex items-center justify-center gap-2"
                 style={{ backgroundColor: '#25D366' }}
               >
                 <MessageCircle className="w-4 h-4" /> Renvoyer le reçu sur WhatsApp
@@ -527,8 +530,8 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
 
       {versementAAnnuler && (
         <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4">
-          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 p-5 shadow-2xl space-y-3">
-            <h3 className="text-base font-black text-slate-900">Annuler ce versement ?</h3>
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-mc border border-mc-line p-5 shadow-2xl space-y-3">
+            <h3 className="text-base font-extrabold text-mc-ink">Annuler ce versement ?</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               {versementLabel(versementAAnnuler.numero)} de {formatMoney(versementAAnnuler.amount)}. Il reste
               visible, barré. Le reste à payer, la dette du client, le total vendu et la caisse sont recalculés.
@@ -542,13 +545,13 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               value={motifAnnulation}
               onChange={(e) => setMotifAnnulation(e.target.value)}
               placeholder="Erreur de montant, mauvais client…"
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-900"
+              className="w-full px-3 py-2 rounded-xl border border-mc-line text-sm text-mc-ink"
             />
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setVersementAAnnuler(null)}
-                className="flex-1 h-12 rounded-2xl border border-slate-200 text-sm font-bold text-slate-600 cursor-pointer"
+                className="flex-1 h-12 rounded-2xl border border-mc-line text-sm font-bold text-slate-600 cursor-pointer"
               >
                 Garder
               </button>
@@ -556,7 +559,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                 type="button"
                 onClick={confirmerAnnulationVersement}
                 disabled={!motifAnnulation.trim() || annulationEnCours}
-                className="flex-1 h-12 rounded-2xl bg-[#DC2626] hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-black cursor-pointer"
+                className="flex-1 h-12 rounded-2xl bg-[#DC2626] hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-extrabold cursor-pointer"
               >
                 {annulationEnCours ? 'Annulation…' : 'Annuler le versement'}
               </button>
@@ -568,7 +571,10 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
       {encaissementOuvert && (
         <CollectRemainingModal
           sale={sale}
-          onClose={() => setEncaissementOuvert(false)}
+          onClose={() => {
+            setEncaissementOuvert(false);
+            if (aEncaisse.current) onClose();
+          }}
           onCollect={encaisser}
         />
       )}

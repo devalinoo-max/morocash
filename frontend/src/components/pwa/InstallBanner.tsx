@@ -104,7 +104,7 @@ export const InstallBanner: React.FC<{ banner: InstallBannerState }> = ({ banner
               e.currentTarget.style.display = 'none';
             }}
           />
-          <p className="flex-1 min-w-0 text-xs font-bold text-slate-800 leading-tight">
+          <p className="flex-1 min-w-0 text-xs font-bold text-mc-ink leading-tight">
             Installe MoroCash sur ton écran d’accueil
           </p>
           <button
@@ -112,7 +112,7 @@ export const InstallBanner: React.FC<{ banner: InstallBannerState }> = ({ banner
             id="btn-install-pwa"
             onClick={handleInstall}
             className="h-12 px-4 shrink-0 rounded-lg text-white text-xs font-bold cursor-pointer active:scale-95 transition-transform"
-            style={{ backgroundColor: '#4F46E5' }}
+            style={{ backgroundColor: '#5B4BF0' }}
           >
             Installer
           </button>
@@ -120,7 +120,7 @@ export const InstallBanner: React.FC<{ banner: InstallBannerState }> = ({ banner
             type="button"
             onClick={banner.dismiss}
             aria-label="Fermer"
-            className="w-12 h-12 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer"
+            className="w-12 h-12 shrink-0 flex items-center justify-center text-mc-soft hover:text-mc-ink cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -141,25 +141,25 @@ export const InstallBanner: React.FC<{ banner: InstallBannerState }> = ({ banner
             className="bg-white w-full max-w-sm rounded-t-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4 shadow-2xl"
           >
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-extrabold text-slate-900">Installer MoroCash</h3>
+              <h3 className="text-sm font-extrabold text-mc-ink">Installer MoroCash</h3>
               <button
                 type="button"
                 onClick={() => setShowIosSteps(false)}
                 aria-label="Fermer"
-                className="w-12 h-12 -mr-3 -my-2 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer"
+                className="w-12 h-12 -mr-3 -my-2 flex items-center justify-center text-mc-soft hover:text-mc-ink cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <ol className="space-y-3 text-sm font-bold text-slate-800">
+            <ol className="space-y-3 text-sm font-bold text-mc-ink">
               <li className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                <span className="w-9 h-9 rounded-xl bg-slate-100 border border-mc-line flex items-center justify-center shrink-0">
                   <Share className="w-4 h-4 text-sky-600" />
                 </span>
                 <span>1. Touche Partager</span>
               </li>
               <li className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                <span className="w-9 h-9 rounded-xl bg-slate-100 border border-mc-line flex items-center justify-center shrink-0">
                   <SquarePlus className="w-4 h-4 text-slate-700" />
                 </span>
                 <span>2. Touche Sur l’écran d’accueil</span>

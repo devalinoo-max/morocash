@@ -58,9 +58,9 @@ export const SyncStatusBadge: React.FC = () => {
     return (
       <div
         id="badge-sync-progress"
-        className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs"
+        className="flex items-center gap-1.5 bg-mc-primary-tint border border-[#DAD6FC] text-mc-primary-dark px-2.5 py-1 rounded-full text-xs font-semibold shadow-xs"
       >
-        <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+        <RefreshCw className="w-3.5 h-3.5 animate-spin text-mc-primary" />
         <span className="hidden sm:inline">Synchronisation...</span>
       </div>
     );
@@ -88,9 +88,9 @@ export const SyncStatusBadge: React.FC = () => {
         id="badge-sync-offline"
         onClick={toggleOfflineMode}
         title="Actuellement hors-ligne (cliquer pour basculer)"
-        className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-all"
+        className="flex items-center gap-1.5 bg-slate-100 border border-mc-line text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-all"
       >
-        <WifiOff className="w-3.5 h-3.5 text-slate-500" />
+        <WifiOff className="w-3.5 h-3.5 text-mc-soft" />
         <span className="hidden sm:inline">Hors-ligne</span>
       </button>
     );
@@ -135,7 +135,7 @@ export const QuotaBanner: React.FC = () => {
           setActiveTab('more');
           setActiveMoreSubTab('subscription');
         }}
-        className="bg-white text-indigo-900 hover:bg-indigo-50 active:scale-95 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all shadow-sm"
+        className="bg-white text-mc-primary-dark hover:bg-mc-primary-tint active:scale-95 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all shadow-sm"
       >
         Passer Business
       </button>
@@ -226,7 +226,7 @@ export function trialBannerTone(joursRestants: number): TrialTone {
     };
   }
   return {
-    background: 'linear-gradient(90deg, #4F46E5 0%, #8B5CF6 100%)',
+    background: 'linear-gradient(90deg, #5B4BF0 0%, #8B5CF6 100%)',
     text: '#FFFFFF',
     action: '#FFFFFF',
     actionHover: 'rgba(255,255,255,0.18)',
@@ -403,14 +403,14 @@ export const ToastNotification: React.FC = () => {
     success: 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/20',
     warning: 'bg-amber-500 text-slate-950 border-amber-400 shadow-amber-900/20',
     error: 'bg-rose-600 text-white border-rose-500 shadow-rose-900/20',
-    info: 'bg-slate-900 text-white border-slate-800 shadow-slate-900/30',
+    info: 'bg-mc-ink text-white border-slate-800 shadow-slate-900/30',
   };
 
   const icons = {
     success: <CheckCircle2 className="w-4 h-4 text-emerald-100 shrink-0" />,
     warning: <AlertTriangle className="w-4 h-4 text-slate-950 shrink-0" />,
     error: <AlertCircle className="w-4 h-4 text-rose-100 shrink-0" />,
-    info: <UploadCloud className="w-4 h-4 text-indigo-300 shrink-0" />,
+    info: <UploadCloud className="w-4 h-4 text-[#B9B2FF] shrink-0" />,
   };
 
   return (
@@ -479,7 +479,7 @@ export const MoneyInput: React.FC<MoneyInputProps> = ({
         onChange={handleChange}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className={`w-full text-right font-bold pr-16 pl-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg transition-all ${className}`}
+        className={`w-full text-right font-bold pr-16 pl-4 py-3 rounded-xl border border-mc-line bg-white text-mc-ink focus:outline-none focus:ring-2 focus:ring-mc-primary focus:border-mc-primary text-lg transition-all ${className}`}
       />
       <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-slate-400 pointer-events-none select-none">
         FCFA

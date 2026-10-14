@@ -9,7 +9,7 @@ interface LogoMarkProps {
 // couleurs de marque fixes, inchangées quel que soit le fond ou le thème.
 export const LogoMark: React.FC<LogoMarkProps> = ({ size = 36, className = '' }) => (
   <svg viewBox="0 0 36 36" width={size} height={size} fill="none" className={className} role="img" aria-label="MoroCash">
-    <rect width="36" height="36" rx="10" fill="#4338CA" />
+    <rect width="36" height="36" rx="10" fill="#3B2FC9" />
     <path d="M10 23V13L18 20L26 13V23" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     <circle cx="26" cy="9" r="3" fill="#10B981" />
   </svg>
@@ -31,7 +31,7 @@ export const Logo: React.FC<LogoProps> = ({ size = 36, onDark = false, showWordm
     {showWordmark && (
       <span className="font-extrabold tracking-tight leading-none" style={{ fontSize: size * 0.6 }}>
         <span style={{ color: onDark ? '#FFFFFF' : '#0B1C30' }}>Moro</span>
-        <span style={{ color: '#4F46E5' }}>Cash</span>
+        <span style={{ color: '#5B4BF0' }}>Cash</span>
       </span>
     )}
   </div>

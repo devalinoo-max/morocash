@@ -20,6 +20,7 @@ export async function generateReceiptPdf({ order, business, customer }: ReceiptD
           {business.ville ? <Text>{business.ville}</Text> : null}
         </View>
 
+        {order.statut === 'ANNULEE' ? <Text style={styles.total}>COMMANDE ANNULÉE</Text> : null}
         <Text>Commande : {order.numero}</Text>
         <Text>Date : {order.createdAt.toLocaleString('fr-FR')}</Text>
         <Text>Client : {customer.nom}</Text>
@@ -57,7 +58,7 @@ export async function generateReceiptPdf({ order, business, customer }: ReceiptD
           <Text style={styles.total}>TOTAL</Text>
           <Text style={styles.total}>{order.total} FCFA</Text>
         </View>
-        <Text>Statut paiement : {order.statutPaiement}</Text>
+        <Text>Statut paiement : {order.statut === 'ANNULEE' ? 'ANNULÉE' : order.statutPaiement}</Text>
       </Page>
     </Document>
   );

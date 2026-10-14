@@ -12,6 +12,7 @@ export function generateTextReceipt({ order, business, customer }: ReceiptData):
   lines.push(business.nom);
   if (business.ville) lines.push(business.ville);
   lines.push('--------------------------------');
+  if (order.statut === 'ANNULEE') lines.push('*** COMMANDE ANNULEE ***');
   lines.push(`Commande : ${order.numero}`);
   lines.push(`Date     : ${order.createdAt.toLocaleString('fr-FR')}`);
   lines.push(`Client   : ${customer.nom}`);
@@ -31,7 +32,7 @@ export function generateTextReceipt({ order, business, customer }: ReceiptData):
     lines.push(`Livraison        : +${order.fraisLivraison} FCFA`);
   }
   lines.push(`TOTAL            : ${order.total} FCFA`);
-  lines.push(`Statut paiement  : ${order.statutPaiement}`);
+  lines.push(`Statut paiement  : ${order.statut === 'ANNULEE' ? 'ANNULEE' : order.statutPaiement}`);
   lines.push('--------------------------------');
   lines.push('Merci de votre confiance !');
 

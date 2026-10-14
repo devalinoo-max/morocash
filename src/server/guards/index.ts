@@ -4,6 +4,7 @@ import { AppError } from '@/server/shared/errors';
 import { getSessionFromCookies } from '@/server/modules/auth/session';
 import { runInTenantTransaction } from '@/server/repositories/base';
 import { isAdministrativelyLocked, isSubscriptionLapsed } from '@/server/shared/subscription';
+import { assertCsrf, ensureCsrfToken } from '@/server/middleware/csrf';
 
 // Droits par employé : un rôle dit ce que la personne fait, une permission ce
 // que le propriétaire l'autorise à voir ou à défaire. Réexportés ici pour que
@@ -166,16 +167,19 @@ export async function guardRead(): Promise<AuthedContext> {
   if (!business) {
     throw new AppError('AUTH_SESSION_EXPIRED', 'Boutique introuvable.');
   }
+  await ensureCsrfToken();
   return { ...session, business };
 }
 
 /**
- * Pipeline composé pour une route de mutation : session → business inscriptible → rôle.
+ * Pipeline composé pour une route de mutation : session → jeton CSRF → business
+ * inscriptible → rôle.
  * `requireOwnership` et `checkQuota` restent à appeler explicitement par la route quand
  * une ressource précise ou un quota spécifique est concerné.
  */
 export async function guardMutation(opts: { roles?: UserRole[] } = {}): Promise<AuthedContext> {
   const session = await requireSession();
+  await assertCsrf();
   const business = await requireBusinessWritable(session.businessId);
   if (opts.roles) {
     requireRole(session.role, opts.roles);

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import {
   Wallet,
@@ -22,6 +23,7 @@ import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters
 import { PaymentMethod } from '../../types';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { CashJournalSection } from './CashJournalSection';
+import { MC_EASE, TrialPill } from '../sales/SalesKit';
 
 export const CashRegisterTab: React.FC = () => {
   const {
@@ -76,6 +78,15 @@ export const CashRegisterTab: React.FC = () => {
   // The amount expected in cash register
   const montantAttendu = fondDepart + totalEntrees - totalSorties;
 
+  // Ce que le tiroir doit contenir : les espèces seulement. C'est ce montant
+  // que le serveur compare au comptage à la fermeture — y mêler Wave ou
+  // Orange Money annonçait un écart à un commerçant dont le compte était juste.
+  const attenduEnEspeces =
+    fondDepart +
+    sessionMovements
+      .filter((m) => m.methode === 'CASH')
+      .reduce((acc, m) => acc + (m.type === 'ENTREE' ? m.montant : -m.montant), 0);
+
   // Previous closed sessions
   const pastClosedSessions = cashSessions.filter((s) => s.statut === 'FERMEE').slice(0, 4);
 
@@ -92,7 +103,7 @@ export const CashRegisterTab: React.FC = () => {
 
   const handleCloseRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ecart = countedAmount - montantAttendu;
+    const ecart = countedAmount - attenduEnEspeces;
     if (ecart !== 0 && !discrepancyComment.trim()) {
       showToast('Un motif est obligatoire pour justifier l’écart de caisse', 'warning');
       return;
@@ -128,44 +139,65 @@ export const CashRegisterTab: React.FC = () => {
   };
 
   return (
-    <div id="cash-register-page" className="space-y-6 pb-24 max-w-[1460px] mx-auto animate-in fade-in duration-200">
+    <div id="cash-register-page" className="font-jakarta text-mc-ink space-y-4 md:space-y-6 pb-24 max-w-[1460px] mx-auto">
+      <MotionConfig reducedMotion="user">
       {/* ========================================================================= */}
-      {/* 1. BANDEAU D'ÉTAT (BLOC 7: Vert doux si ouverte, gris si fermée) */}
+      {/* EN-TÊTE — sur téléphone le titre est déjà dans la barre haute */}
       {/* ========================================================================= */}
-      <div
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="min-w-0 hidden md:block">
+          <div className="flex items-center gap-3">
+            <h1 className="text-[28px] font-extrabold tracking-tight leading-tight">Ma caisse</h1>
+            <TrialPill />
+          </div>
+          <p className="text-[14px] text-mc-soft">
+            Ce qui est entré, ce qui est sorti, et ce que tu dois avoir dans le tiroir.
+          </p>
+        </div>
+        <div className="md:hidden">
+          <TrialPill />
+        </div>
+      </header>
+
+      {/* ========================================================================= */}
+      {/* 1. CARTE D'ÉTAT — ouverte ou fermée, depuis quand, et le geste à faire */}
+      {/* ========================================================================= */}
+      <motion.div
         id="cash-status-banner"
-        className={`p-4 sm:p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs transition-all ${
-          activeCashSession
-            ? 'bg-[#ECFDF5] border-[#A7F3D0]'
-            : 'bg-slate-100 border-slate-200'
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: MC_EASE }}
+        className={`p-4 md:p-6 rounded-mc shadow-mc-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          activeCashSession ? 'bg-white border border-mc-line' : 'mc-gradient text-white'
         }`}
       >
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-4 min-w-0">
           <div
-            className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
-              activeCashSession ? 'bg-[#059669] text-white' : 'bg-slate-300 text-slate-700'
+            className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
+              activeCashSession ? 'bg-mc-success-bg text-[#15803D]' : 'bg-white/15 text-white'
             }`}
           >
             {activeCashSession ? <Unlock className="w-5 h-5 stroke-[2.5]" /> : <Lock className="w-5 h-5" />}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[16px] md:text-[20px] font-extrabold tracking-tight">
                 {activeCashSession
-                  ? `Caisse ouverte depuis ${formatShortDate(activeCashSession.ouverteLe)} par ${activeCashSession.ouvertePar}`
+                  ? `Caisse ouverte depuis ${formatShortDate(activeCashSession.ouverteLe)}${activeCashSession.ouvertePar ? ` par ${activeCashSession.ouvertePar}` : ''}`
                   : 'Caisse actuellement fermée'}
               </h2>
               {activeCashSession && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-bold bg-mc-success-bg text-[#15803D]">
+                  <span className="w-2 h-2 rounded-full bg-mc-success animate-pulse" />
                   En service
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-600 font-medium mt-0.5">
+            <p className={`text-[14px] mt-0.5 ${activeCashSession ? 'text-mc-soft' : 'text-white/80'}`}>
               {activeCashSession ? (
                 <>
-                  Fond de départ : <strong className="text-slate-900">{formatMoney(fondDepart)}</strong> ·{' '}
-                  <strong className="text-slate-900">{sessionMovements.length}</strong> mouvements enregistrés aujourd'hui
+                  Fond de départ : <strong className="text-mc-ink tabular-nums">{formatMoney(fondDepart)}</strong> ·{' '}
+                  <strong className="text-mc-ink tabular-nums">{sessionMovements.length}</strong> mouvements enregistrés aujourd'hui
                 </>
               ) : (
                 'Ouvre ta caisse pour suivre les entrées, sorties et moyens de paiement de la journée.'
@@ -174,192 +206,186 @@ export const CashRegisterTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
           {activeCashSession ? (
             <button
               onClick={() => gateWrite(() => {
                 setCountedAmount(montantAttendu);
                 setIsCloseModalOpen(true);
               })}
-              className={`px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+              className={`h-11 px-5 rounded-full bg-mc-ink hover:bg-[#1E2140] text-white text-[14px] font-bold flex items-center gap-2 cursor-pointer transition-all active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-4 h-4" />
               <span>Fermer la caisse et compter</span>
             </button>
           ) : (
             <button
               onClick={() => gateWrite(() => setIsOpenModalOpen(true))}
-              className={`px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-all ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+              className={`h-11 px-6 rounded-full bg-white hover:bg-white/90 text-mc-primary-dark text-[14px] font-bold flex items-center gap-2 cursor-pointer transition-all active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
-              <Unlock className="w-3.5 h-3.5" />
+              <Unlock className="w-4 h-4" />
               <span>Ouvrir la caisse</span>
             </button>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* ========================================================================= */}
       {/* 2. PÉRIODE, CHIFFRES CLIQUABLES ET JOURNAL — tout vient du serveur */}
       {/* ========================================================================= */}
       <CashJournalSection>
       {/* ========================================================================= */}
-      {/* 6. "QUE VEUX-TU FAIRE ?" (BLOC 7: 4 actions directes) */}
+      {/* 6. "QUE VEUX-TU FAIRE ?" (4 actions directes) */}
       {/* ========================================================================= */}
-      <div id="quick-cash-actions" className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-xs space-y-4">
-        <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-          Que veux-tu faire ?
-        </h3>
+      <div id="quick-cash-actions" className="space-y-3">
+        <h3 className="text-[16px] font-bold">Que veux-tu faire ?</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <button
-            onClick={() => gateWrite(() => {
-              setIsActionModalOpen('WITHDRAW');
-              setActionAmount(0);
-              setActionReason('');
-            })}
-            className={`p-4 rounded-2xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 text-left transition-all cursor-pointer group flex items-start gap-3 ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
-          >
-            <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
-              <Minus className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-extrabold text-slate-900 block group-hover:text-rose-700 transition-colors">
-                Sortir de l'argent de la caisse
-              </span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                Motif obligatoire pour traçabilité
-              </span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => gateWrite(() => {
-              setIsActionModalOpen('DEPOSIT');
-              setActionAmount(0);
-              setActionReason('');
-            })}
-            className={`p-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 text-left transition-all cursor-pointer group flex items-start gap-3 ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
-          >
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
-              <Plus className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-extrabold text-slate-900 block group-hover:text-emerald-700 transition-colors">
-                Ajouter de l'argent dans la caisse
-              </span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                Apport personnel ou monnaie
-              </span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('more');
-              setActiveMoreSubTab('expenses');
-            }}
-            className="p-4 rounded-2xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-left transition-all cursor-pointer group flex items-start gap-3"
-          >
-            <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-extrabold text-slate-900 block group-hover:text-amber-700 transition-colors">
-                Noter une dépense
-              </span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                Facture, transport ou marchandise
-              </span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => {
-              setCustomersDebtorsFilter(true);
-              setActiveTab('customers');
-            }}
-            className="p-4 rounded-2xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 text-left transition-all cursor-pointer group flex items-start gap-3"
-          >
-            <div className="w-9 h-9 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-extrabold text-slate-900 block group-hover:text-indigo-700 transition-colors">
-                Enregistrer un remboursement
-              </span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                Règlement de dette client
-              </span>
-            </div>
-          </button>
+          {(
+            [
+              {
+                key: 'withdraw',
+                titre: "Sortir de l'argent de la caisse",
+                aide: 'Motif obligatoire pour traçabilité',
+                icone: Minus,
+                pastille: 'bg-mc-danger-bg text-[#DC2626]',
+                verrouillable: true,
+                action: () =>
+                  gateWrite(() => {
+                    setIsActionModalOpen('WITHDRAW');
+                    setActionAmount(0);
+                    setActionReason('');
+                  }),
+              },
+              {
+                key: 'deposit',
+                titre: "Ajouter de l'argent dans la caisse",
+                aide: 'Apport personnel ou monnaie',
+                icone: Plus,
+                pastille: 'bg-mc-success-bg text-[#15803D]',
+                verrouillable: true,
+                action: () =>
+                  gateWrite(() => {
+                    setIsActionModalOpen('DEPOSIT');
+                    setActionAmount(0);
+                    setActionReason('');
+                  }),
+              },
+              {
+                key: 'expense',
+                titre: 'Noter une dépense',
+                aide: 'Facture, transport ou marchandise',
+                icone: Receipt,
+                pastille: 'bg-mc-warning-bg text-[#B45309]',
+                verrouillable: false,
+                action: () => {
+                  setActiveTab('more');
+                  setActiveMoreSubTab('expenses');
+                },
+              },
+              {
+                key: 'repayment',
+                titre: 'Enregistrer un remboursement',
+                aide: 'Règlement de dette client',
+                icone: TrendingUp,
+                pastille: 'bg-mc-primary-tint text-mc-primary-dark',
+                verrouillable: false,
+                action: () => {
+                  setCustomersDebtorsFilter(true);
+                  setActiveTab('customers');
+                },
+              },
+            ] as const
+          ).map((a) => {
+            const Icone = a.icone;
+            return (
+              <button
+                key={a.key}
+                onClick={a.action}
+                className={`mc-lift p-4 rounded-mc bg-white border border-mc-line shadow-mc-card text-left cursor-pointer flex items-center gap-3 active:scale-[0.97] ${
+                  a.verrouillable && isWriteLocked ? LOCKED_BTN_CLASS : ''
+                }`}
+              >
+                <span className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${a.pastille}`}>
+                  <Icone className="w-5 h-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="text-[14px] font-bold block leading-snug">{a.titre}</span>
+                  <span className="text-[12px] text-mc-soft block mt-0.5">{a.aide}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       </CashJournalSection>
 
       {/* ========================================================================= */}
-      {/* 7. TES DERNIÈRES FERMETURES (BLOC 7) */}
+      {/* 7. TES DERNIÈRES FERMETURES */}
       {/* ========================================================================= */}
-      <div>
-        <div id="past-closures-card" className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-xs space-y-4">
-          <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-            Tes dernières fermetures de caisse
-          </h3>
-          <div className="space-y-3">
-            {pastClosedSessions.map((s) => {
-              const isJust = s.ecart === 0;
-              return (
-                <div
-                  key={s.id}
-                  className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-3 text-xs"
-                >
-                  <div className="space-y-0.5">
-                    <span className="font-extrabold text-slate-900 block">
-                      {formatDate(s.fermeeLe || s.ouverteLe)}
-                    </span>
-                    <span className="text-[11px] text-slate-500 block">
-                      Fermée par {s.fermeePar || s.ouvertePar} · Fond de départ {formatMoney(s.fondDepart)}
+      <section id="past-closures-card" className="space-y-3">
+        <h3 className="text-[16px] font-bold">Tes dernières fermetures de caisse</h3>
+        {pastClosedSessions.length === 0 && (
+          <p className="p-6 rounded-mc bg-white border border-mc-line text-center text-[14px] text-mc-soft">
+            Aucune fermeture de caisse pour l’instant.
+          </p>
+        )}
+        <div className="space-y-2">
+          {pastClosedSessions.map((s) => {
+            const isJust = s.ecart === 0;
+            return (
+              <div
+                key={s.id}
+                className="px-4 py-3 rounded-2xl border border-mc-line bg-white flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                      isJust ? 'bg-mc-success-bg text-[#15803D]' : 'bg-mc-danger-bg text-[#DC2626]'
+                    }`}
+                  >
+                    {isJust ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+                  </span>
+                  <div className="min-w-0">
+                    <span className="text-[14px] font-bold block">{formatDate(s.fermeeLe || s.ouverteLe)}</span>
+                    <span className="text-[12px] text-mc-soft block truncate">
+                      {s.fermeePar || s.ouvertePar ? `Fermée par ${s.fermeePar || s.ouvertePar} · ` : ''}Fond de départ {formatMoney(s.fondDepart)}
                     </span>
                     {s.commentaireEcart && (
-                      <span className="text-[10px] text-slate-600 italic block mt-0.5">
-                        « {s.commentaireEcart} »
-                      </span>
+                      <span className="text-[12px] text-mc-ink/70 italic block mt-0.5">« {s.commentaireEcart} »</span>
                     )}
                   </div>
-
-                  <div className="text-right shrink-0 space-y-1">
-                    <span className="text-sm font-black text-slate-900 block tabular-nums">
-                      {formatMoney(s.montantCompte)}
-                    </span>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                        isJust
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}
-                    >
-                      {isJust ? 'Juste' : `${s.ecart && s.ecart > 0 ? '+' : ''}${formatMoney(s.ecart)}`}
-                    </span>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
 
-      </div>
+                <div className="text-right shrink-0 space-y-1">
+                  <span className="text-[16px] font-extrabold block tabular-nums">{formatMoney(s.montantCompte)}</span>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-bold tabular-nums ${
+                      isJust ? 'bg-mc-success-bg text-[#15803D]' : 'bg-mc-danger-bg text-[#DC2626]'
+                    }`}
+                  >
+                    {isJust ? 'Juste' : `${s.ecart && s.ecart > 0 ? '+' : ''}${formatMoney(s.ecart)}`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      </MotionConfig>
 
       {/* ========================================================================= */}
       {/* MODALE 1 : OUVERTURE DE CAISSE */}
       {/* ========================================================================= */}
       {isOpenModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+          <div className="bg-white w-full max-w-md rounded-mc p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-[#4F46E5] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-mc-primary-tint text-mc-primary-dark flex items-center justify-center">
                   <Unlock className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-extrabold text-slate-900">Ouvrir la caisse</h3>
+                <h3 className="text-sm font-extrabold text-mc-ink">Ouvrir la caisse</h3>
               </div>
               <button
                 onClick={() => setIsOpenModalOpen(false)}
@@ -380,12 +406,12 @@ export const CashRegisterTab: React.FC = () => {
                     value={startFundAmount || ''}
                     onChange={(e) => setStartFundAmount(Number(e.target.value))}
                     placeholder="Ex: 10 000"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-300 focus:border-[#4F46E5] text-lg font-black text-slate-900 outline-none"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-300 focus:border-[#5B4BF0] text-lg font-extrabold text-mc-ink outline-none"
                     autoFocus
                   />
                   <span className="absolute right-4 top-3 text-xs font-bold text-slate-400">F</span>
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-mc-soft">
                   Cette somme est ta monnaie de départ, elle n'est pas considérée comme une vente.
                 </p>
               </div>
@@ -394,13 +420,13 @@ export const CashRegisterTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsOpenModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold shadow-xs cursor-pointer"
                 >
                   Confirmer l'ouverture
                 </button>
@@ -415,15 +441,15 @@ export const CashRegisterTab: React.FC = () => {
       {/* ========================================================================= */}
       {isCloseModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+          <div className="bg-white w-full max-w-lg rounded-mc p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-mc-ink text-white flex items-center justify-center">
                   <Lock className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Fermer la caisse et compter</h3>
-                  <p className="text-[11px] text-slate-500">Comptage physique des espèces</p>
+                  <h3 className="text-sm font-extrabold text-mc-ink">Fermer la caisse et compter</h3>
+                  <p className="text-[11px] text-mc-soft">Comptage physique des espèces</p>
                 </div>
               </div>
               <button
@@ -435,12 +461,12 @@ export const CashRegisterTab: React.FC = () => {
             </div>
 
             {/* Récapitulatif attendu */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-mc-line space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Montant attendu en caisse :</span>
-                <span className="text-base font-black text-slate-900">{formatMoney(montantAttendu)}</span>
+                <span className="text-mc-soft">Espèces attendues en caisse :</span>
+                <span className="text-base font-extrabold text-mc-ink">{formatMoney(attenduEnEspeces)}</span>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-mc-soft">
                 Compte toutes les pièces et billets actuellement présents dans ton tiroir ou ta boîte.
               </p>
             </div>
@@ -456,7 +482,7 @@ export const CashRegisterTab: React.FC = () => {
                     value={countedAmount || ''}
                     onChange={(e) => setCountedAmount(Number(e.target.value))}
                     placeholder="Saisis le montant compté"
-                    className="w-full h-14 px-4 rounded-xl border border-slate-300 focus:border-[#4F46E5] text-2xl font-black text-slate-900 outline-none"
+                    className="w-full h-14 px-4 rounded-xl border border-slate-300 focus:border-[#5B4BF0] text-2xl font-extrabold text-mc-ink outline-none"
                     autoFocus
                   />
                   <span className="absolute right-4 top-4 text-sm font-bold text-slate-400">F</span>
@@ -465,7 +491,7 @@ export const CashRegisterTab: React.FC = () => {
 
               {/* Écart en temps réel */}
               {(() => {
-                const ecart = countedAmount - montantAttendu;
+                const ecart = countedAmount - attenduEnEspeces;
                 const isJust = ecart === 0;
                 return (
                   <div
@@ -478,7 +504,7 @@ export const CashRegisterTab: React.FC = () => {
                     }`}
                   >
                     <span>Écart constaté :</span>
-                    <span className="text-sm font-black">
+                    <span className="text-sm font-extrabold">
                       {isJust ? 'Compte juste (0 F)' : `${ecart > 0 ? '+' : ''}${formatMoney(ecart)}`}
                     </span>
                   </div>
@@ -486,7 +512,7 @@ export const CashRegisterTab: React.FC = () => {
               })()}
 
               {/* Si écart non nul: commentaire OBLIGATOIRE */}
-              {countedAmount !== montantAttendu && (
+              {countedAmount !== attenduEnEspeces && (
                 <div className="space-y-1.5 animate-in fade-in">
                   <label className="text-xs font-bold text-rose-700 flex items-center gap-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
@@ -497,7 +523,7 @@ export const CashRegisterTab: React.FC = () => {
                     value={discrepancyComment}
                     onChange={(e) => setDiscrepancyComment(e.target.value)}
                     placeholder="Ex: Erreur rendu monnaie client pressé, pourboire non noté..."
-                    className="w-full p-3 rounded-xl border border-rose-300 focus:ring-1 focus:ring-rose-500 text-xs text-slate-800 outline-none"
+                    className="w-full p-3 rounded-xl border border-rose-300 focus:ring-1 focus:ring-rose-500 text-xs text-mc-ink outline-none"
                     required
                   ></textarea>
                 </div>
@@ -507,13 +533,13 @@ export const CashRegisterTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsCloseModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold shadow-xs cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-mc-ink hover:bg-[#1E2140] text-white text-xs font-bold shadow-xs cursor-pointer"
                 >
                   Valider la fermeture définitive
                 </button>
@@ -528,7 +554,7 @@ export const CashRegisterTab: React.FC = () => {
       {/* ========================================================================= */}
       {isActionModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+          <div className="bg-white w-full max-w-md rounded-mc p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
                 <div
@@ -538,7 +564,7 @@ export const CashRegisterTab: React.FC = () => {
                 >
                   {isActionModalOpen === 'WITHDRAW' ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 </div>
-                <h3 className="text-sm font-extrabold text-slate-900">
+                <h3 className="text-sm font-extrabold text-mc-ink">
                   {isActionModalOpen === 'WITHDRAW' ? 'Sortir de l’argent de la caisse' : 'Ajouter de l’argent dans la caisse'}
                 </h3>
               </div>
@@ -559,7 +585,7 @@ export const CashRegisterTab: React.FC = () => {
                     value={actionAmount || ''}
                     onChange={(e) => setActionAmount(Number(e.target.value))}
                     placeholder="0"
-                    className="w-full h-12 px-4 rounded-xl border border-slate-300 focus:border-[#4F46E5] text-xl font-black text-slate-900 outline-none"
+                    className="w-full h-12 px-4 rounded-xl border border-slate-300 focus:border-[#5B4BF0] text-xl font-extrabold text-mc-ink outline-none"
                     autoFocus
                   />
                   <span className="absolute right-4 top-3.5 text-xs font-bold text-slate-400">F</span>
@@ -571,7 +597,7 @@ export const CashRegisterTab: React.FC = () => {
                 <select
                   value={actionMethod}
                   onChange={(e) => setActionMethod(e.target.value as PaymentMethod)}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 bg-white"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-300 text-xs font-semibold text-mc-ink bg-white"
                 >
                   <option value="CASH">Espèces</option>
                   <option value="WAVE">Wave</option>
@@ -596,7 +622,7 @@ export const CashRegisterTab: React.FC = () => {
                       : 'Ex: Apport personnel monnaie'
                   }
                   required={isActionModalOpen === 'WITHDRAW'}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-300 focus:border-[#4F46E5] text-xs text-slate-800 outline-none"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-300 focus:border-[#5B4BF0] text-xs text-mc-ink outline-none"
                 />
               </div>
 
@@ -604,7 +630,7 @@ export const CashRegisterTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsActionModalOpen(null)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   Annuler
                 </button>

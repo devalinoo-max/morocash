@@ -91,6 +91,7 @@ export const PinInput: React.FC<PinInputProps> = ({
             inputsRef.current[index] = el;
           }}
           type="password"
+          aria-label={`Chiffre ${index + 1} sur ${length}`}
           inputMode="numeric"
           autoComplete="off"
           maxLength={1}
@@ -100,7 +101,7 @@ export const PinInput: React.FC<PinInputProps> = ({
           onChange={(e) => handleChange(index, e.target.value)}
           onPaste={(e) => handlePaste(index, e)}
           onKeyDown={(e) => handleKeyDown(index, e)}
-          className="pin-box h-12 w-full text-center text-lg font-black font-mono border border-slate-200 rounded-xl bg-slate-50/60 text-slate-900 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4338CA] focus:border-[#4338CA] disabled:opacity-50"
+          className="pin-box h-12 w-full text-center text-lg font-extrabold font-mono border border-mc-line rounded-xl bg-slate-50/60 text-mc-ink transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3B2FC9] focus:border-[#3B2FC9] disabled:opacity-50"
         />
       ))}
     </div>

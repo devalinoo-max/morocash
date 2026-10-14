@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CheckCircle2, Receipt, Share2, X } from 'lucide-react';
 import { useApp, type DebtPaymentResult } from '../../context/AppContext';
 import type { Customer, PaymentMethod, Versement } from '../../types';
 import { formatMoney, formatPaymentMethod } from '../../utils/formatters';
 import { PAYMENT_METHODS, paymentMethodColors } from '../../utils/paymentMethods';
-import { orderLabel, versementLabel } from '../../utils/versements';
+import { dayMonth, newVersementOfSale, orderLabel, shortOrderNumber, versementLabel } from '../../utils/versements';
 import { MoneyInput } from '../common/UIStates';
 import { VersementReceiptModal, shareVersementsOnWhatsApp } from '../payments/VersementReceiptModal';
 
@@ -13,15 +13,22 @@ interface CollectDebtSheetProps {
   onClose: () => void;
 }
 
+/** Toute la dette, répartie par le serveur de la plus ancienne commande à la plus récente. */
+const TOUTE_LA_DETTE = 'ALL';
+
 /**
  * « Encaisser » depuis « Qui me doit ».
  *
  * Deux temps dans la même feuille : la saisie, puis la confirmation. La
  * confirmation ne s'affiche qu'une fois le serveur relu partout — et tout ce
  * qu'elle dit (reste dû, versements créés) vient de sa réponse.
+ *
+ * Quand le client doit sur plusieurs commandes, on peut en choisir une : le
+ * paiement va alors sur elle seule, par le même chemin que « Encaisser » dans
+ * la commande. Sans choix, la répartition automatique reste la règle.
  */
 export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, onClose }) => {
-  const { recordDebtPayment, settings } = useApp();
+  const { recordDebtPayment, collectSalePayment, sales, customers, settings } = useApp();
 
   // La dette affichée est celle du moment où la feuille s'est ouverte : après
   // l'encaissement, la liste derrière a déjà la nouvelle.
@@ -29,18 +36,62 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
   const [montant, setMontant] = useState<number>(customer.totalDebt);
   const [methode, setMethode] = useState<PaymentMethod>('CASH');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
-  const [resultat, setResultat] = useState<DebtPaymentResult | null>(null);
+  const [resultatAuto, setResultatAuto] = useState<DebtPaymentResult | null>(null);
   const [recuOuvert, setRecuOuvert] = useState<Versement | null>(null);
 
-  const depasse = montant > dette;
+  // Ses commandes impayées, figées à l'ouverture comme la dette.
+  const [impayees] = useState(() =>
+    sales
+      .filter((s) => s.customerId === customer.id && !s.isCancelled && s.remainingAmount > 0)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  );
+  const [cible, setCible] = useState<string>(TOUTE_LA_DETTE);
+  const commandeCible = impayees.find((s) => s.id === cible);
+  const plafond = commandeCible ? commandeCible.remainingAmount : dette;
+  const choisirCible = (id: string) => {
+    setCible(id);
+    setMontant(impayees.find((s) => s.id === id)?.remainingAmount ?? dette);
+  };
+
+  // Encaissement sur une seule commande : le versement créé et la dette
+  // restante sont relus dans les données rechargées du serveur.
+  const [encaisseSur, setEncaisseSur] = useState<{
+    saleId: string;
+    montant: number;
+    idsAvant: Set<string>;
+  } | null>(null);
+  const resultat = useMemo<DebtPaymentResult | null>(() => {
+    if (resultatAuto) return resultatAuto;
+    if (!encaisseSur) return null;
+    const nouveau = newVersementOfSale(
+      sales.find((s) => s.id === encaisseSur.saleId),
+      encaisseSur.idsAvant
+    );
+    return {
+      customerName: customer.name,
+      amount: encaisseSur.montant,
+      remainingDebt: customers.find((c) => c.id === customer.id)?.totalDebt ?? Math.max(0, dette - encaisseSur.montant),
+      versements: nouveau ? [nouveau] : [],
+      pending: false,
+    };
+  }, [resultatAuto, encaisseSur, sales, customers, customer.id, customer.name, dette]);
+
+  const depasse = montant > plafond;
   const valide = montant > 0 && !depasse;
 
   const valider = async () => {
     // Le bouton se désactive dès le premier tap : pas de double encaissement.
     if (!valide || envoiEnCours) return;
     setEnvoiEnCours(true);
+    if (commandeCible) {
+      const idsAvant = new Set((commandeCible.payments ?? []).map((p) => p.id));
+      const ok = await collectSalePayment(commandeCible.id, montant, methode);
+      if (ok) setEncaisseSur({ saleId: commandeCible.id, montant, idsAvant });
+      else setEnvoiEnCours(false);
+      return;
+    }
     const res = await recordDebtPayment(customer.id, montant, methode);
-    if (res) setResultat(res);
+    if (res) setResultatAuto(res);
     else setEnvoiEnCours(false);
   };
 
@@ -49,20 +100,20 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
       <div
         role="dialog"
         aria-modal="true"
-        className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 max-h-[92vh] overflow-y-auto"
+        className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-mc border border-mc-line p-5 sm:p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 max-h-[92vh] overflow-y-auto"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-base font-black text-slate-900">
+            <h3 className="text-base font-extrabold text-mc-ink">
               {resultat ? 'Paiement enregistré' : 'Encaisser'}
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5 truncate">{customer.name}</p>
+            <p className="text-xs text-mc-soft mt-0.5 truncate">{customer.name}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="w-12 h-12 -mt-2 -mr-2 shrink-0 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+            className="w-12 h-12 -mt-2 -mr-2 shrink-0 rounded-full hover:bg-slate-100 flex items-center justify-center text-mc-soft cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -98,13 +149,13 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
                     key={v.id}
                     type="button"
                     onClick={() => setRecuOuvert(v)}
-                    className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 flex items-center justify-between gap-3 text-left cursor-pointer"
+                    className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-mc-line hover:bg-slate-50 flex items-center justify-between gap-3 text-left cursor-pointer"
                   >
                     <span className="min-w-0">
-                      <span className="block text-[12px] font-bold text-slate-900 truncate">{orderLabel(v)}</span>
-                      <span className="block text-[11px] text-slate-500">{versementLabel(v.numero)} · voir le reçu</span>
+                      <span className="block text-[12px] font-bold text-mc-ink truncate">{orderLabel(v)}</span>
+                      <span className="block text-[11px] text-mc-soft">{versementLabel(v.numero)} · voir le reçu</span>
                     </span>
-                    <span className="text-[13px] font-black text-slate-900 tabular-nums shrink-0">
+                    <span className="text-[13px] font-extrabold text-mc-ink tabular-nums shrink-0">
                       {formatMoney(v.amount)}
                     </span>
                   </button>
@@ -117,7 +168,7 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
                 <button
                   type="button"
                   onClick={() => setRecuOuvert(resultat.versements[0])}
-                  className="w-full h-[52px] rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-sm font-black flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-[52px] rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Receipt className="w-[18px] h-[18px]" />
                   Voir le reçu
@@ -126,7 +177,7 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
               <button
                 type="button"
                 onClick={() => shareVersementsOnWhatsApp(resultat.versements, settings)}
-                className="w-full h-[52px] rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-sm font-black flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full h-[52px] rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Share2 className="w-[18px] h-[18px]" />
                 Envoyer sur WhatsApp
@@ -134,7 +185,7 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full h-12 rounded-2xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 cursor-pointer"
+                className="w-full h-12 rounded-2xl border border-mc-line text-slate-600 text-sm font-bold hover:bg-slate-50 cursor-pointer"
               >
                 Fermer
               </button>
@@ -149,6 +200,58 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
               <span className="text-[19px] font-extrabold text-[#DC2626] tabular-nums">{formatMoney(dette)}</span>
             </div>
 
+            {/* Plusieurs commandes impayées : on peut dire laquelle il paie. */}
+            {impayees.length > 1 && (
+              <div className="space-y-1.5" role="radiogroup" aria-label="Ce qu’il paie">
+                <span className="text-xs font-bold text-slate-700">Il paie quoi ?</span>
+                {[
+                  {
+                    id: TOUTE_LA_DETTE,
+                    titre: 'Toute sa dette',
+                    detail: 'Réparti tout seul, de la plus ancienne commande à la plus récente',
+                    reste: dette,
+                  },
+                  ...impayees.map((s) => ({
+                    id: s.id,
+                    titre: `Commande ${shortOrderNumber(s.reference)} du ${dayMonth(s.createdAt)}`,
+                    detail: s.items
+                      .map((it) => it.name)
+                      .slice(0, 2)
+                      .join(', ') + (s.items.length > 2 ? '…' : ''),
+                    reste: s.remainingAmount,
+                  })),
+                ].map((choix) => {
+                  const actif = cible === choix.id;
+                  return (
+                    <button
+                      key={choix.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={actif}
+                      onClick={() => choisirCible(choix.id)}
+                      className={`w-full min-h-[52px] px-3 py-2 rounded-xl border flex items-center gap-3 text-left cursor-pointer transition-colors ${
+                        actif ? 'border-mc-primary bg-mc-primary-tint' : 'border-mc-line bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <span
+                        className={`w-4 h-4 shrink-0 rounded-full border-2 ${
+                          actif ? 'border-mc-primary bg-mc-primary shadow-[inset_0_0_0_2.5px_white]' : 'border-slate-300'
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-bold text-mc-ink truncate">{choix.titre}</span>
+                        <span className="block text-[11.5px] text-mc-soft truncate">{choix.detail}</span>
+                      </span>
+                      <span className="shrink-0 text-[13px] font-extrabold text-[#DC2626] tabular-nums">
+                        {formatMoney(choix.reste)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label htmlFor="input-collect-amount" className="text-xs font-bold text-slate-700">
                 Montant reçu
@@ -156,7 +259,9 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
               <MoneyInput id="input-collect-amount" value={montant} onChange={setMontant} />
               {depasse && (
                 <p role="alert" className="text-[12px] font-bold text-[#DC2626]">
-                  Le montant dépasse ce que {customer.name} te doit ({formatMoney(dette)}).
+                  {commandeCible
+                    ? `Il ne reste que ${formatMoney(plafond)} à payer sur cette commande.`
+                    : `Le montant dépasse ce que ${customer.name} te doit (${formatMoney(dette)}).`}
                 </p>
               )}
             </div>
@@ -174,7 +279,7 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
                       onClick={() => setMethode(m)}
                       aria-pressed={actif}
                       className={`min-h-[48px] px-1 rounded-xl text-[11.5px] font-bold border transition-all cursor-pointer ${
-                        actif ? 'border-transparent' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        actif ? 'border-transparent' : 'border-mc-line bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                       style={actif ? { backgroundColor: couleurs.bg, color: couleurs.fg } : undefined}
                     >
@@ -190,7 +295,7 @@ export const CollectDebtSheet: React.FC<CollectDebtSheetProps> = ({ customer, on
               type="button"
               onClick={valider}
               disabled={!valide || envoiEnCours}
-              className="w-full h-[52px] rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-sm font-black shadow-md shadow-indigo-600/20 cursor-pointer"
+              className="w-full h-[52px] rounded-full bg-mc-primary hover:bg-mc-primary-dark disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-sm font-extrabold shadow-md shadow-indigo-600/20 cursor-pointer"
             >
               {envoiEnCours ? 'Enregistrement…' : 'Valider le paiement'}
             </button>

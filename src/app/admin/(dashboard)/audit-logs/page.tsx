@@ -54,10 +54,11 @@ function AuditLogs() {
     } finally {
       setBusy(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [businessId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des données à l'affichage : l'état « en cours » doit être posé avant l'appel réseau
     loadLogs();
   }, [loadLogs]);
 

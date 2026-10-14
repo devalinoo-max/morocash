@@ -52,7 +52,12 @@ export async function createProduct(businessId: string, input: CreateProductInpu
   await checkQuota(businessId, 'products');
 
   const repo = scoped(businessId);
-  const product = await repo.products.create(input);
+  // Stock de départ saisi avec son prix d'achat : c'est le coût de ce stock.
+  // Sans ça le coût moyen restait à 0 jusqu'à la première réception.
+  const product = await repo.products.create({
+    ...input,
+    cmp: input.stock > 0 ? input.prixAchat : 0,
+  });
 
   const code = generateInternalCode();
   await repo.productCodes.create({

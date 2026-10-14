@@ -241,9 +241,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     ) : null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex flex-col justify-end sm:justify-center sm:items-center sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full sm:max-w-lg max-h-[92vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex flex-col justify-end sm:justify-center sm:items-center sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white w-full sm:max-w-lg max-h-[92vh] rounded-t-3xl sm:rounded-mc shadow-2xl flex flex-col overflow-hidden border border-mc-line">
+        <div className="p-4 bg-mc-ink text-white flex items-center justify-between shrink-0">
           <div className="min-w-0">
             <h3 className="font-bold text-sm truncate">
               {target ? target.name : 'Ajouter un produit'}
@@ -279,7 +279,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               onChange={(e) => set('name', e.target.value)}
               onBlur={() => autoSave('name')}
               placeholder="Ex: Riz parfumé 5 kg"
-              className="w-full px-3.5 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+              className="w-full px-3.5 py-3 rounded-xl border border-mc-line text-sm font-semibold text-mc-ink focus:outline-none focus:ring-2 focus:ring-[#5B4BF0]"
             />
           </div>
 
@@ -313,7 +313,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 value={values.stock}
                 onChange={(e) => set('stock', parseInt(e.target.value, 10) || 0)}
                 onBlur={() => autoSave('stock')}
-                className="w-full px-3.5 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                className="w-full px-3.5 py-3 rounded-xl border border-mc-line text-sm font-bold text-mc-ink focus:outline-none focus:ring-2 focus:ring-[#5B4BF0]"
               />
             </div>
           )}
@@ -348,7 +348,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <button
               type="button"
               onClick={() => setShowDetails((prev) => !prev)}
-              className="flex items-center justify-between w-full py-2.5 text-xs font-bold text-[#4F46E5] hover:text-indigo-800 cursor-pointer"
+              className="flex items-center justify-between w-full py-2.5 text-xs font-bold text-[#5B4BF0] hover:text-mc-primary-dark cursor-pointer"
             >
               <span>{showDetails ? 'Masquer les détails' : 'Plus de détails'}</span>
               {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -386,7 +386,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       onChange={(e) => set('unit', e.target.value)}
                       onBlur={() => autoSave('unit')}
                       placeholder="Pièce, Kg, Sac..."
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold"
+                      className="w-full px-3 py-2.5 rounded-xl border border-mc-line text-xs font-semibold"
                     />
                   </div>
 
@@ -401,7 +401,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={values.alertThreshold}
                       onChange={(e) => set('alertThreshold', parseInt(e.target.value, 10) || 0)}
                       onBlur={() => autoSave('alertThreshold')}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold"
+                      className="w-full px-3 py-2.5 rounded-xl border border-mc-line text-xs font-semibold"
                     />
                   </div>
                 </div>
@@ -418,16 +418,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     onChange={(e) => set('barcode', e.target.value)}
                     onBlur={() => autoSave('barcode')}
                     placeholder="Ex: 6181100..."
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold font-mono"
+                    className="w-full px-3 py-2.5 rounded-xl border border-mc-line text-xs font-semibold font-mono"
                   />
                 </div>
 
                 {!target && (
-                  <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-2xl flex items-start gap-2.5 text-[11px] text-indigo-950">
-                    <QrCode className="w-4 h-4 text-[#4F46E5] shrink-0 mt-0.5" />
+                  <div className="p-3 bg-mc-primary-tint border border-[#DAD6FC] rounded-2xl flex items-start gap-2.5 text-[11px] text-mc-primary-dark">
+                    <QrCode className="w-4 h-4 text-[#5B4BF0] shrink-0 mt-0.5" />
                     <div>
                       <p className="font-bold">Code maison automatique</p>
-                      <p className="text-indigo-800 mt-0.5">
+                      <p className="text-mc-primary-dark mt-0.5">
                         Un QR code unique et scannable sera attribué à ce produit dès sa création.
                       </p>
                     </div>
@@ -445,7 +445,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 set('isService', e.target.checked);
                 autoSave('isService', { isService: e.target.checked });
               }}
-              className="w-4 h-4 text-[#4F46E5] rounded-sm focus:ring-[#4F46E5]"
+              className="w-4 h-4 text-[#5B4BF0] rounded-sm focus:ring-[#5B4BF0]"
             />
             <span>C’est une prestation / un service (pas de stock)</span>
           </label>
@@ -475,15 +475,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <button
                   type="button"
                   onClick={startSimilar}
-                  className="flex-1 py-3.5 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="flex-1 py-3.5 px-4 rounded-2xl border border-mc-line hover:bg-slate-50 text-mc-ink font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
-                  <Copy className="w-4 h-4 text-[#4F46E5]" />
+                  <Copy className="w-4 h-4 text-[#5B4BF0]" />
                   <span>Créer un produit similaire</span>
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="py-3.5 px-5 rounded-2xl bg-slate-900 hover:bg-black text-white font-bold text-sm cursor-pointer transition-all shrink-0"
+                  className="py-3.5 px-5 rounded-2xl bg-mc-ink hover:bg-[#1E2140] text-white font-bold text-sm cursor-pointer transition-all shrink-0"
                 >
                   Terminé
                 </button>
@@ -492,7 +492,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 id="btn-submit-product-form"
                 type="submit"
-                className="flex-1 py-3.5 px-5 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.99] text-white font-bold text-sm shadow-md transition-all cursor-pointer text-center"
+                className="flex-1 py-3.5 px-5 rounded-full bg-mc-primary hover:bg-mc-primary-dark active:scale-[0.99] text-white font-bold text-sm shadow-md transition-all cursor-pointer text-center"
               >
                 {submitLabel || 'Créer le produit'}
               </button>

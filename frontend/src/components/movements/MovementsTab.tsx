@@ -30,6 +30,7 @@ import { LossModal } from './LossModal';
 import { StockCountModal } from './StockCountModal';
 import { MovementDetailModal } from './MovementDetailModal';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
+import { Segmented } from '../sales/SalesKit';
 
 type PeriodFilter = 'TODAY' | '7D' | '30D' | 'THIS_MONTH' | 'CUSTOM';
 
@@ -298,7 +299,7 @@ export const MovementsTab: React.FC = () => {
         );
       case 'INVENTAIRE':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 border border-slate-300">
+          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-slate-200 text-mc-ink border border-slate-300">
             INVENTAIRE
           </span>
         );
@@ -306,39 +307,32 @@ export const MovementsTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-4 md:space-y-6 pb-16">
       {/* 1. Header Section with Title + 4 Key Action Buttons */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Mouvements de stock
-            </h1>
-            <span className="text-xs font-bold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
-              Journal d’audit
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1 max-w-xl">
-            Traçabilité intégrale : chaque sac, bouteille ou carton entrant ou sortant
-            est enregistré et vérifiable.
-          </p>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        {/* Sur téléphone le titre est déjà dans la barre haute. */}
+        <div className="min-w-0">
+          <h1 className="hidden md:block text-[28px] font-extrabold text-mc-ink tracking-tight leading-tight">
+            Mon stock
+          </h1>
+          <p className="text-[14px] text-mc-soft">Tout ce qui entre et sort de ta boutique, noté ligne par ligne.</p>
         </div>
 
         {/* 4 Primary Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="grid grid-cols-2 lg:flex lg:flex-wrap items-center gap-2">
           {/* Action A: Marchandise reçue */}
           <button
             onClick={() => gateWrite(() => setIsReceptionOpen(true))}
-            className={`px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm shadow-emerald-700/20 transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+            className={`min-h-11 px-3 py-1.5 leading-tight bg-mc-success hover:bg-[#15803D] text-white rounded-full text-[14px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <Truck className="w-4 h-4" />
-            <span>+ Marchandise reçue</span>
+            <span>Marchandise reçue</span>
           </button>
 
           {/* Action B: Cassé ou abîmé */}
           <button
             onClick={() => gateWrite(() => setIsBreakageOpen(true))}
-            className={`px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+            className={`min-h-11 px-3 py-1.5 leading-tight bg-mc-warning hover:bg-amber-600 text-slate-950 rounded-full text-[14px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <AlertTriangle className="w-4 h-4 text-slate-950" />
             <span>Cassé ou abîmé</span>
@@ -347,7 +341,7 @@ export const MovementsTab: React.FC = () => {
           {/* Action C: Perdu ou volé */}
           <button
             onClick={() => gateWrite(() => setIsLossOpen(true))}
-            className={`px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-sm shadow-rose-700/20 transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+            className={`min-h-11 px-3 py-1.5 leading-tight bg-mc-danger hover:bg-[#DC2626] text-white rounded-full text-[14px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <ShieldAlert className="w-4 h-4" />
             <span>Perdu ou volé</span>
@@ -356,9 +350,9 @@ export const MovementsTab: React.FC = () => {
           {/* Action D: Faire un comptage */}
           <button
             onClick={() => gateWrite(() => setIsCountOpen(true))}
-            className={`px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+            className={`min-h-11 px-3 py-1.5 leading-tight bg-mc-ink hover:bg-[#1E2140] text-white rounded-full text-[14px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
-            <ClipboardList className="w-4 h-4 text-indigo-300" />
+            <ClipboardList className="w-4 h-4 text-[#B9B2FF]" />
             <span>Faire un comptage</span>
           </button>
         </div>
@@ -367,7 +361,7 @@ export const MovementsTab: React.FC = () => {
       {/* 2. Top Dashboard : 4 Period Indicators */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Entrées */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-mc-line shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
               Entrées période
@@ -377,20 +371,20 @@ export const MovementsTab: React.FC = () => {
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-xl sm:text-2xl font-black text-emerald-600">
+            <span className="text-xl sm:text-2xl font-extrabold text-emerald-600">
               +{stats.entreesQty}
             </span>
-            <span className="text-xs font-semibold text-slate-500">unités</span>
+            <span className="text-xs font-semibold text-mc-soft">unités</span>
           </div>
           {!isVendeur && (
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">
+            <p className="text-[11px] font-bold text-mc-soft mt-0.5">
               Valeur : {formatFCFA(stats.entreesVal)}
             </p>
           )}
         </div>
 
         {/* Sorties (Ventes) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-mc-line shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
               Vendu (sorties)
@@ -400,20 +394,20 @@ export const MovementsTab: React.FC = () => {
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-xl sm:text-2xl font-black text-blue-600">
+            <span className="text-xl sm:text-2xl font-extrabold text-blue-600">
               −{stats.sortiesQty}
             </span>
-            <span className="text-xs font-semibold text-slate-500">unités</span>
+            <span className="text-xs font-semibold text-mc-soft">unités</span>
           </div>
           {!isVendeur && (
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">
+            <p className="text-[11px] font-bold text-mc-soft mt-0.5">
               Coût CMP : {formatFCFA(stats.sortiesVal)}
             </p>
           )}
         </div>
 
         {/* Pertes & Casses */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-mc-line shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
               Pertes & Casses
@@ -423,10 +417,10 @@ export const MovementsTab: React.FC = () => {
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-xl sm:text-2xl font-black text-rose-600">
+            <span className="text-xl sm:text-2xl font-extrabold text-rose-600">
               −{stats.pertesCassesQty}
             </span>
-            <span className="text-xs font-semibold text-slate-500">unités</span>
+            <span className="text-xs font-semibold text-mc-soft">unités</span>
           </div>
           {!isVendeur && (
             <p className="text-[11px] font-bold text-rose-600 mt-0.5">
@@ -436,7 +430,7 @@ export const MovementsTab: React.FC = () => {
         </div>
 
         {/* Solde net */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-mc-line shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
               Variation nette
@@ -447,13 +441,13 @@ export const MovementsTab: React.FC = () => {
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span
-              className={`text-xl sm:text-2xl font-black ${
+              className={`text-xl sm:text-2xl font-extrabold ${
                 stats.soldeNetQty >= 0 ? 'text-emerald-700' : 'text-rose-600'
               }`}
             >
               {stats.soldeNetQty >= 0 ? `+${stats.soldeNetQty}` : stats.soldeNetQty}
             </span>
-            <span className="text-xs font-semibold text-slate-500">unités en stock</span>
+            <span className="text-xs font-semibold text-mc-soft">unités en stock</span>
           </div>
           <p className="text-[11px] text-slate-400 mt-0.5">
             {countLabel(filteredMovements.length, 'mouvement')}
@@ -462,44 +456,34 @@ export const MovementsTab: React.FC = () => {
       </div>
 
       {/* 3. Navigation between Journal and Inventories */}
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setViewMode('movements')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              viewMode === 'movements'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            Journal des mouvements ({filteredMovements.length})
-          </button>
-          <button
-            onClick={() => setViewMode('counts')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              viewMode === 'counts'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            Sessions d’inventaire ({stockCounts.length})
-          </button>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0 md:flex-none">
+          <Segmented<'movements' | 'counts'>
+            id="btn-stock-view"
+            label="Vue affichée"
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+              { id: 'movements', label: 'Mouvements', count: filteredMovements.length },
+              { id: 'counts', label: 'Comptages', count: stockCounts.length },
+            ]}
+          />
         </div>
 
         <button
           onClick={handleExportCSV}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-mc-line bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
           title="Exporter les mouvements en CSV"
         >
-          <Download className="w-3.5 h-3.5 text-slate-500" />
+          <Download className="w-3.5 h-3.5 text-mc-soft" />
           <span className="hidden sm:inline">Exporter CSV</span>
         </button>
       </div>
 
       {/* 4. Filter Controls (Period, Type, Product, Search) */}
       {viewMode === 'movements' && (
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white p-4 rounded-2xl border border-mc-line shadow-xs space-y-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Period selector */}
             <div>
               <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
@@ -508,7 +492,7 @@ export const MovementsTab: React.FC = () => {
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs font-bold text-mc-ink focus:bg-white focus:outline-none focus:border-mc-primary"
               >
                 <option value="TODAY">Aujourd’hui</option>
                 <option value="7D">7 derniers jours</option>
@@ -528,7 +512,7 @@ export const MovementsTab: React.FC = () => {
                 onChange={(e) =>
                   setTypeFilter(e.target.value as 'ALL' | StockMovementType)
                 }
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs font-bold text-mc-ink focus:bg-white focus:outline-none focus:border-mc-primary"
               >
                 <option value="ALL">Tous les types</option>
                 <option value="ENTREE">Entrées (Marchandise reçue)</option>
@@ -548,7 +532,7 @@ export const MovementsTab: React.FC = () => {
               <select
                 value={productFilter}
                 onChange={(e) => setProductFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs font-bold text-mc-ink focus:bg-white focus:outline-none focus:border-mc-primary"
               >
                 <option value="ALL">Tous les articles</option>
                 {products
@@ -573,7 +557,7 @@ export const MovementsTab: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Motif, n° commande, fournisseur..."
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-indigo-500"
+                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-mc-line rounded-xl text-xs font-medium text-mc-ink focus:bg-white focus:outline-none focus:border-mc-primary"
                 />
               </div>
             </div>
@@ -583,21 +567,21 @@ export const MovementsTab: React.FC = () => {
           {period === 'CUSTOM' && (
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 text-xs">
               <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-bold">Du</span>
+                <span className="text-mc-soft font-bold">Du</span>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
+                  className="px-2.5 py-1.5 bg-slate-50 border border-mc-line rounded-lg text-xs font-bold text-mc-ink"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-bold">Au</span>
+                <span className="text-mc-soft font-bold">Au</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
+                  className="px-2.5 py-1.5 bg-slate-50 border border-mc-line rounded-lg text-xs font-bold text-mc-ink"
                 />
               </div>
             </div>
@@ -606,12 +590,12 @@ export const MovementsTab: React.FC = () => {
           {/* Reset button indicator */}
           {isFiltered && (
             <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-              <span className="text-slate-500 italic">
+              <span className="text-mc-soft italic">
                 Filtres actifs ({filteredMovements.length} résultat{filteredMovements.length > 1 ? 's' : ''})
               </span>
               <button
                 onClick={handleResetFilters}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                className="text-xs font-bold text-mc-primary hover:text-mc-primary-dark hover:underline cursor-pointer"
               >
                 Réinitialiser les filtres
               </button>
@@ -623,21 +607,21 @@ export const MovementsTab: React.FC = () => {
       {/* 5. Main Content: Grouped Movement List */}
       {viewMode === 'movements' ? (
         filteredMovements.length === 0 ? (
-          <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+          <div className="bg-white p-12 rounded-mc border border-mc-line text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
               <ArrowLeftRight className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-extrabold text-slate-900">
+            <h3 className="text-base font-extrabold text-mc-ink">
               Aucun mouvement trouvé
             </h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs text-mc-soft max-w-sm mx-auto">
               Aucun mouvement ne correspond aux filtres actuels. Modifiez la période ou
               enregistrez une nouvelle réception de marchandise.
             </p>
             {isFiltered && (
               <button
                 onClick={handleResetFilters}
-                className="mt-2 px-4 py-2 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-xl hover:bg-indigo-100 cursor-pointer"
+                className="mt-2 px-4 py-2 bg-mc-primary-tint text-mc-primary-dark font-bold text-xs rounded-xl hover:bg-mc-primary-tint cursor-pointer"
               >
                 Effacer les filtres
               </button>
@@ -650,7 +634,7 @@ export const MovementsTab: React.FC = () => {
                 {/* Date Group Header */}
                 <div className="flex items-center gap-2 px-1">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
+                  <h3 className="text-xs font-extrabold uppercase text-mc-soft tracking-wider">
                     {dateLabel}
                   </h3>
                   <span className="text-[10px] font-bold text-slate-400">
@@ -659,7 +643,7 @@ export const MovementsTab: React.FC = () => {
                 </div>
 
                 {/* Movements Table / Cards */}
-                <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
+                <div className="bg-white rounded-2xl border border-mc-line divide-y divide-slate-100 overflow-hidden shadow-xs">
                   {movements.map((mov) => {
                     const time = new Date(mov.created_at).toLocaleTimeString(
                       'fr-FR',
@@ -686,23 +670,23 @@ export const MovementsTab: React.FC = () => {
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <p
-                                className={`text-xs sm:text-sm font-extrabold text-slate-900 truncate ${
+                                className={`text-xs sm:text-sm font-extrabold text-mc-ink truncate ${
                                   mov.annule ? 'line-through' : ''
                                 }`}
                               >
                                 {mov.product_name}
                               </p>
                               {mov.annule && (
-                                <span className="text-[9px] font-black uppercase bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded shrink-0">
+                                <span className="text-[9px] font-extrabold uppercase bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded shrink-0">
                                   Annulé
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
+                            <p className="text-[11px] text-mc-soft truncate">
                               <span>{mov.motif || 'Mouvement de stock'}</span>
                               {mov.user_name && (
                                 <>
-                                  <span className="text-slate-300">•</span>
+                                  <span className="text-slate-300 mx-1.5">•</span>
                                   <span className="text-slate-400">{mov.user_name}</span>
                                 </>
                               )}
@@ -714,7 +698,7 @@ export const MovementsTab: React.FC = () => {
                         <div className="flex items-center gap-4 shrink-0 text-right">
                           <div>
                             <div
-                              className={`text-sm sm:text-base font-black ${
+                              className={`text-sm sm:text-base font-extrabold ${
                                 isPos ? 'text-emerald-600' : 'text-rose-600'
                               }`}
                             >
@@ -741,30 +725,30 @@ export const MovementsTab: React.FC = () => {
       ) : (
         /* 6. Stock Count Sessions View */
         <div className="space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div className="bg-white p-5 rounded-2xl border border-mc-line shadow-xs flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-black text-slate-900">
+              <h3 className="text-sm font-extrabold text-mc-ink">
                 Historique des comptages (Inventaires)
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-mc-soft">
                 Retrouvez chaque session de contrôle physique des rayons
               </p>
             </div>
             <button
               onClick={() => gateWrite(() => setIsCountOpen(true))}
-              className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+              className={`px-4 py-2 bg-mc-primary hover:bg-mc-primary-dark text-white rounded-xl text-xs font-bold cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
               Nouveau comptage
             </button>
           </div>
 
           {stockCounts.length === 0 ? (
-            <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-2">
+            <div className="bg-white p-12 rounded-mc border border-mc-line text-center space-y-2">
               <ClipboardList className="w-8 h-8 text-slate-400 mx-auto" />
-              <p className="text-sm font-bold text-slate-800">
+              <p className="text-sm font-bold text-mc-ink">
                 Aucune session de comptage enregistrée
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-mc-soft">
                 Lancez un comptage pour auditer les quantités en magasin.
               </p>
             </div>
@@ -773,12 +757,12 @@ export const MovementsTab: React.FC = () => {
               {stockCounts.map((count) => (
                 <div
                   key={count.id}
-                  className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3"
+                  className="bg-white p-4 sm:p-5 rounded-2xl border border-mc-line shadow-xs space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
+                        <span className="text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-mc-primary-tint text-mc-primary-dark border border-[#DAD6FC]">
                           {count.perimetre}
                         </span>
                         <span className="text-xs text-slate-400 font-mono">
@@ -808,7 +792,7 @@ export const MovementsTab: React.FC = () => {
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">
                         Articles vérifiés
                       </span>
-                      <span className="font-extrabold text-slate-900">
+                      <span className="font-extrabold text-mc-ink">
                         {count.nb_produits}
                       </span>
                     </div>
@@ -817,7 +801,7 @@ export const MovementsTab: React.FC = () => {
                         Écarts constatés
                       </span>
                       <span
-                        className={`font-black ${
+                        className={`font-extrabold ${
                           count.nb_ecarts > 0 ? 'text-amber-600' : 'text-emerald-600'
                         }`}
                       >
@@ -828,7 +812,7 @@ export const MovementsTab: React.FC = () => {
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">
                         Solde unités
                       </span>
-                      <span className="font-extrabold text-slate-900">
+                      <span className="font-extrabold text-mc-ink">
                         {count.ecart_unites > 0
                           ? `+${count.ecart_unites}`
                           : count.ecart_unites}
@@ -840,7 +824,7 @@ export const MovementsTab: React.FC = () => {
                           Impact financier
                         </span>
                         <span
-                          className={`font-black ${
+                          className={`font-extrabold ${
                             count.ecart_valeur >= 0
                               ? 'text-emerald-700'
                               : 'text-rose-600'

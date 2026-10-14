@@ -5,29 +5,30 @@ import { AppError } from '@/server/shared/errors';
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 5;
 
-export async function assertNotRateLimited(key: string): Promise<void> {
+export async function assertNotRateLimited(key: string, maxAttempts = MAX_ATTEMPTS): Promise<void> {
   const existing = await prisma.rateLimit.findUnique({ where: { cle: key } });
-  if (existing && existing.resetAt > new Date() && existing.compteur >= MAX_ATTEMPTS) {
+  if (existing && existing.resetAt > new Date() && existing.compteur >= maxAttempts) {
     throw new AppError('AUTH_TOO_MANY_ATTEMPTS', 'Trop de tentatives, réessayez plus tard.');
   }
 }
 
 export async function recordFailedAttempt(key: string): Promise<void> {
   const now = new Date();
-  const existing = await prisma.rateLimit.findUnique({ where: { cle: key } });
+  const resetAt = new Date(now.getTime() + LOCK_MINUTES * 60 * 1000);
 
-  if (!existing || existing.resetAt <= now) {
-    await prisma.rateLimit.upsert({
-      where: { cle: key },
-      update: { compteur: 1, resetAt: new Date(now.getTime() + LOCK_MINUTES * 60 * 1000) },
-      create: { cle: key, compteur: 1, resetAt: new Date(now.getTime() + LOCK_MINUTES * 60 * 1000) },
-    });
-    return;
-  }
-
-  await prisma.rateLimit.update({
-    where: { cle: key },
+  // Fenêtre encore ouverte : incrément atomique en une seule requête. Lire
+  // puis écrire laissait des échecs simultanés se compter pour un seul.
+  const bumped = await prisma.rateLimit.updateMany({
+    where: { cle: key, resetAt: { gt: now } },
     data: { compteur: { increment: 1 } },
+  });
+  if (bumped.count > 0) return;
+
+  // Pas de fenêtre en cours (première tentative, ou fenêtre expirée).
+  await prisma.rateLimit.upsert({
+    where: { cle: key },
+    update: { compteur: 1, resetAt },
+    create: { cle: key, compteur: 1, resetAt },
   });
 }
 

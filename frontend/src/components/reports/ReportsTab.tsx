@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { DATE_RANGE_LABEL } from '../common/DateRangeInputs';
+import { Segmented } from '../sales/SalesKit';
 import { useApp } from '../../context/AppContext';
 import {
   TrendingUp,
@@ -52,12 +53,12 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
   const isOwner = settings.role === 'OWNER';
   if (!isOwner) {
     return (
-      <div className="p-8 sm:p-12 max-w-xl mx-auto text-center space-y-4 bg-white rounded-3xl border border-slate-200 shadow-xs mt-6">
+      <div className="p-8 sm:p-12 max-w-xl mx-auto text-center space-y-4 bg-white rounded-mc border border-mc-line shadow-mc-card mt-6">
         <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center">
           <Lock className="w-7 h-7" />
         </div>
-        <h2 className="text-xl font-black text-slate-900">Accès restreint aux propriétaires</h2>
-        <p className="text-sm text-slate-500 leading-relaxed">
+        <h2 className="text-xl font-extrabold text-mc-ink">Accès restreint aux propriétaires</h2>
+        <p className="text-sm text-mc-soft leading-relaxed">
           La page <strong>Mes Chiffres</strong>, la marge bénéficiaire, les bénéfices nets et
           l'analyse financière détaillée sont strictement réservés au profil Propriétaire.
         </p>
@@ -186,10 +187,11 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
 
     for (const s of saleList) {
       for (const it of s.items) {
-        const unitCost =
-          it.costPrice !== undefined
-            ? it.costPrice
-            : prodCostMap.get(it.productId) || 0;
+        // Un coût figé à 0 sur la vente veut dire « inconnu au moment de la
+        // vente » (produit sans réception) : on retient alors le prix d'achat
+        // actuel du produit, comme le fait l'accueil. Sinon tout le montant
+        // vendu passait pour du bénéfice.
+        const unitCost = it.costPrice || prodCostMap.get(it.productId) || 0;
         totalCost += unitCost * it.quantity;
       }
     }
@@ -497,10 +499,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
     for (const s of currentSales) {
       for (const item of s.items) {
         const prod = prodLookup.get(item.productId);
-        const costUnit =
-          item.costPrice !== undefined
-            ? item.costPrice
-            : prod?.purchasePrice || 0;
+        const costUnit = item.costPrice || prod?.purchasePrice || 0;
 
         if (!productStats.has(item.productId)) {
           productStats.set(item.productId, {
@@ -711,76 +710,65 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
       {onBack && (
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+          className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Retour menu</span>
+          <span>Menu</span>
         </button>
       )}
 
       {/* =====================================================================
           1. BARRE DE FILTRES, collée en haut (Sticky Top)
           ===================================================================== */}
-      <div className="sticky top-0 z-30 bg-[#F4F4F8]/95 backdrop-blur-md pt-1 pb-3 border-b border-slate-200/80 -mx-4 sm:-mx-6 px-4 sm:px-6 transition-all">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-xs">
+      <div className="sticky top-0 z-30 bg-[#F4F4F8]/95 backdrop-blur-md pt-1 pb-3 border-b border-mc-line -mx-4 sm:-mx-6 px-4 sm:px-6 transition-all">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Preset Buttons */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 lg:pb-0 scrollbar-none text-xs font-bold">
-            {(
-              [
+          <div className="min-w-0">
+            <Segmented<PeriodPreset>
+              id="btn-reports-period"
+              label="Période"
+              value={periodPreset}
+              onChange={setPeriodPreset}
+              options={[
                 { id: 'today', label: "Aujourd'hui" },
                 { id: '7days', label: '7 jours' },
                 { id: '30days', label: '30 jours' },
                 { id: 'thisMonth', label: 'Ce mois' },
                 { id: 'thisYear', label: 'Cette année' },
                 { id: 'custom', label: DATE_RANGE_LABEL },
-              ] as const
-            ).map((tab) => {
-              const active = periodPreset === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setPeriodPreset(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                    active
-                      ? 'bg-[#4F46E5] text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
+              ]}
+            />
           </div>
 
           {/* Date Picker + Comparison Switch + Export Button */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Date Pickers (Custom range or preview) */}
             {periodPreset === 'custom' && (
-              <div className="flex items-center gap-1.5 text-xs bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200">
-                <span className="text-slate-500 font-medium">Du</span>
+              <div className="flex items-center gap-1.5 text-xs bg-slate-50 px-2.5 py-1.5 rounded-xl border border-mc-line">
+                <span className="text-mc-soft font-medium">Du</span>
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer"
                 />
-                <span className="text-slate-500 font-medium">au</span>
+                <span className="text-mc-soft font-medium">au</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer"
                 />
               </div>
             )}
 
             {/* Comparison Switch */}
-            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-mc-line hover:bg-slate-100 transition-all">
               <input
                 type="checkbox"
                 checked={comparePrevious}
                 onChange={(e) => setComparePrevious(e.target.checked)}
-                className="w-3.5 h-3.5 rounded text-[#4F46E5] focus:ring-indigo-500 cursor-pointer"
+                className="w-3.5 h-3.5 rounded text-[#5B4BF0] focus:ring-mc-primary cursor-pointer"
               />
               <span>Comparer avec la période précédente</span>
             </label>
@@ -789,7 +777,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
             <div className="relative">
               <button
                 onClick={() => setIsExportOpen(!isExportOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-mc-ink hover:bg-[#1E2140] text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Exporter</span>
@@ -797,10 +785,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               </button>
 
               {isExportOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-white rounded-2xl border border-slate-200 shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95">
+                <div className="absolute right-0 mt-2 w-44 bg-white rounded-2xl border border-mc-line shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95">
                   <button
                     onClick={handleExportPDF}
-                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-[#4F46E5] flex items-center gap-2 cursor-pointer"
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-mc-primary-tint hover:text-[#5B4BF0] flex items-center gap-2 cursor-pointer"
                   >
                     <FileText className="w-4 h-4 text-rose-500" />
                     <span>Imprimer / PDF</span>
@@ -824,46 +812,46 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
           ===================================================================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* INDICATEUR 1: Total vendu (barre indigo 4px en bas) */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
           <div>
-            <div className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="text-[11.5px] font-bold text-mc-soft uppercase tracking-wider">
               Total vendu
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1 tabular-nums">
+            <div className="text-2xl sm:text-3xl font-extrabold text-mc-ink mt-1 tabular-nums">
               {formatMoneyCompact(curr.total_vendu)}
             </div>
             {comparePrevious && (
               <div className="mt-2 flex items-center gap-1.5 text-xs font-bold">
                 {curr.total_vendu >= prev.total_vendu ? (
-                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                     <ArrowUpRight className="w-3.5 h-3.5" />
                     +{calcDelta(curr.total_vendu, prev.total_vendu).toFixed(1)} %
                   </span>
                 ) : (
-                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                     <ArrowDownRight className="w-3.5 h-3.5" />
                     {calcDelta(curr.total_vendu, prev.total_vendu).toFixed(1)} %
                   </span>
                 )}
-                <span className="text-[11px] text-slate-500 font-medium">vs précédente</span>
+                <span className="text-[11px] text-mc-soft font-medium">vs précédente</span>
               </div>
             )}
           </div>
-          <div className="text-[11px] text-slate-500 font-semibold mt-3">
+          <div className="text-[11px] text-mc-soft font-semibold mt-3">
             {curr.ordersCount} commande{curr.ordersCount > 1 ? 's' : ''} enregistrée{curr.ordersCount > 1 ? 's' : ''}
           </div>
           {/* Barre pleine 4px en bas */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#4F46E5]" />
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#5B4BF0]" />
         </div>
 
         {/* INDICATEUR 2: Ce que tu as gagné (barre verte ou rouge 4px en bas) */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
           <div>
-            <div className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="text-[11.5px] font-bold text-mc-soft uppercase tracking-wider">
               Ce que tu as gagné
             </div>
             <div
-              className={`text-2xl sm:text-3xl font-black mt-1 tabular-nums ${
+              className={`text-2xl sm:text-3xl font-extrabold mt-1 tabular-nums ${
                 curr.gagne >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
               }`}
             >
@@ -872,21 +860,21 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
             {comparePrevious && (
               <div className="mt-2 flex items-center gap-1.5 text-xs font-bold">
                 {curr.gagne >= prev.gagne ? (
-                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                     <ArrowUpRight className="w-3.5 h-3.5" />
                     +{calcDelta(curr.gagne, prev.gagne).toFixed(1)} %
                   </span>
                 ) : (
-                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                     <ArrowDownRight className="w-3.5 h-3.5" />
                     {calcDelta(curr.gagne, prev.gagne).toFixed(1)} %
                   </span>
                 )}
-                <span className="text-[11px] text-slate-500 font-medium">vs précédente</span>
+                <span className="text-[11px] text-mc-soft font-medium">vs précédente</span>
               </div>
             )}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-3 truncate">
+          <div className="text-[11px] text-mc-soft font-medium mt-3 truncate">
             Marge sur tes ventes {formatMoney(curr.marge_brute)} − frais {formatMoney(curr.frais)}
           </div>
           {/* Barre pleine 4px en bas */}
@@ -898,32 +886,32 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
         </div>
 
         {/* INDICATEUR 3: Ce que tu as dépensé (barre ambre 4px en bas) */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
           <div>
-            <div className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="text-[11.5px] font-bold text-mc-soft uppercase tracking-wider">
               Ce que tu as dépensé
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-700 mt-1 tabular-nums">
+            <div className="text-2xl sm:text-3xl font-extrabold text-amber-700 mt-1 tabular-nums">
               {formatMoneyCompact(curr.total_depenses)}
             </div>
             {comparePrevious && (
               <div className="mt-2 flex items-center gap-1.5 text-xs font-bold">
                 {curr.total_depenses <= prev.total_depenses ? (
-                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                     <ArrowDownRight className="w-3.5 h-3.5" />
                     {calcDelta(curr.total_depenses, prev.total_depenses).toFixed(1)} %
                   </span>
                 ) : (
-                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                     <ArrowUpRight className="w-3.5 h-3.5" />
                     +{calcDelta(curr.total_depenses, prev.total_depenses).toFixed(1)} %
                   </span>
                 )}
-                <span className="text-[11px] text-slate-500 font-medium">vs précédente</span>
+                <span className="text-[11px] text-mc-soft font-medium">vs précédente</span>
               </div>
             )}
           </div>
-          <div className="text-[11px] text-slate-500 font-semibold mt-3">
+          <div className="text-[11px] text-mc-soft font-semibold mt-3">
             {currentExpenses.length} dépense{currentExpenses.length > 1 ? 's' : ''} sur la période
           </div>
           {/* Barre pleine 4px en bas */}
@@ -931,19 +919,19 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
         </div>
 
         {/* INDICATEUR 4: On te doit (barre rouge 4px en bas) */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
           <div>
-            <div className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="text-[11.5px] font-bold text-mc-soft uppercase tracking-wider">
               On te doit
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-[#DC2626] mt-1 tabular-nums">
+            <div className="text-2xl sm:text-3xl font-extrabold text-[#DC2626] mt-1 tabular-nums">
               {formatMoneyCompact(totalOutstandingDebt)}
             </div>
             <div className="mt-2 text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md inline-block">
               {indebtedCustomersCount} client{indebtedCustomersCount > 1 ? 's' : ''} concerné{indebtedCustomersCount > 1 ? 's' : ''}
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-3">
+          <div className="text-[11px] text-mc-soft font-medium mt-3">
             Crédits cumulés en attente
           </div>
           {/* Barre pleine 4px en bas */}
@@ -954,15 +942,15 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
       {/* =====================================================================
           3. LE TABLEAU JOUR PAR JOUR (le cœur de la page)
           ===================================================================== */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-200/80 flex items-center justify-between">
+      <div className="bg-white rounded-mc border border-mc-line shadow-mc-card overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-mc-line flex items-center justify-between">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">Jour par jour</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-base font-extrabold text-mc-ink">Jour par jour</h3>
+            <p className="text-xs text-mc-soft mt-0.5">
               Évolution quotidienne de tes ventes, encaissements réels, charges et marge nette.
             </p>
           </div>
-          <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+          <span className="text-xs font-bold text-mc-primary-dark bg-mc-primary-tint px-2.5 py-1 rounded-lg">
             {dayByDayData.rows.length} jour{dayByDayData.rows.length > 1 ? 's' : ''}
           </span>
         </div>
@@ -970,7 +958,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-[11.5px] text-slate-500 font-semibold uppercase tracking-wider h-11">
+              <tr className="border-b border-mc-line bg-slate-50/80 text-[11.5px] text-mc-soft font-semibold uppercase tracking-wider h-11">
                 <th className="py-2.5 px-4">Date</th>
                 <th className="py-2.5 px-3 text-center">Commandes</th>
                 <th className="py-2.5 px-4 text-right">Total vendu</th>
@@ -1003,14 +991,14 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                       }
                       title="Cliquer pour voir le détail des commandes du jour"
                       className={`h-[44px] hover:bg-slate-50/90 transition-colors cursor-pointer ${
-                        isBestDay ? 'border-l-4 border-l-[#4F46E5] bg-indigo-50/30' : ''
+                        isBestDay ? 'border-l-4 border-l-[#5B4BF0] bg-mc-primary-tint' : ''
                       }`}
                     >
-                      <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
+                      <td className="py-2 px-4 font-bold text-mc-ink whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span>{row.dateLabel}</span>
                           {isBestDay && (
-                            <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100/70 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-extrabold text-mc-primary-dark bg-mc-primary-tint px-1.5 py-0.5 rounded">
                               Meilleur jour
                             </span>
                           )}
@@ -1019,7 +1007,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                       <td className="py-2 px-3 text-center tabular-nums text-slate-600 font-semibold">
                         {row.ordersCount}
                       </td>
-                      <td className="py-2 px-4 text-right font-bold text-slate-900 tabular-nums">
+                      <td className="py-2 px-4 text-right font-bold text-mc-ink tabular-nums">
                         {formatMoney(row.total_vendu)}
                       </td>
                       <td className="py-2 px-4 text-right text-emerald-700 font-semibold tabular-nums">
@@ -1051,27 +1039,27 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
             {/* Ligne de TOTAL fixe en bas du tableau, en gras */}
             {dayByDayData.rows.length > 0 && (
               <tfoot>
-                <tr className="border-t-2 border-slate-300 bg-slate-100/90 font-bold text-xs text-slate-900 h-12">
+                <tr className="border-t-2 border-slate-300 bg-slate-100/90 font-bold text-xs text-mc-ink h-12">
                   <td className="py-2.5 px-4 uppercase tracking-wider font-extrabold">TOTAL PÉRIODE</td>
-                  <td className="py-2.5 px-3 text-center tabular-nums font-black">{curr.ordersCount}</td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-slate-900">
+                  <td className="py-2.5 px-3 text-center tabular-nums font-extrabold">{curr.ordersCount}</td>
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-mc-ink">
                     {formatMoney(curr.total_vendu)}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-emerald-700">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-emerald-700">
                     {formatMoney(curr.recu)}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-rose-600">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-rose-600">
                     {formatMoney(curr.a_credit)}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-amber-700">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-amber-700">
                     {formatMoney(curr.total_depenses)}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums">
                     <span className={curr.gagne >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}>
                       {curr.gagne < 0 ? `- ${formatMoney(Math.abs(curr.gagne))}` : formatMoney(curr.gagne)}
                     </span>
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-indigo-700">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-mc-primary-dark">
                     {curr.total_vendu > 0 ? `${curr.marge_pct.toFixed(1)} %` : '—'}
                   </td>
                 </tr>
@@ -1084,11 +1072,11 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
       {/* =====================================================================
           4. LE TABLEAU MOIS PAR MOIS
           ===================================================================== */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-200/80 flex items-center justify-between">
+      <div className="bg-white rounded-mc border border-mc-line shadow-mc-card overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-mc-line flex items-center justify-between">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">Mois par mois</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-base font-extrabold text-mc-ink">Mois par mois</h3>
+            <p className="text-xs text-mc-soft mt-0.5">
               Historique mensuel consolidé avec calcul de l'évolution par rapport au mois précédent.
             </p>
           </div>
@@ -1100,7 +1088,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-[11.5px] text-slate-500 font-semibold uppercase tracking-wider h-11">
+              <tr className="border-b border-mc-line bg-slate-50/80 text-[11.5px] text-mc-soft font-semibold uppercase tracking-wider h-11">
                 <th className="py-2.5 px-4">Mois</th>
                 <th className="py-2.5 px-3 text-center">Commandes</th>
                 <th className="py-2.5 px-4 text-right">Total vendu</th>
@@ -1122,13 +1110,13 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               ) : (
                 monthByMonthData.map((row) => (
                   <tr key={row.monthKey} className="h-[44px] hover:bg-slate-50 transition-colors">
-                    <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">
+                    <td className="py-2 px-4 font-bold text-mc-ink whitespace-nowrap">
                       {row.monthLabel}
                     </td>
                     <td className="py-2 px-3 text-center tabular-nums text-slate-600">
                       {row.ordersCount}
                     </td>
-                    <td className="py-2 px-4 text-right font-bold text-slate-900 tabular-nums">
+                    <td className="py-2 px-4 text-right font-bold text-mc-ink tabular-nums">
                       {formatMoney(row.total_vendu)}
                     </td>
                     <td className="py-2 px-4 text-right text-emerald-700 font-semibold tabular-nums">
@@ -1173,24 +1161,24 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
             </tbody>
             {monthByMonthData.length > 0 && (
               <tfoot>
-                <tr className="border-t-2 border-slate-300 bg-slate-100/90 font-bold text-xs text-slate-900 h-12">
+                <tr className="border-t-2 border-slate-300 bg-slate-100/90 font-bold text-xs text-mc-ink h-12">
                   <td className="py-2.5 px-4 uppercase tracking-wider font-extrabold">TOTAL ANNUEL</td>
-                  <td className="py-2.5 px-3 text-center tabular-nums font-black">
+                  <td className="py-2.5 px-3 text-center tabular-nums font-extrabold">
                     {monthByMonthData.reduce((s, r) => s + r.ordersCount, 0)}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-slate-900">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-mc-ink">
                     {formatMoney(monthByMonthData.reduce((s, r) => s + r.total_vendu, 0))}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-emerald-700">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-emerald-700">
                     {formatMoney(monthByMonthData.reduce((s, r) => s + r.recu, 0))}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-rose-600">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-rose-600">
                     {formatMoney(monthByMonthData.reduce((s, r) => s + r.a_credit, 0))}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-amber-700">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-amber-700">
                     {formatMoney(monthByMonthData.reduce((s, r) => s + r.total_depenses, 0))}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums">
                     {(() => {
                       const totalGagne = monthByMonthData.reduce((s, r) => s + r.gagne, 0);
                       return (
@@ -1200,14 +1188,14 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                       );
                     })()}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-indigo-700">
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-mc-primary-dark">
                     {(() => {
                       const sumVendu = monthByMonthData.reduce((s, r) => s + r.total_vendu, 0);
                       const sumGagne = monthByMonthData.reduce((s, r) => s + r.gagne, 0);
                       return sumVendu > 0 ? `${((sumGagne / sumVendu) * 100).toFixed(1)} %` : '—';
                     })()}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-black tabular-nums text-slate-400">—</td>
+                  <td className="py-2.5 px-4 text-right font-extrabold tabular-nums text-slate-400">—</td>
                 </tr>
               </tfoot>
             )}
@@ -1216,20 +1204,20 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
       </div>
 
       {/* =====================================================================
-          5. GRAPHIQUE D'ÉVOLUTION (Barres Total Vendu #4F46E5 + Courbe Ce que tu as gagné #16A34A)
+          5. GRAPHIQUE D'ÉVOLUTION (Barres Total Vendu #5B4BF0 + Courbe Ce que tu as gagné #16A34A)
           ===================================================================== */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+      <div className="bg-white rounded-mc border border-mc-line shadow-mc-card p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">Graphique d'évolution</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="text-base font-extrabold text-mc-ink">Graphique d'évolution</h3>
+            <p className="text-xs text-mc-soft">
               {isPeriodLong ? 'Évolution mensuelle des volumes' : 'Évolution journalière sur la période sélectionnée'}
             </p>
           </div>
           {/* Légende */}
           <div className="flex items-center gap-4 text-xs font-bold">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm bg-[#4F46E5]" />
+              <span className="w-3 h-3 rounded-sm bg-[#5B4BF0]" />
               <span className="text-slate-700">Total vendu</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1266,7 +1254,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                 />
               ))}
 
-              {/* Barres du total vendu #4F46E5 */}
+              {/* Barres du total vendu #5B4BF0 */}
               {chartData.map((d, i) => {
                 const totalBars = chartData.length;
                 const slotWidth = 800 / totalBars;
@@ -1283,7 +1271,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                       width={barWidth}
                       height={height}
                       rx="4"
-                      fill="#4F46E5"
+                      fill="#5B4BF0"
                       className="transition-all hover:opacity-85"
                     >
                       <title>{`${d.label} : Vendu ${formatMoney(d.vendu)} · Gagné ${formatMoney(d.gagne)}`}</title>
@@ -1337,7 +1325,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
             </svg>
 
             {/* X-Axis labels */}
-            <div className="flex justify-between text-[10px] text-slate-500 font-semibold pt-2 px-2 overflow-hidden">
+            <div className="flex justify-between text-[10px] text-mc-soft font-semibold pt-2 px-2 overflow-hidden">
               {chartData.map((d, i) => (
                 <span
                   key={i}
@@ -1355,10 +1343,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
       {/* =====================================================================
           6. RÉPARTITION PAR MODE DE PAIEMENT
           ===================================================================== */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+      <div className="bg-white rounded-mc border border-mc-line shadow-mc-card p-5 space-y-4">
         <div>
-          <h3 className="text-base font-extrabold text-slate-900">Répartition par mode de paiement</h3>
-          <p className="text-xs text-slate-500">
+          <h3 className="text-base font-extrabold text-mc-ink">Répartition par mode de paiement</h3>
+          <p className="text-xs text-mc-soft">
             Encaissements enregistrés sur les ventes de la période sélectionnée.
           </p>
         </div>
@@ -1371,8 +1359,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                 key={item.method}
                 className={`p-3 rounded-xl border transition-all ${
                   isZero
-                    ? 'bg-slate-50/60 border-slate-200/60 text-slate-400'
-                    : 'bg-white border-slate-200 text-slate-800'
+                    ? 'bg-slate-50/60 border-mc-line/60 text-slate-400'
+                    : 'bg-white border-mc-line text-mc-ink'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -1382,12 +1370,12 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                       style={{ backgroundColor: isZero ? '#94A3B8' : item.color }}
                     />
                     <span className="text-xs font-bold">{item.label}</span>
-                    <span className="text-[11px] font-medium text-slate-500">
+                    <span className="text-[11px] font-medium text-mc-soft">
                       ({item.count} paiement{item.count > 1 ? 's' : ''})
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-right">
-                    <span className="text-xs font-black tabular-nums">
+                    <span className="text-xs font-extrabold tabular-nums">
                       {formatMoney(item.amount)}
                     </span>
                     <span className="text-[11px] font-extrabold text-slate-600 w-12 text-right">
@@ -1417,12 +1405,12 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
           ===================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top 5 par total vendu */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card p-5 space-y-4">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">
+            <h3 className="text-base font-extrabold text-mc-ink">
               Les 5 produits qui rapportent le plus d'argent
             </h3>
-            <p className="text-xs text-slate-500">Classés par chiffre d'affaires généré.</p>
+            <p className="text-xs text-mc-soft">Classés par chiffre d'affaires généré.</p>
           </div>
 
           <div className="divide-y divide-slate-100">
@@ -1432,33 +1420,33 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               topRevenueProducts.map((p, idx) => (
                 <div key={p.id} className="py-2.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-5 text-center text-xs font-black text-slate-400">
+                    <span className="w-5 text-center text-xs font-extrabold text-slate-400">
                       #{idx + 1}
                     </span>
                     {p.photo ? (
                       <img
                         src={p.photo}
                         alt={p.name}
-                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                        className="w-10 h-10 rounded-xl object-cover border border-mc-line shrink-0"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                        <Package className="w-5 h-5 text-indigo-600" />
+                      <div className="w-10 h-10 rounded-xl bg-mc-primary-tint border border-[#DAD6FC] flex items-center justify-center shrink-0">
+                        <Package className="w-5 h-5 text-mc-primary" />
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 truncate">{p.name}</div>
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-xs font-bold text-mc-ink truncate">{p.name}</div>
+                      <div className="text-[11px] text-mc-soft font-medium">
                         Qté vendue : <strong className="text-slate-700">{p.quantity}</strong>
                       </div>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-black text-slate-900 tabular-nums">
+                    <div className="text-xs font-extrabold text-mc-ink tabular-nums">
                       {formatMoney(p.revenue)}
                     </div>
-                    <div className="text-[11px] text-indigo-600 font-bold">
+                    <div className="text-[11px] text-mc-primary font-bold">
                       {p.share.toFixed(1)} % des ventes
                     </div>
                   </div>
@@ -1469,12 +1457,12 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
         </div>
 
         {/* Top 5 par marge nette */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card p-5 space-y-4">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">
+            <h3 className="text-base font-extrabold text-mc-ink">
               Les 5 produits qui te font gagner le plus
             </h3>
-            <p className="text-xs text-slate-500">Classés par marge brute / bénéfice net réalisé.</p>
+            <p className="text-xs text-mc-soft">Classés par marge brute / bénéfice net réalisé.</p>
           </div>
 
           <div className="divide-y divide-slate-100">
@@ -1484,14 +1472,14 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               topMarginProducts.map((p, idx) => (
                 <div key={p.id} className="py-2.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-5 text-center text-xs font-black text-emerald-600">
+                    <span className="w-5 text-center text-xs font-extrabold text-emerald-600">
                       #{idx + 1}
                     </span>
                     {p.photo ? (
                       <img
                         src={p.photo}
                         alt={p.name}
-                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                        className="w-10 h-10 rounded-xl object-cover border border-mc-line shrink-0"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
@@ -1499,15 +1487,15 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 truncate">{p.name}</div>
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-xs font-bold text-mc-ink truncate">{p.name}</div>
+                      <div className="text-[11px] text-mc-soft font-medium">
                         Qté vendue : <strong className="text-slate-700">{p.quantity}</strong>
                       </div>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-black text-[#16A34A] tabular-nums">
+                    <div className="text-xs font-extrabold text-[#16A34A] tabular-nums">
                       +{formatMoney(p.margin)}
                     </div>
                     <div className="text-[11px] text-emerald-700 font-bold">
@@ -1526,10 +1514,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
           ===================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Tes 5 meilleurs clients */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card p-5 space-y-4">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">Tes 5 meilleurs clients</h3>
-            <p className="text-xs text-slate-500">Classés par volume total d'achats sur la période.</p>
+            <h3 className="text-base font-extrabold text-mc-ink">Tes 5 meilleurs clients</h3>
+            <p className="text-xs text-mc-soft">Classés par volume total d'achats sur la période.</p>
           </div>
 
           <div className="divide-y divide-slate-100">
@@ -1545,13 +1533,13 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                       {c.name.charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 truncate">{c.name}</div>
-                      <div className="text-[11px] text-slate-500 font-medium">
+                      <div className="text-xs font-bold text-mc-ink truncate">{c.name}</div>
+                      <div className="text-[11px] text-mc-soft font-medium">
                         {c.ordersCount} commande{c.ordersCount > 1 ? 's' : ''}
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs font-black text-slate-900 tabular-nums">
+                  <div className="text-xs font-extrabold text-mc-ink tabular-nums">
                     {formatMoney(c.totalAmount)}
                   </div>
                 </div>
@@ -1561,10 +1549,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
         </div>
 
         {/* Ceux qui te doivent le plus */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+        <div className="bg-white rounded-mc border border-mc-line shadow-mc-card p-5 space-y-4">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">Ceux qui te doivent le plus</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="text-base font-extrabold text-mc-ink">Ceux qui te doivent le plus</h3>
+            <p className="text-xs text-mc-soft">
               Relance en un clic via message WhatsApp officiel prérempli.
             </p>
           </div>
@@ -1583,7 +1571,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                     onClick={() => setDetailCustomer(c)}
                     className="min-w-0 flex-1 text-left cursor-pointer hover:opacity-80"
                   >
-                    <div className="text-xs font-bold text-slate-900 truncate">{c.name}</div>
+                    <div className="text-xs font-bold text-mc-ink truncate">{c.name}</div>
                     <div className="text-[11px] text-rose-600 font-semibold flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       <span>Dette depuis {c.debtAgeDays || 0} jours</span>
@@ -1591,7 +1579,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                   </button>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-xs font-black text-[#DC2626] tabular-nums text-right">
+                    <div className="text-xs font-extrabold text-[#DC2626] tabular-nums text-right">
                       {formatMoney(c.totalDebt)}
                     </div>
                     <button
@@ -1617,11 +1605,11 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
       {/* =====================================================================
           9. OÙ PART TON ARGENT (Dépenses par catégorie)
           ===================================================================== */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+      <div className="bg-white rounded-mc border border-mc-line shadow-mc-card p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">Où part ton argent</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="text-base font-extrabold text-mc-ink">Où part ton argent</h3>
+            <p className="text-xs text-mc-soft">
               Ventilation des dépenses par catégorie et comparaison avec la période précédente.
             </p>
           </div>
@@ -1637,10 +1625,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
             </div>
           ) : (
             expenseBreakdown.map((item) => (
-              <div key={item.category} className="p-3 rounded-xl border border-slate-200 bg-white">
+              <div key={item.category} className="p-3 rounded-xl border border-mc-line bg-white">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">{item.category}</span>
+                    <span className="text-xs font-bold text-mc-ink">{item.category}</span>
                     {comparePrevious && (
                       <span
                         className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -1655,7 +1643,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-right">
-                    <span className="text-xs font-black text-slate-900 tabular-nums">
+                    <span className="text-xs font-extrabold text-mc-ink tabular-nums">
                       {formatMoney(item.amount)}
                     </span>
                     <span className="text-[11px] font-extrabold text-slate-600 w-12 text-right">
@@ -1679,13 +1667,13 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
       {/* =====================================================================
           10. CE QUE DISENT TES CHIFFRES (5 phrases automatiques)
           ===================================================================== */}
-      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 rounded-3xl p-6 text-white shadow-xl space-y-4">
+      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 rounded-mc p-6 text-white shadow-xl space-y-4">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-base font-black">Ce que disent tes chiffres</h3>
+            <h3 className="text-base font-extrabold">Ce que disent tes chiffres</h3>
             <p className="text-xs text-indigo-200">Synthèse intelligente calculée sur ta sélection</p>
           </div>
         </div>
@@ -1725,13 +1713,13 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
           ===================================================================== */}
       {selectedDayDetail && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white rounded-mc border border-mc-line max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-mc-line flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">
+                <h3 className="text-base font-extrabold text-mc-ink">
                   Commandes du {selectedDayDetail.dateLabel}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-mc-soft">
                   {selectedDayDetail.sales.length} commande{selectedDayDetail.sales.length > 1 ? 's' : ''} réalisée{selectedDayDetail.sales.length > 1 ? 's' : ''} ce jour-là
                 </p>
               </div>
@@ -1751,7 +1739,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                   <div key={sale.id} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-indigo-700">
+                        <span className="font-mono text-xs font-bold text-mc-primary-dark">
                           {sale.reference}
                         </span>
                         <span className="text-[10px] text-slate-400">
@@ -1761,17 +1749,17 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                           })}
                         </span>
                       </div>
-                      <div className="text-xs font-semibold text-slate-800 mt-0.5 truncate">
+                      <div className="text-xs font-semibold text-mc-ink mt-0.5 truncate">
                         {sale.customerName || <span className="italic text-slate-400">Client non renseigné</span>}
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="text-[11px] text-mc-soft mt-0.5">
                         {sale.items[0]?.name}
                         {sale.items.length > 1 ? ` +${sale.items.length - 1} autre${sale.items.length > 2 ? 's' : ''}` : ''}
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-xs font-black text-slate-900 tabular-nums">
+                      <div className="text-xs font-extrabold text-mc-ink tabular-nums">
                         {formatMoney(sale.totalAmount)}
                       </div>
                       <button
@@ -1779,7 +1767,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
                           setSelectedSaleForReceipt(sale);
                           setSelectedDayDetail(null);
                         }}
-                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#4F46E5] hover:underline cursor-pointer"
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#5B4BF0] hover:underline cursor-pointer"
                       >
                         <Eye className="w-3 h-3" />
                         <span>Voir reçu</span>
@@ -1790,10 +1778,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
               )}
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 text-right">
+            <div className="p-4 bg-slate-50 border-t border-mc-line text-right">
               <button
                 onClick={() => setSelectedDayDetail(null)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-mc-ink text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
               >
                 Fermer
               </button>

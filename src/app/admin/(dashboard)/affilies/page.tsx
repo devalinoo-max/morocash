@@ -32,6 +32,7 @@ export default function AdminAffiliatesPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des données à l'affichage : l'état « en cours » doit être posé avant l'appel réseau
     load();
   }, [load]);
 

@@ -114,7 +114,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </button>
           ) : (
             <button type="button" onClick={onStartTrial} className="menu-cta menu-cta-compact">
-              Essayer gratuitement
+              {/* Sous 420 px, le libellé complet poussait le bouton hors de la barre. */}
+              <span className="min-[420px]:hidden">Essayer</span>
+              <span className="hidden min-[420px]:inline">Essayer gratuitement</span>
             </button>
           )}
           <button

@@ -34,6 +34,18 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
     body = JSON.stringify(init.body);
   }
 
+  // Jeton anti-CSRF : cookie lisible posé à la connexion admin, renvoyé en
+  // en-tête sur chaque écriture (le serveur refuse celles qui n'en ont pas).
+  if (method !== 'GET') {
+    const token = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('morocash_csrf='))
+      ?.split('=')
+      .slice(1)
+      .join('=');
+    if (token) headers['x-csrf-token'] = decodeURIComponent(token);
+  }
+
   let response: Response;
   try {
     response = await fetch(`/api/v1/admin${path}`, { method, headers, body, credentials: 'include' });

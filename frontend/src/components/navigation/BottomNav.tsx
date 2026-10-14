@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import {
   Home,
@@ -13,6 +14,16 @@ import {
 import { getTerminology } from '../../utils/formatters';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { isUnpaid } from '../../utils/saleStatus';
+
+/** Fond de l'onglet actif : une seule pastille, qui glisse d'un onglet à l'autre. */
+const PastilleActive: React.FC<{ active: boolean }> = ({ active }) =>
+  active ? (
+    <motion.span
+      layoutId="bottomnav-pastille"
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="absolute inset-0 rounded-xl bg-[#EEECFE]"
+    />
+  ) : null;
 
 export const BottomNav: React.FC = () => {
   const {
@@ -58,12 +69,12 @@ export const BottomNav: React.FC = () => {
             id="btn-create-menu-sale"
             role="menuitem"
             onClick={() => chooseCreate(attemptNewSale)}
-            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-indigo-50 text-left cursor-pointer transition-colors"
+            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-mc-primary-tint text-left cursor-pointer transition-colors"
           >
-            <span className="w-9 h-9 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0">
+            <span className="w-9 h-9 rounded-full bg-mc-primary text-white flex items-center justify-center shrink-0">
               <ShoppingCart className="w-4.5 h-4.5" />
             </span>
-            <span className="text-sm font-extrabold text-slate-900">Nouvelle commande</span>
+            <span className="text-sm font-extrabold text-mc-ink">Nouvelle commande</span>
           </button>
           <button
             id="btn-create-menu-expense"
@@ -74,14 +85,14 @@ export const BottomNav: React.FC = () => {
             <span className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
               <Wallet className="w-4.5 h-4.5" />
             </span>
-            <span className="text-sm font-extrabold text-slate-900">Nouvelle dépense</span>
+            <span className="text-sm font-extrabold text-mc-ink">Nouvelle dépense</span>
           </button>
         </div>
       </>
     )}
     <nav
       id="bottom-navigation-bar"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 shadow-[0_-8px_25px_rgba(0,0,0,0.06)]"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-mc-line shadow-[0_-8px_25px_rgba(0,0,0,0.06)]"
     >
       <div className="max-w-md mx-auto px-4 h-[68px] flex items-center justify-between relative">
         {/* 1. ACCUEIL */}
@@ -93,12 +104,13 @@ export const BottomNav: React.FC = () => {
           }}
           className={`flex-1 flex flex-col items-center justify-center py-1 text-center transition-all cursor-pointer ${
             activeTab === 'home'
-              ? 'text-[#4F46E5] font-extrabold'
+              ? 'text-[#5B4BF0] font-extrabold'
               : 'text-slate-400 hover:text-slate-600 font-medium'
           }`}
         >
-          <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'home' ? 'bg-indigo-50 text-[#4F46E5]' : ''}`}>
-            <Home className="w-5 h-5" />
+          <div className="relative p-1.5">
+            <PastilleActive active={activeTab === 'home'} />
+            <Home className="relative w-5 h-5" />
           </div>
           <span className="text-[10px] mt-0.5 tracking-tight">Accueil</span>
         </button>
@@ -112,12 +124,13 @@ export const BottomNav: React.FC = () => {
           }}
           className={`flex-1 flex flex-col items-center justify-center py-1 text-center transition-all cursor-pointer relative ${
             activeTab === 'sales'
-              ? 'text-[#4F46E5] font-extrabold'
+              ? 'text-[#5B4BF0] font-extrabold'
               : 'text-slate-400 hover:text-slate-600 font-medium'
           }`}
         >
-          <div className={`p-1.5 rounded-xl transition-all relative ${activeTab === 'sales' ? 'bg-indigo-50 text-[#4F46E5]' : ''}`}>
-            <Receipt className="w-5 h-5" />
+          <div className="relative p-1.5">
+            <PastilleActive active={activeTab === 'sales'} />
+            <Receipt className="relative w-5 h-5" />
             {unpaidCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-extrabold flex items-center justify-center ring-2 ring-white">
                 {unpaidCount}
@@ -137,11 +150,11 @@ export const BottomNav: React.FC = () => {
             aria-label="Créer"
             aria-expanded={isCreateMenuOpen}
             aria-haspopup="menu"
-            className={`w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#4F46E5] via-[#6366F1] to-[#9333EA] text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer ring-4 ring-white ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
+            className={`w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#6C5CFF] via-[#5B4BF0] to-[#3B2FC9] text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer ring-4 ring-white ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <Plus className={`w-7 h-7 stroke-[3] transition-transform duration-200 ${isCreateMenuOpen ? 'rotate-45' : ''}`} />
           </button>
-          <span className="text-[10px] mt-0.5 tracking-tight font-extrabold text-[#4F46E5]">Créer</span>
+          <span className="text-[10px] mt-0.5 tracking-tight font-extrabold text-[#5B4BF0]">Créer</span>
         </div>
 
         {/* 4. PRODUITS / PRESTATIONS */}
@@ -153,15 +166,16 @@ export const BottomNav: React.FC = () => {
           }}
           className={`flex-1 flex flex-col items-center justify-center py-1 text-center transition-all cursor-pointer relative ${
             activeTab === 'products'
-              ? 'text-[#4F46E5] font-extrabold'
+              ? 'text-[#5B4BF0] font-extrabold'
               : 'text-slate-400 hover:text-slate-600 font-medium'
           }`}
         >
-          <div className={`p-1.5 rounded-xl transition-all relative ${activeTab === 'products' ? 'bg-indigo-50 text-[#4F46E5]' : ''}`}>
+          <div className="relative p-1.5">
+            <PastilleActive active={activeTab === 'products'} />
             {settings.activityType === 'SERVICES' ? (
-              <Scissors className="w-5 h-5" />
+              <Scissors className="relative w-5 h-5" />
             ) : (
-              <Package className="w-5 h-5" />
+              <Package className="relative w-5 h-5" />
             )}
             {lowStockCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-extrabold flex items-center justify-center ring-2 ring-white">
@@ -180,12 +194,13 @@ export const BottomNav: React.FC = () => {
           }}
           className={`flex-1 flex flex-col items-center justify-center py-1 text-center transition-all cursor-pointer relative ${
             activeTab === 'more'
-              ? 'text-[#4F46E5] font-extrabold'
+              ? 'text-[#5B4BF0] font-extrabold'
               : 'text-slate-400 hover:text-slate-600 font-medium'
           }`}
         >
-          <div className={`p-1.5 rounded-xl transition-all relative ${activeTab === 'more' ? 'bg-indigo-50 text-[#4F46E5]' : ''}`}>
-            <MoreHorizontal className="w-5 h-5" />
+          <div className="relative p-1.5">
+            <PastilleActive active={activeTab === 'more'} />
+            <MoreHorizontal className="relative w-5 h-5" />
             {debtorsCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-extrabold flex items-center justify-center ring-2 ring-white">
                 {debtorsCount}

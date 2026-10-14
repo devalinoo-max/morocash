@@ -3,6 +3,7 @@ import { getSessionFromCookies } from '@/server/modules/auth/session';
 import { listMySessions, revokeOtherSessions } from '@/server/modules/auth/sessions';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 /** GET /auth/sessions — "Mes appareils connectés" (réglages > Mon compte). */
 export async function GET() {
@@ -23,6 +24,7 @@ export async function GET() {
 export async function DELETE() {
   try {
     const ctx = await requireSession();
+    await assertCsrf();
     const current = await getSessionFromCookies();
     if (!current) {
       throw new AppError('AUTH_SESSION_EXPIRED', 'Session invalide ou expirée.');

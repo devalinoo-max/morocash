@@ -145,8 +145,8 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl sm:rounded-mc shadow-2xl border border-mc-line w-full max-w-2xl my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-4 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -154,7 +154,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
               <Truck className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black tracking-tight">
+              <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
                 Marchandise reçue
               </h2>
               <p className="text-xs text-emerald-100 font-medium">
@@ -184,7 +184,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                   value={fournisseur}
                   onChange={(e) => setFournisseur(e.target.value)}
                   placeholder="Ex: Grossiste Adjamé, Sania, Solibra..."
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-mc-line rounded-xl text-xs font-semibold text-mc-ink placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -200,7 +200,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Ex: BL-8942 / Facture n°44"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-mc-line rounded-xl text-xs font-semibold text-mc-ink placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -230,14 +230,14 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                 return (
                   <div
                     key={idx}
-                    className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+                    className="p-3 bg-slate-50 rounded-xl border border-mc-line flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
                   >
                     {/* Product select */}
                     <div className="flex-1 min-w-[180px]">
                       <select
                         value={line.productId}
                         onChange={(e) => handleProductChange(idx, e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-mc-ink focus:outline-none focus:border-emerald-500"
                       >
                         {physicalProducts.map((p) => (
                           <option key={p.id} value={p.id}>
@@ -258,7 +258,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                           min="1"
                           value={line.quantity}
                           onChange={(e) => handleQuantityChange(idx, Number(e.target.value))}
-                          className="w-full px-2 py-1.5 text-xs font-extrabold text-slate-900 text-center focus:outline-none"
+                          className="w-full px-2 py-1.5 text-xs font-extrabold text-mc-ink text-center focus:outline-none"
                         />
                       </div>
                     </div>
@@ -276,7 +276,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                             step="50"
                             value={line.purchasePrice}
                             onChange={(e) => handlePriceChange(idx, Number(e.target.value))}
-                            className="w-full px-2 py-1.5 text-xs font-extrabold text-slate-900 text-right focus:outline-none"
+                            className="w-full px-2 py-1.5 text-xs font-extrabold text-mc-ink text-right focus:outline-none"
                           />
                           <span className="pr-1.5 text-[10px] text-slate-400 font-semibold">
                             F
@@ -339,7 +339,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                 </div>
               </div>
             ) : (
-              <label className="border-2 border-dashed border-slate-200 hover:border-emerald-400 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-slate-50/50 hover:bg-emerald-50/30 transition-all">
+              <label className="border-2 border-dashed border-mc-line hover:border-emerald-400 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-slate-50/50 hover:bg-emerald-50/30 transition-all">
                 <UploadCloud className="w-5 h-5 text-slate-400" />
                 <span className="text-xs font-bold text-slate-600">
                   Prendre une photo ou importer le bon
@@ -363,7 +363,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
             <div className="text-xs text-amber-900 leading-relaxed">
               <span className="font-extrabold">Dépense automatique : </span>
               Une dépense de{' '}
-              <strong className="text-amber-950 font-black">
+              <strong className="text-amber-950 font-extrabold">
                 {formatFCFA(totalMontant)}
               </strong>{' '}
               (catégorie <em>Approvisionnement grossiste</em>) sera créée automatiquement dans le journal de caisse et dépenses.
@@ -371,16 +371,16 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
           </div>
 
           {/* Totals & Submit */}
-          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="pt-3 border-t border-mc-line flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
               <div>
                 Total unités :{' '}
-                <span className="font-black text-slate-900 text-sm">+{totalArticles}</span>
+                <span className="font-extrabold text-mc-ink text-sm">+{totalArticles}</span>
               </div>
               {!isVendeur && (
                 <div>
                   Montant total :{' '}
-                  <span className="font-black text-emerald-700 text-sm">
+                  <span className="font-extrabold text-emerald-700 text-sm">
                     {formatFCFA(totalMontant)}
                   </span>
                 </div>
@@ -391,14 +391,14 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 sm:flex-none px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none px-4 py-2.5 border border-mc-line rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 Annuler
               </button>
               <button
                 type="submit"
                 disabled={lines.length === 0 || totalArticles <= 0}
-                className="flex-1 sm:flex-none px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-700/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 sm:flex-none px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-700/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Valider la réception

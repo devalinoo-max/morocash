@@ -108,29 +108,29 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
       {/* ========================================================================= */}
       {/* 2. BLOC "CODE DU PRODUIT" (QR 160x160 + Code en clair + 3 boutons) */}
       {/* ========================================================================= */}
-      <div className="bg-slate-50 border border-slate-200/80 rounded-3xl p-5 space-y-4">
+      <div className="bg-slate-50 border border-mc-line rounded-mc p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-indigo-100 text-[#4F46E5] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-mc-primary-tint text-[#5B4BF0] flex items-center justify-center">
               <QrCode className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+              <h4 className="text-xs sm:text-sm font-bold text-mc-ink">
                 Code du produit (Code Maison)
               </h4>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-mc-soft">
                 Généré automatiquement par MoroCash · Lecture haute fiabilité
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-[#4F46E5] border border-indigo-200/60">
+          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-mc-primary-tint text-[#5B4BF0] border border-[#DAD6FC]">
             QR Niveau M
           </span>
         </div>
 
         {/* QR Code Center Display */}
         <div className="flex flex-col items-center justify-center py-2 space-y-2">
-          <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200 inline-block">
+          <div className="p-3 bg-white rounded-2xl shadow-sm border border-mc-line inline-block">
             {qrDataUrl ? (
               <img
                 src={qrDataUrl}
@@ -145,7 +145,7 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
           </div>
 
           <div className="text-center">
-            <span className="font-mono text-sm sm:text-base font-black tracking-widest text-slate-900 bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-xs inline-block">
+            <span className="font-mono text-sm sm:text-base font-extrabold tracking-widest text-mc-ink bg-white px-3 py-1 rounded-xl border border-mc-line shadow-xs inline-block">
               {houseCode}
             </span>
             <p className="text-[10px] text-slate-400 mt-1">
@@ -160,9 +160,9 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
             type="button"
             id="btn-print-single-label"
             onClick={() => setIsPrintModalOpen(true)}
-            className="py-2.5 px-2 rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            className="py-2.5 px-2 rounded-2xl bg-white hover:bg-slate-100 border border-mc-line text-slate-700 text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
           >
-            <Printer className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <Printer className="w-3.5 h-3.5 text-mc-primary shrink-0" />
             <span className="truncate">Imprimer l’étiquette</span>
           </button>
 
@@ -170,7 +170,7 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
             type="button"
             id="btn-download-qr-image"
             onClick={handleDownloadImage}
-            className="py-2.5 px-2 rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            className="py-2.5 px-2 rounded-2xl bg-white hover:bg-slate-100 border border-mc-line text-slate-700 text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
           >
             <Download className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="truncate">Télécharger l’image</span>
@@ -194,11 +194,11 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+            <h4 className="text-xs sm:text-sm font-bold text-mc-ink flex items-center gap-2">
               <Barcode className="w-4 h-4 text-slate-700" />
               <span>Codes scannables associés</span>
             </h4>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-mc-soft">
               Code maison et codes-barres d'emballage industriel
             </p>
           </div>
@@ -207,7 +207,7 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
             type="button"
             id="btn-add-product-code"
             onClick={() => setIsAddCodeOpen(true)}
-            className="py-2 px-3 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="py-2 px-3 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Ajouter un code</span>
@@ -221,13 +221,13 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
             return (
               <div
                 key={codeObj.id}
-                className="p-3 rounded-2xl border border-slate-200 bg-white flex items-center justify-between gap-3 shadow-2xs"
+                className="p-3 rounded-2xl border border-mc-line bg-white flex items-center justify-between gap-3 shadow-2xs"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div
                     className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                       isHouseCode
-                        ? 'bg-indigo-50 text-[#4F46E5]'
+                        ? 'bg-mc-primary-tint text-[#5B4BF0]'
                         : 'bg-slate-100 text-slate-700'
                     }`}
                   >
@@ -240,7 +240,7 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-slate-900">
+                      <span className="font-mono text-xs font-bold text-mc-ink">
                         {codeObj.code}
                       </span>
                       <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
@@ -256,7 +256,7 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
 
                     <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
                       {isHouseCode ? (
-                        <span className="flex items-center gap-1 text-indigo-600 font-semibold">
+                        <span className="flex items-center gap-1 text-mc-primary font-semibold">
                           <Lock className="w-3 h-3" />
                           Code maison · Ne peut pas être supprimé
                         </span>
@@ -281,7 +281,7 @@ export const ProductCodeSection: React.FC<ProductCodeSectionProps> = ({
                       type="button"
                       onClick={() => handleSetPrimary(codeObj)}
                       title="Définir comme code principal"
-                      className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
+                      className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-mc-primary hover:bg-mc-primary-tint rounded-lg cursor-pointer transition-colors"
                     >
                       Définir principal
                     </button>

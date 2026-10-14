@@ -65,13 +65,13 @@ export const PushNotificationsSetting: React.FC = () => {
         <div>
           <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-2">
             {status === 'on' ? (
-              <Bell className="w-4 h-4 text-indigo-600" />
+              <Bell className="w-4 h-4 text-mc-primary" />
             ) : (
               <BellOff className="w-4 h-4 text-slate-400" />
             )}
             <span>Notifications</span>
           </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">{description[status]}</p>
+          <p className="text-[11px] text-mc-soft mt-0.5">{description[status]}</p>
         </div>
         {status === 'on' && (
           <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shrink-0">
@@ -83,7 +83,7 @@ export const PushNotificationsSetting: React.FC = () => {
             type="button"
             onClick={handleEnable}
             disabled={isBusy}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-mc-primary hover:bg-mc-primary-dark text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50"
           >
             {isBusy ? '…' : 'Activer'}
           </button>

@@ -149,6 +149,9 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   // Reçu de commande rouvert après d'autres versements : « Payé » veut dire
   // tout ce qui a été reçu depuis, pas seulement le jour de la commande.
   const paidLater = (sale.payments ?? []).filter((p) => !p.isCancelled).length > 1;
+  // Une commande annulée garde son reçu, mais il ne doit plus pouvoir passer
+  // pour une preuve d'achat ni réclamer un reste à payer.
+  const annulee = !versement && !!sale.isCancelled;
 
   useEffect(() => {
     let isMounted = true;
@@ -268,6 +271,18 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
         <VersementBody versement={versement} showCustomer={showCustomer} showSeller={showSeller} />
       ) : (
         <>
+      {annulee && (
+        <div className="text-center font-extrabold text-[12px] uppercase tracking-wider text-slate-700 bg-slate-100 border border-slate-300 py-1.5 px-2 rounded-lg">
+          Commande annulée
+          {/* Le motif est une note interne : copie commerçant seulement. */}
+          {isMerchantCopy && sale.cancelReason && (
+            <span className="block text-[10.5px] font-medium normal-case tracking-normal text-slate-600 break-words">
+              Motif : {sale.cancelReason}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* 2. N°, client, date, vendeur */}
       <div className="space-y-1.5 text-[11px] py-1 border-b border-dashed border-slate-300">
         <div className="flex justify-between items-center gap-3">
@@ -365,15 +380,25 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
           )}
           <div className="flex justify-between gap-3 font-extrabold text-sm text-slate-900 pt-1 border-t border-slate-200/80">
             <span>TOTAL :</span>
-            <span className="text-[#4F46E5] tabular-nums whitespace-nowrap">{money(sale.totalAmount)}</span>
+            <span
+              className={`tabular-nums whitespace-nowrap ${annulee ? 'text-slate-400 line-through' : 'text-[#4F46E5]'}`}
+            >
+              {money(sale.totalAmount)}
+            </span>
           </div>
 
-          <div className="flex justify-between gap-3 text-slate-700">
-            <span>{paidLater ? 'Payé à ce jour :' : `Payé (${formatPaymentMethod(sale.paymentMethod)}) :`}</span>
-            <span className="font-bold text-slate-900 tabular-nums whitespace-nowrap">{money(sale.paidAmount)}</span>
-          </div>
+          {!annulee && (
+            <div className="flex justify-between gap-3 text-slate-700">
+              <span>{paidLater ? 'Payé à ce jour :' : `Payé (${formatPaymentMethod(sale.paymentMethod)}) :`}</span>
+              <span className="font-bold text-slate-900 tabular-nums whitespace-nowrap">{money(sale.paidAmount)}</span>
+            </div>
+          )}
 
-          {sale.remainingAmount > 0 ? (
+          {annulee ? (
+            <div className="text-center font-bold text-slate-600 text-[10.5px] uppercase tracking-wider bg-slate-100 py-1 rounded-lg">
+              ✕ Commande annulée — rien n’est dû
+            </div>
+          ) : sale.remainingAmount > 0 ? (
             <div className="flex justify-between gap-3 font-bold text-rose-700 text-xs bg-rose-50 border border-rose-200/80 p-2 rounded-xl">
               <span>Reste à payer :</span>
               <span className="tabular-nums whitespace-nowrap">{money(sale.remainingAmount)}</span>
@@ -386,7 +411,7 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
         </div>
 
         {/* Copie commerçant uniquement : le client n'a pas à connaître ses autres dettes. */}
-        {isMerchantCopy && (
+        {isMerchantCopy && !annulee && (
           <p className="text-[10.5px] text-amber-900 font-medium text-center bg-amber-50/70 p-1.5 rounded-lg border border-amber-100">
             {calculatedDebt > 0
               ? `Après cette commande, ${clientFirstName} te doit ${money(calculatedDebt)} au total`

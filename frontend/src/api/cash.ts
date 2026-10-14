@@ -84,10 +84,11 @@ export function createManualMovement(params: {
 export function toFrontendCashSession(r: ApiCashRegister, names: { openedBy?: string; closedBy?: string }): CashRegisterSession {
   return {
     id: r.id,
-    ouvertePar: names.openedBy ?? r.ouverteParId,
+    // Jamais l'identifiant technique à la place du nom : mieux vaut rien.
+    ouvertePar: names.openedBy ?? '',
     ouverteLe: r.ouverteLe,
     fondDepart: r.fondDepart,
-    fermeePar: r.fermeeParId ? (names.closedBy ?? r.fermeeParId) : undefined,
+    fermeePar: r.fermeeParId ? (names.closedBy ?? '') : undefined,
     fermeeLe: r.fermeeLe ?? undefined,
     montantAttendu: r.montantAttendu ?? undefined,
     montantCompte: r.montantCompte ?? undefined,

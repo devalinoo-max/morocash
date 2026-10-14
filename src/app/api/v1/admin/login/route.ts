@@ -1,5 +1,6 @@
 import { loginAdmin, adminLoginSchema } from '@/server/modules/admin/login';
 import { setAdminSessionCookie } from '@/server/modules/admin/session';
+import { issueCsrfToken } from '@/server/middleware/csrf';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
 
     const token = await loginAdmin(parsed.data);
     await setAdminSessionCookie(token);
+    await issueCsrfToken();
 
     return ok({ success: true });
   } catch (error) {

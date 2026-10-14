@@ -40,7 +40,7 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({ variant = 'i
       <button
         id="btn-install-pwa"
         onClick={handleClick}
-        className={`${baseClasses} ${className} inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#4338CA] hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-md`}
+        className={`${baseClasses} ${className} inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#3B2FC9] hover:bg-mc-primary-dark text-white text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-md`}
       >
         <Download className="w-4 h-4" />
         <span>Installer l'application</span>

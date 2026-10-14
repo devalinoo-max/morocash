@@ -118,6 +118,8 @@ export function generateReceiptWhatsAppText(
     text += `${e('📞')}Contact : ${phone}\n`;
   }
   text += `${line}\n`;
+  // Annoncé dès le haut : un reçu annulé ne doit pas se lire comme valable.
+  if (sale.isCancelled) text += `${e('❌')}${b('COMMANDE ANNULÉE')}\n`;
   text += `${e('📄')}N° : ${sale.reference}\n`;
   text += `${e('👤')}Client : ${clientName}\n`;
   text += `${e('📅')}Date : ${formatDate(sale.createdAt)}\n`;
@@ -142,9 +144,13 @@ export function generateReceiptWhatsAppText(
     text += `Livraison : + ${formatMoneyFull(deliveryFee)}\n`;
   }
   text += `${b(`TOTAL : ${formatMoneyFull(sale.totalAmount)}`)}\n`;
-  text += `Payé : ${formatMoneyFull(sale.paidAmount)} (${formatPaymentMethod(sale.paymentMethod)})\n`;
+  if (!sale.isCancelled) {
+    text += `Payé : ${formatMoneyFull(sale.paidAmount)} (${formatPaymentMethod(sale.paymentMethod)})\n`;
+  }
 
-  if (sale.remainingAmount > 0) {
+  if (sale.isCancelled) {
+    text += `${e('❌')}${b('COMMANDE ANNULÉE — rien n’est dû')}\n`;
+  } else if (sale.remainingAmount > 0) {
     text += `${e('⚠️')}${b(`Reste à payer : ${formatMoneyFull(sale.remainingAmount)}`)}\n`;
   } else {
     text += `${e('✅')}${b('PAYÉ EN ENTIER')}\n`;
@@ -319,6 +325,9 @@ export async function fetchReceiptsPdfBlob(
       customerTotalDebt: isMerchantCopy ? options.customerDebts?.[s.id] : undefined,
       createdAt: s.createdAt,
       sellerName: s.sellerName,
+      cancelled: s.isCancelled === true,
+      // Note interne : comme la dette, elle ne part que pour la copie commerçant.
+      cancelReason: isMerchantCopy ? s.cancelReason : undefined,
     })),
     settings: {
       shopName: settings.shopName,

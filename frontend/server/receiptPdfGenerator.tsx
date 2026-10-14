@@ -127,6 +127,10 @@ export interface ReceiptSaleData {
   customerTotalDebt?: number;
   createdAt: string;
   sellerName: string;
+  /** Commande annulée : le reçu le dit en tête et ne réclame plus rien. */
+  cancelled?: boolean;
+  /** Motif de l'annulation — envoyé pour la seule copie commerçant. */
+  cancelReason?: string;
 }
 
 export interface ReceiptPdfSettings {
@@ -303,6 +307,13 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
       </View>
       <Separator />
 
+      {sale.cancelled && (
+        <View style={st.section}>
+          <Text style={[st.stamp, { marginTop: 0 }]}>COMMANDE ANNULÉE</Text>
+          {sale.cancelReason ? <Text style={st.sub}>Motif : {sale.cancelReason}</Text> : null}
+        </View>
+      )}
+
       {/* 2. Références */}
       <View style={st.section}>
         <Meta label="N° :" value={sale.reference} strong />
@@ -373,14 +384,18 @@ const SingleReceiptPage: React.FC<SingleReceiptProps> = ({ sale, settings, qrDat
         )}
         {deliveryFee > 0 && <Amount label="Livraison :" value={`+ ${formatMoneyFull(deliveryFee)}`} />}
         <Amount label="TOTAL :" value={formatMoneyFull(sale.totalAmount)} big />
-        <Amount label={`Payé (${getPaymentMethodLabel(sale.paymentMethod)}) :`} value={formatMoneyFull(sale.paidAmount)} />
-        {sale.remainingAmount > 0 ? (
+        {!sale.cancelled && (
+          <Amount label={`Payé (${getPaymentMethodLabel(sale.paymentMethod)}) :`} value={formatMoneyFull(sale.paidAmount)} />
+        )}
+        {sale.cancelled ? (
+          <Text style={st.stamp}>COMMANDE ANNULÉE — RIEN N’EST DÛ</Text>
+        ) : sale.remainingAmount > 0 ? (
           <Amount label="Reste à payer :" value={formatMoneyFull(sale.remainingAmount)} strong />
         ) : (
           <Text style={st.stamp}>PAYÉ EN ENTIER</Text>
         )}
         {/* Jamais sur la copie client : il n'a pas à lire le détail de ses autres dettes. */}
-        {isMerchantCopy && (
+        {isMerchantCopy && !sale.cancelled && (
           <Text style={[st.message, { fontFamily: L.fontBold, fontSize: s - 1 }]}>
             {debtTotal > 0
               ? `Après cette commande, ${firstName(clientName)} te doit ${formatMoneyFull(debtTotal)} au total`

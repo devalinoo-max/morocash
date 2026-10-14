@@ -25,7 +25,11 @@ export const createOrderSchema = z.object({
     .default('ESPECES'),
 });
 
-export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+// fraisLivraison reste facultatif pour les appels directs au service : seul le
+// schéma (route HTTP, synchronisation) lui donne sa valeur par défaut.
+export type CreateOrderInput = Omit<z.infer<typeof createOrderSchema>, 'fraisLivraison'> & {
+  fraisLivraison?: number;
+};
 
 export interface CreateOrderContext {
   businessId: string;
@@ -90,7 +94,10 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
       }
 
       // 3. Recalculer sousTotal — IGNORER les montants envoyés par le client
-      // 4. Figer coutUnitaire = product.cmp sur chaque ligne
+      // 4. Figer coutUnitaire = product.cmp sur chaque ligne. Un produit qui
+      // n'a jamais reçu de marchandise a un cmp à 0 : on retient alors son prix
+      // d'achat, sinon la vente serait comptée sans aucun coût et tout le
+      // montant vendu passerait pour du bénéfice.
       let sousTotal = 0;
       const lines = [...qteParProduit].map(([productId, qte]) => {
         const product = productById.get(productId)!;
@@ -101,7 +108,7 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
           libelle: product.nom,
           qte,
           prixUnitaire: product.prixVente,
-          coutUnitaire: product.cmp,
+          coutUnitaire: product.cmp || product.prixAchat,
           totalLigne,
         };
       });
@@ -133,7 +140,9 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
 
       // La livraison s'ajoute après la remise : une remise en % ne porte que
       // sur les articles, jamais sur le prix de la course.
-      const fraisLivraison = input.fraisLivraison;
+      // `?? 0` : les appels directs (tests, anciens appelants) qui ne passent
+      // pas par createOrderSchema n'ont pas la valeur par défaut du schéma.
+      const fraisLivraison = input.fraisLivraison ?? 0;
       const total = sousTotal - remiseMontant + fraisLivraison;
       const coutTotal = lines.reduce((acc, l) => acc + l.coutUnitaire * l.qte, 0);
 
@@ -225,7 +234,7 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
             quantite: -line.qte,
             stockAvant,
             stockApres,
-            coutUnitaire: product.cmp,
+            coutUnitaire: product.cmp || product.prixAchat,
             orderId: order.id,
             userId: ctx.userId,
           },

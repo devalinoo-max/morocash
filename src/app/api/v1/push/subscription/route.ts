@@ -7,12 +7,14 @@ import {
 } from '@/server/modules/push/service';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
+import { assertCsrf } from '@/server/middleware/csrf';
 
 // Abonnement de l'appareil aux notifications. Lecture seule suffit : une
 // boutique suspendue doit pouvoir recevoir les messages de l'équipe MoroCash.
 export async function POST(request: Request) {
   try {
     const ctx = await guardRead();
+    await assertCsrf();
 
     const body = await request.json().catch(() => null);
     const parsed = subscribeSchema.safeParse(body);
@@ -30,6 +32,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const ctx = await guardRead();
+    await assertCsrf();
 
     const body = await request.json().catch(() => null);
     const parsed = unsubscribeSchema.safeParse(body);

@@ -46,7 +46,7 @@ describe('Isolation tenant A/B', () => {
     const phoneA = uniquePhone('3');
     const phoneB = uniquePhone('4');
 
-    const a = await registerBusiness(
+    await registerBusiness(
       { businessNom: 'Test Guess A', telephone: phoneA, pin: '111111' },
       {}
     );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
+import { csrfHeaders } from '../../api/client';
 import { Product, LabelFormat, LabelSettings } from '../../types';
 import { countLabel } from '../../utils/plural';
 import {
@@ -332,6 +333,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(await csrfHeaders()),
       },
       body: JSON.stringify(payload),
     });
@@ -441,24 +443,24 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
   const photoUrl = previewProduct?.photo || previewProduct?.photos?.[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
       <div
         id="panel-print-labels-modal"
-        className="bg-white rounded-3xl max-w-[760px] w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]"
+        className="bg-white rounded-mc max-w-[760px] w-full shadow-2xl border border-mc-line overflow-hidden flex flex-col max-h-[94vh]"
       >
         {/* ================= HEADER ================= */}
         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-indigo-50 text-[#4F46E5] flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 rounded-2xl bg-mc-primary-tint text-[#5B4BF0] flex items-center justify-center shadow-xs">
               <Printer className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+              <h2 className="text-sm sm:text-base font-bold text-mc-ink leading-tight">
                 {preSelectedProduct
                   ? `Imprimer l'étiquette : ${preSelectedProduct.name}`
                   : 'Imprimer les étiquettes'}
               </h2>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-[11px] text-mc-soft font-medium">
                 Génération PDF serveur vectorielle & haute précision
               </p>
             </div>
@@ -468,7 +470,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
             <button
               type="button"
               onClick={handleResetDefaults}
-              className="text-[11px] font-semibold text-slate-500 hover:text-indigo-600 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/50 transition-colors cursor-pointer"
+              className="text-[11px] font-semibold text-mc-soft hover:text-mc-primary flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/50 transition-colors cursor-pointer"
               title="Remettre les réglages par défaut"
             >
               <RotateCcw className="w-3 h-3" />
@@ -514,8 +516,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                       }}
                       className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
                         actif
-                          ? 'border-[#4F46E5] bg-indigo-50/50 shadow-xs'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                          ? 'border-[#5B4BF0] bg-mc-primary-tint shadow-xs'
+                          : 'border-mc-line bg-white hover:bg-slate-50'
                       }`}
                     >
                       <span
@@ -524,21 +526,21 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                         aria-hidden="true"
                       />
                       <span>
-                        <span className="flex items-center gap-1.5 font-bold text-slate-900">
+                        <span className="flex items-center gap-1.5 font-bold text-mc-ink">
                           {v.title}
                           {v.id === DEFAULT_LABEL_VARIANT && (
-                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-bold text-mc-primary bg-mc-primary-tint px-1.5 py-0.5 rounded">
                               Recommandée
                             </span>
                           )}
                         </span>
-                        <span className="block text-[11px] text-slate-500">{v.desc}</span>
+                        <span className="block text-[11px] text-mc-soft">{v.desc}</span>
                       </span>
                     </button>
                   );
                 })}
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-[11px] text-mc-soft leading-snug">
                 Chaque étiquette porte le nom de ta boutique, la photo et le nom du produit, sa
                 catégorie, son prix et un QR code à scanner.
               </p>
@@ -562,8 +564,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                     key={fmt.id}
                     className={`flex items-start justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
                       format === fmt.id
-                        ? 'border-[#4F46E5] bg-indigo-50/40 text-slate-900 shadow-2xs'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'border-[#5B4BF0] bg-mc-primary-tint text-mc-ink shadow-2xs'
+                        : 'border-mc-line bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <div className="flex items-start gap-2.5">
@@ -575,18 +577,18 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                           setFormat(fmt.id as LabelFormat);
                           saveCurrentSettings({ format: fmt.id as LabelFormat });
                         }}
-                        className="w-4 h-4 mt-0.5 text-[#4F46E5] focus:ring-indigo-500 accent-[#4F46E5]"
+                        className="w-4 h-4 mt-0.5 text-[#5B4BF0] focus:ring-mc-primary accent-[#5B4BF0]"
                       />
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold">{fmt.title}</span>
                           {fmt.badge && (
-                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] font-bold text-mc-primary bg-mc-primary-tint px-1.5 py-0.2 rounded">
                               {fmt.badge}
                             </span>
                           )}
                         </div>
-                        <span className="text-[11px] text-slate-500">{fmt.dim}</span>
+                        <span className="text-[11px] text-mc-soft">{fmt.dim}</span>
                         {fmt.desc && (
                           <span className="text-[10px] text-slate-400 block mt-0.5">{fmt.desc}</span>
                         )}
@@ -597,9 +599,9 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
 
                 {/* Custom dimensions inputs if custom */}
                 {format === 'custom' && (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-mc-line flex items-center gap-3">
                     <div className="flex-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                      <label className="text-[10px] font-bold text-mc-soft uppercase block mb-1">
                         Largeur (mm)
                       </label>
                       <input
@@ -612,11 +614,11 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                           setCustomWidth(val);
                           saveCurrentSettings({ customWidth: val });
                         }}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold"
+                        className="w-full bg-white border border-mc-line rounded-lg px-2.5 py-1 text-xs font-bold"
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                      <label className="text-[10px] font-bold text-mc-soft uppercase block mb-1">
                         Hauteur (mm)
                       </label>
                       <input
@@ -629,7 +631,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                           setCustomHeight(val);
                           saveCurrentSettings({ customHeight: val });
                         }}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold"
+                        className="w-full bg-white border border-mc-line rounded-lg px-2.5 py-1 text-xs font-bold"
                       />
                     </div>
                   </div>
@@ -637,7 +639,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
               </div>
 
               {/* Printing guidance notice */}
-              <div className="p-2.5 rounded-xl bg-slate-100/70 border border-slate-200/80 text-[11px] text-slate-600 leading-snug">
+              <div className="p-2.5 rounded-xl bg-slate-100/70 border border-mc-line text-[11px] text-slate-600 leading-snug">
                 <strong>Papier A4 standard :</strong> Imprime sans mise à l’échelle. Dans la
                 fenêtre d’impression, mets l’échelle sur <strong>100 %</strong> (pas sur "Ajuster à
                 la page").
@@ -649,7 +651,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
             <div className="space-y-2">
               <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center justify-between">
                 <span>C. Combien d’exemplaires</span>
-                <span className="text-[#4F46E5] font-black">
+                <span className="text-[#5B4BF0] font-extrabold">
                   {totalLabels} étiquette{totalLabels > 1 ? 's' : ''} · {totalSheets} planche
                   {totalSheets > 1 ? 's' : ''}
                 </span>
@@ -657,9 +659,9 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
 
               {/* Single product mode */}
               {preSelectedProduct ? (
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-mc-line">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-800">
+                    <span className="text-xs font-bold text-mc-ink">
                       Nombre d’étiquettes pour cet article :
                     </span>
                   </div>
@@ -668,7 +670,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                     <button
                       type="button"
                       onClick={() => updateQuantity(preSelectedProduct.id, -1)}
-                      className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                      className="w-8 h-8 rounded-xl bg-white border border-mc-line flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -679,12 +681,12 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                       onChange={(e) =>
                         setExactQuantity(preSelectedProduct.id, parseInt(e.target.value, 10) || 1)
                       }
-                      className="w-14 text-center font-black text-sm bg-white border border-slate-200 rounded-xl py-1"
+                      className="w-14 text-center font-extrabold text-sm bg-white border border-mc-line rounded-xl py-1"
                     />
                     <button
                       type="button"
                       onClick={() => updateQuantity(preSelectedProduct.id, 1)}
-                      className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                      className="w-8 h-8 rounded-xl bg-white border border-mc-line flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -698,28 +700,28 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setAllQuantities('one')}
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-mc-primary-tint hover:text-mc-primary transition-colors"
                     >
                       1 par produit
                     </button>
                     <button
                       type="button"
                       onClick={() => setAllQuantities('stock')}
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-mc-primary-tint hover:text-mc-primary transition-colors"
                     >
                       Autant que le stock
                     </button>
                     <button
                       type="button"
                       onClick={() => setAllQuantities('twelve')}
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-mc-primary-tint hover:text-mc-primary transition-colors"
                     >
                       Tout mettre à 12
                     </button>
                   </div>
 
                   {/* Product table list */}
-                  <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-white">
+                  <div className="max-h-40 overflow-y-auto border border-mc-line rounded-2xl divide-y divide-slate-100 bg-white">
                     {products.map((p) => {
                       const qty = quantities[p.id] || 0;
                       return (
@@ -731,7 +733,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                             className="flex-1 pr-2 truncate cursor-pointer"
                             onClick={() => setSelectedPreviewProductId(p.id)}
                           >
-                            <p className="font-bold text-slate-900 truncate">{p.name}</p>
+                            <p className="font-bold text-mc-ink truncate">{p.name}</p>
                             <p className="text-[10px] text-slate-400">
                               {formatMoney(p.salePrice)} · Stock: {p.stock}
                             </p>
@@ -786,17 +788,17 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                       const val = parseInt(e.target.value, 10) || 1;
                       setStartIndex(Math.min(currentFormatMeta.countPerSheet, Math.max(1, val)));
                     }}
-                    className="w-20 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-center font-bold text-xs"
+                    className="w-20 bg-slate-50 border border-mc-line rounded-xl px-3 py-1.5 text-center font-bold text-xs"
                   />
-                  <span className="text-[11px] text-slate-500 leading-tight">
+                  <span className="text-[11px] text-mc-soft leading-tight">
                     Pratique pour réutiliser une feuille d’étiquettes déjà entamée.
                   </span>
                 </div>
 
                 {/* Mini schema diagram of skipped positions */}
-                <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80">
+                <div className="p-2.5 bg-slate-50 rounded-2xl border border-mc-line">
                   <div
-                    className="grid gap-1 max-w-[190px] mx-auto bg-white p-1.5 rounded-lg border border-slate-200"
+                    className="grid gap-1 max-w-[190px] mx-auto bg-white p-1.5 rounded-lg border border-mc-line"
                     style={{
                       gridTemplateColumns: `repeat(${currentFormatMeta.cols}, minmax(0, 1fr))`,
                     }}
@@ -815,8 +817,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                               isSkipped
                                 ? 'bg-slate-200 text-slate-400 line-through'
                                 : isFirstPrinted
-                                ? 'bg-[#4F46E5] text-white font-bold ring-1 ring-indigo-400'
-                                : 'bg-indigo-50/70 text-indigo-700 border border-indigo-200/50'
+                                ? 'bg-[#5B4BF0] text-white font-bold ring-1 ring-indigo-400'
+                                : 'bg-mc-primary-tint text-mc-primary-dark border border-[#DAD6FC]'
                             }`}
                           >
                             {cellNum}
@@ -830,7 +832,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                       <span className="w-2 h-2 rounded bg-slate-200 inline-block"></span> Sautée
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded bg-[#4F46E5] inline-block"></span> 1ère
+                      <span className="w-2 h-2 rounded bg-[#5B4BF0] inline-block"></span> 1ère
                       imprimée
                     </span>
                   </div>
@@ -844,7 +846,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                  <Eye className="w-3.5 h-3.5 text-mc-primary" />
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
                     Aperçu en direct
                   </span>
@@ -853,7 +855,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowFullSheetModal(true)}
-                  className="text-[11px] font-bold text-[#4F46E5] hover:underline flex items-center gap-1"
+                  className="text-[11px] font-bold text-[#5B4BF0] hover:underline flex items-center gap-1"
                 >
                   <Layers className="w-3 h-3" />
                   <span>Planche complète</span>
@@ -894,16 +896,16 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
               </div>
 
               <div className="text-center">
-                <span className="text-[11px] font-bold text-slate-500">
+                <span className="text-[11px] font-bold text-mc-soft">
                   {currentFormatMeta.dimensions} · {currentFormatMeta.label}
                 </span>
               </div>
             </div>
 
             {/* Mobile / WhatsApp info banner */}
-            <div className="p-3 rounded-2xl bg-indigo-50/60 border border-indigo-100 flex items-center justify-between gap-2 mt-4">
+            <div className="p-3 rounded-2xl bg-mc-primary-tint border border-[#DAD6FC] flex items-center justify-between gap-2 mt-4">
               <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-[#4F46E5] shrink-0" />
+                <Smartphone className="w-4 h-4 text-[#5B4BF0] shrink-0" />
                 <span className="text-[11px] text-slate-700 font-medium">
                   Imprime depuis ton téléphone ou partage sur WhatsApp
                 </span>
@@ -914,7 +916,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
 
         {/* ================= STATUS / ERROR BANNER ================= */}
         {statusMessage && (
-          <div className="px-5 py-2 bg-indigo-600 text-white text-xs font-semibold flex items-center justify-between">
+          <div className="px-5 py-2 bg-mc-primary text-white text-xs font-semibold flex items-center justify-between">
             <span>{statusMessage}</span>
             <button
               type="button"
@@ -931,7 +933,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+            className="py-2.5 px-4 rounded-xl border border-mc-line hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
           >
             Annuler
           </button>
@@ -956,7 +958,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
               id="btn-download-labels-pdf"
               disabled={totalLabels === 0 || isGenerating}
               onClick={handleDownloadPdf}
-              className="py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              className="py-2.5 px-3 rounded-xl border border-mc-line bg-slate-50 hover:bg-slate-100 text-mc-ink font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5 text-slate-600" />
               <span>Télécharger le PDF</span>
@@ -968,7 +970,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
               id="btn-open-to-print-labels"
               disabled={totalLabels === 0 || isGenerating}
               onClick={handleOpenPrint}
-              className="py-2.5 px-5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 active:scale-98 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
+              className="py-2.5 px-5 rounded-full bg-mc-primary hover:bg-mc-primary-dark active:scale-98 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
             >
               {isGenerating ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -984,13 +986,13 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
       {/* ================= FULL SHEET MINIATURE MODAL ================= */}
       {showFullSheetModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-mc max-w-lg w-full p-5 shadow-2xl border border-mc-line space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-sm font-bold text-mc-ink">
                   Aperçu de la planche entière (Page 1)
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-mc-soft">
                   Format {currentFormatMeta.dimensions} · {currentFormatMeta.countPerSheet} étiquettes
                   par page
                 </p>
@@ -1023,8 +1025,8 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
                       key={idx}
                       className={`rounded-[2px] p-0.5 border flex flex-col justify-between overflow-hidden text-[5px] ${
                         isSkipped
-                          ? 'bg-slate-100 border-slate-200 text-slate-300'
-                          : 'bg-white border-slate-300 text-slate-900'
+                          ? 'bg-slate-100 border-mc-line text-slate-300'
+                          : 'bg-white border-slate-300 text-mc-ink'
                       }`}
                     >
                       <span className="truncate font-bold leading-none">
@@ -1043,7 +1045,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowFullSheetModal(false)}
-                className="py-2 px-4 rounded-xl bg-slate-900 text-white font-bold text-xs cursor-pointer"
+                className="py-2 px-4 rounded-xl bg-mc-ink text-white font-bold text-xs cursor-pointer"
               >
                 Fermer
               </button>

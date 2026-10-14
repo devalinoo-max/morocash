@@ -64,7 +64,7 @@ function getInitials(name: string): string {
 
 const AVATAR_COLORS = [
   'bg-emerald-600',
-  'bg-indigo-600',
+  'bg-mc-primary',
   'bg-violet-600',
   'bg-sky-600',
   'bg-teal-600',
@@ -85,7 +85,7 @@ function getAvatarColor(name: string): string {
  * un article d'un coup d'œil.
  */
 const PRODUCT_THUMB_COLORS = [
-  '#4F46E5',
+  '#5B4BF0',
   '#0891B2',
   '#059669',
   '#D97706',
@@ -492,7 +492,7 @@ export const NewSaleModal: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher ou scanner un produit…"
             data-scanner-input
-            className="w-full h-[42px] pl-10 pr-9 rounded-[999px] bg-slate-50 border border-slate-200 text-[16px] md:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:bg-white transition-all"
+            className="w-full h-[42px] pl-10 pr-9 rounded-[999px] bg-slate-50 border border-mc-line text-[16px] md:text-sm font-medium text-mc-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#5B4BF0] focus:bg-white transition-all"
           />
           {searchQuery && (
             <button
@@ -515,7 +515,7 @@ export const NewSaleModal: React.FC = () => {
               className={`${toolClass} ${
                 selectedCategory !== 'TOUS'
                   ? 'bg-amber-50 border border-amber-300 text-amber-800'
-                  : 'bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200'
+                  : 'bg-slate-100 border border-mc-line text-slate-600 hover:bg-slate-200'
               }`}
             >
               <SlidersHorizontal className="w-4 h-4" />
@@ -526,7 +526,7 @@ export const NewSaleModal: React.FC = () => {
             </button>
 
             {isCategoryDropdownOpen && (
-              <div className="absolute left-0 top-full mt-2 w-56 max-h-72 overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-1.5 animate-in fade-in slide-in-from-top-2">
+              <div className="absolute left-0 top-full mt-2 w-56 max-h-72 overflow-y-auto bg-white rounded-2xl shadow-xl border border-mc-line z-50 p-1.5 animate-in fade-in slide-in-from-top-2">
                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-2.5 py-1 block">
                   Catégories
                 </span>
@@ -539,7 +539,7 @@ export const NewSaleModal: React.FC = () => {
                       setIsCategoryDropdownOpen(false);
                     }}
                     className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      selectedCategory === cat ? 'bg-indigo-50 text-[#4F46E5]' : 'text-slate-700 hover:bg-slate-100'
+                      selectedCategory === cat ? 'bg-mc-primary-tint text-[#5B4BF0]' : 'text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     {cat}
@@ -557,7 +557,7 @@ export const NewSaleModal: React.FC = () => {
               setSelectedCategory('TOUS');
               showToast('Catalogue actualisé', 'info');
             }}
-            className={`${toolClass} bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200`}
+            className={`${toolClass} bg-slate-100 border border-mc-line text-slate-600 hover:bg-slate-200`}
           >
             <RotateCw className="w-4 h-4" />
             <span className="text-[10px] font-bold">Actualiser</span>
@@ -567,9 +567,9 @@ export const NewSaleModal: React.FC = () => {
             id={`btn-open-scanner${sfx}`}
             type="button"
             onClick={() => setIsScannerOpen(true)}
-            className={`${toolClass} bg-slate-900 hover:bg-slate-800 text-white shadow-xs`}
+            className={`${toolClass} bg-mc-ink hover:bg-[#1E2140] text-white shadow-xs`}
           >
-            <Scan className="w-4 h-4 text-indigo-300" />
+            <Scan className="w-4 h-4 text-[#B9B2FF]" />
             <span className="text-[10px] font-bold">Scanner</span>
           </button>
 
@@ -591,7 +591,7 @@ export const NewSaleModal: React.FC = () => {
             id={`btn-add-product-pos${sfx}`}
             type="button"
             onClick={openProductForm}
-            className="h-10 rounded-[11px] border-[1.5px] border-dashed border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5] text-xs font-[750] flex items-center justify-center gap-1 whitespace-nowrap cursor-pointer active:scale-[0.98] transition-transform"
+            className="h-10 rounded-[11px] border-[1.5px] border-dashed border-[#5B4BF0] bg-[#EEF2FF] text-[#5B4BF0] text-xs font-[750] flex items-center justify-center gap-1 whitespace-nowrap cursor-pointer active:scale-[0.98] transition-transform"
           >
             <span>+ Nouveau produit</span>
           </button>
@@ -599,7 +599,7 @@ export const NewSaleModal: React.FC = () => {
             id={`btn-add-service-pos${sfx}`}
             type="button"
             onClick={() => setIsServiceModalOpen(true)}
-            className="h-10 rounded-[11px] border-[1.5px] border-dashed border-[#4F46E5] bg-[#EEF2FF] text-[#4F46E5] text-xs font-[750] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer active:scale-[0.98] transition-transform"
+            className="h-10 rounded-[11px] border-[1.5px] border-dashed border-[#5B4BF0] bg-[#EEF2FF] text-[#5B4BF0] text-xs font-[750] flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer active:scale-[0.98] transition-transform"
           >
             <Wrench className="w-3.5 h-3.5" />
             <span>+ Service</span>
@@ -620,7 +620,7 @@ export const NewSaleModal: React.FC = () => {
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-[#4F46E5] text-white shadow-xs'
+                  ? 'bg-[#5B4BF0] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -650,8 +650,8 @@ export const NewSaleModal: React.FC = () => {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[14px] font-[750] text-slate-900 leading-tight truncate">Vérifie ta commande</h3>
-          <p className="text-[11px] text-slate-500 leading-tight">
+          <h3 className="text-[14px] font-[750] text-mc-ink leading-tight truncate">Vérifie ta commande</h3>
+          <p className="text-[11px] text-mc-soft leading-tight">
             {cartItemCount} article{cartItemCount > 1 ? 's' : ''}
           </p>
         </div>
@@ -659,7 +659,7 @@ export const NewSaleModal: React.FC = () => {
           type="button"
           aria-label="Fermer la vérification"
           onClick={() => setStep('PRODUCTS')}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 cursor-pointer"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-mc-soft hover:bg-slate-100 cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
@@ -680,9 +680,9 @@ export const NewSaleModal: React.FC = () => {
                 {getInitials(selectedCustomerObj.name)}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-[650] text-slate-900 truncate leading-snug">{selectedCustomerObj.name}</p>
+                <p className="text-sm font-[650] text-mc-ink truncate leading-snug">{selectedCustomerObj.name}</p>
                 {selectedCustomerObj.phone && selectedCustomerObj.phone !== 'Non renseigné' && (
-                  <p className="text-[11px] text-slate-500 font-medium truncate">{selectedCustomerObj.phone}</p>
+                  <p className="text-[11px] text-mc-soft font-medium truncate">{selectedCustomerObj.phone}</p>
                 )}
                 {selectedCustomerObj.totalDebt > 0 ? (
                   <p className="text-[11px] font-bold text-[#DC2626]">
@@ -697,7 +697,7 @@ export const NewSaleModal: React.FC = () => {
               id="btn-change-customer-review"
               type="button"
               onClick={() => setIsCustomerPickerOpen(true)}
-              className="shrink-0 text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer px-2 py-2"
+              className="shrink-0 text-xs font-bold text-[#5B4BF0] hover:underline cursor-pointer px-2 py-2"
             >
               Changer
             </button>
@@ -710,7 +710,7 @@ export const NewSaleModal: React.FC = () => {
                   <User className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-[650] text-slate-900 leading-tight">À qui est cette commande ?</p>
+                  <p className="text-sm font-[650] text-mc-ink leading-tight">À qui est cette commande ?</p>
                   <p className="text-xs text-amber-900/80 font-medium mt-0.5">Obligatoire pour payer</p>
                 </div>
               </div>
@@ -732,10 +732,10 @@ export const NewSaleModal: React.FC = () => {
                     key={c.id}
                     type="button"
                     onClick={() => setSelectedCustomerId(c.id)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-indigo-50 hover:text-[#4F46E5] text-slate-700 text-xs font-semibold shrink-0 transition-colors cursor-pointer border border-slate-200/60"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-mc-primary-tint hover:text-[#5B4BF0] text-slate-700 text-xs font-semibold shrink-0 transition-colors cursor-pointer border border-mc-line/60"
                   >
                     <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white ${getAvatarColor(
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-extrabold text-white ${getAvatarColor(
                         c.name
                       )}`}
                     >
@@ -771,17 +771,17 @@ export const NewSaleModal: React.FC = () => {
                 ) : (
                   <div
                     aria-hidden="true"
-                    className="w-[34px] h-[34px] min-w-[34px] rounded-[9px] flex items-center justify-center text-white font-black text-[13px] select-none"
+                    className="w-[34px] h-[34px] min-w-[34px] rounded-[9px] flex items-center justify-center text-white font-extrabold text-[13px] select-none"
                     style={{ backgroundColor: getProductThumbColor(item.product.name) }}
                   >
                     {getProductInitial(item.product.name)}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-bold text-slate-900 truncate leading-snug">{item.product.name}</p>
-                  <p className="text-[11px] text-slate-500 tabular-nums">{formatMoney(item.unitPrice)}</p>
+                  <p className="text-[13px] font-bold text-mc-ink truncate leading-snug">{item.product.name}</p>
+                  <p className="text-[11px] text-mc-soft tabular-nums">{formatMoney(item.unitPrice)}</p>
                 </div>
-                <div className="flex items-center rounded-xl border border-slate-200 bg-white shrink-0">
+                <div className="flex items-center rounded-xl border border-mc-line bg-white shrink-0">
                   <button
                     type="button"
                     aria-label={`Retirer un ${item.product.name}`}
@@ -790,19 +790,19 @@ export const NewSaleModal: React.FC = () => {
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="min-w-[22px] text-center text-[13px] font-black text-slate-900 tabular-nums">
+                  <span className="min-w-[22px] text-center text-[13px] font-extrabold text-mc-ink tabular-nums">
                     {item.quantity}
                   </span>
                   <button
                     type="button"
                     aria-label={`Ajouter un ${item.product.name}`}
                     onClick={() => updateCartQuantity(item.product.id, 1)}
-                    className="w-9 h-9 rounded-r-xl flex items-center justify-center text-[#4F46E5] active:bg-indigo-50 cursor-pointer"
+                    className="w-9 h-9 rounded-r-xl flex items-center justify-center text-[#5B4BF0] active:bg-mc-primary-tint cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <span className="min-w-[64px] text-right text-[13px] font-[750] text-slate-900 tabular-nums shrink-0">
+                <span className="min-w-[64px] text-right text-[13px] font-[750] text-mc-ink tabular-nums shrink-0">
                   {formatMoney(item.unitPrice * item.quantity)}
                 </span>
               </div>
@@ -830,7 +830,7 @@ export const NewSaleModal: React.FC = () => {
             <button
               type="button"
               onClick={clearDiscount}
-              className="shrink-0 text-[12px] font-semibold text-slate-500 underline cursor-pointer py-2"
+              className="shrink-0 text-[12px] font-semibold text-mc-soft underline cursor-pointer py-2"
             >
               Retirer
             </button>
@@ -838,14 +838,14 @@ export const NewSaleModal: React.FC = () => {
         ) : (
           <div className="h-12 px-3 rounded-[11px] bg-[#F8FAFC] flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Tag className="w-4 h-4 text-[#4F46E5]" />
-              <span className="text-[13px] font-bold text-slate-800">Remise</span>
+              <Tag className="w-4 h-4 text-[#5B4BF0]" />
+              <span className="text-[13px] font-bold text-mc-ink">Remise</span>
             </span>
             <button
               id="btn-review-add-discount"
               type="button"
               onClick={() => setIsDiscountModalOpen(true)}
-              className="h-8 px-3.5 rounded-lg bg-[#EEF2FF] text-[#4F46E5] text-xs font-bold cursor-pointer"
+              className="h-8 px-3.5 rounded-lg bg-[#EEF2FF] text-[#5B4BF0] text-xs font-bold cursor-pointer"
             >
               Ajouter
             </button>
@@ -862,17 +862,17 @@ export const NewSaleModal: React.FC = () => {
               className="flex-1 min-w-0 h-full pl-3 flex items-center justify-between gap-2 text-left cursor-pointer"
             >
               <span className="flex items-center gap-2 min-w-0">
-                <Truck className="w-4 h-4 text-[#4F46E5] shrink-0" />
-                <span className="text-[13px] font-bold text-indigo-950 truncate">Livraison</span>
+                <Truck className="w-4 h-4 text-[#5B4BF0] shrink-0" />
+                <span className="text-[13px] font-bold text-mc-primary-dark truncate">Livraison</span>
               </span>
-              <span className="text-[14px] font-[800] text-[#4F46E5] tabular-nums whitespace-nowrap">
+              <span className="text-[14px] font-[800] text-[#5B4BF0] tabular-nums whitespace-nowrap">
                 + {formatMoney(deliveryFee)}
               </span>
             </button>
             <button
               type="button"
               onClick={() => setDeliveryFee(0)}
-              className="shrink-0 text-[12px] font-semibold text-slate-500 underline cursor-pointer py-2"
+              className="shrink-0 text-[12px] font-semibold text-mc-soft underline cursor-pointer py-2"
             >
               Retirer
             </button>
@@ -880,14 +880,14 @@ export const NewSaleModal: React.FC = () => {
         ) : (
           <div className="h-12 px-3 rounded-[11px] bg-[#F8FAFC] flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-[#4F46E5]" />
-              <span className="text-[13px] font-bold text-slate-800">Livraison</span>
+              <Truck className="w-4 h-4 text-[#5B4BF0]" />
+              <span className="text-[13px] font-bold text-mc-ink">Livraison</span>
             </span>
             <button
               id="btn-review-add-delivery"
               type="button"
               onClick={() => setIsDeliveryModalOpen(true)}
-              className="h-8 px-3.5 rounded-lg bg-[#EEF2FF] text-[#4F46E5] text-xs font-bold cursor-pointer"
+              className="h-8 px-3.5 rounded-lg bg-[#EEF2FF] text-[#5B4BF0] text-xs font-bold cursor-pointer"
             >
               Ajouter
             </button>
@@ -895,10 +895,10 @@ export const NewSaleModal: React.FC = () => {
         )}
 
         {/* d) Le récapitulatif */}
-        <div className="rounded-2xl border border-slate-200 p-3.5 space-y-2">
+        <div className="rounded-2xl border border-mc-line p-3.5 space-y-2">
           <div className="flex justify-between items-center text-[13px] text-slate-600">
             <span>Sous-total</span>
-            <span className="font-semibold text-slate-900 tabular-nums">{formatMoney(cartTotal)}</span>
+            <span className="font-semibold text-mc-ink tabular-nums">{formatMoney(cartTotal)}</span>
           </div>
           {appliedDiscount > 0 && (
             <div className="flex justify-between items-center text-[13px] text-[#DC2626]">
@@ -909,12 +909,12 @@ export const NewSaleModal: React.FC = () => {
           {deliveryFee > 0 && (
             <div className="flex justify-between items-center text-[13px] text-slate-600">
               <span>Livraison</span>
-              <span className="font-semibold text-slate-900 tabular-nums">+ {formatMoney(deliveryFee)}</span>
+              <span className="font-semibold text-mc-ink tabular-nums">+ {formatMoney(deliveryFee)}</span>
             </div>
           )}
-          <div className="pt-2.5 border-t border-slate-200 flex items-baseline justify-between gap-2">
-            <span className="text-[13px] font-bold text-slate-900">Total à payer</span>
-            <span className="text-[24px] font-[800] text-slate-900 tabular-nums leading-none">
+          <div className="pt-2.5 border-t border-mc-line flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-bold text-mc-ink">Total à payer</span>
+            <span className="text-[24px] font-[800] text-mc-ink tabular-nums leading-none">
               {formatMoney(finalTotal)}
             </span>
           </div>
@@ -924,7 +924,7 @@ export const NewSaleModal: React.FC = () => {
 
       {/* Barre d'actions : le montant est DANS le bouton */}
       <div
-        className="shrink-0 px-3 pt-3 bg-white border-t border-slate-200"
+        className="shrink-0 px-3 pt-3 bg-white border-t border-mc-line"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
       >
         <div className="w-full max-w-2xl mx-auto space-y-1">
@@ -935,7 +935,7 @@ export const NewSaleModal: React.FC = () => {
             onClick={() => (canGoToPayment ? setStep('PAYMENT') : handleBlockedPayment())}
             className={`w-full h-[52px] rounded-2xl text-[15px] font-[750] flex items-center justify-center gap-1.5 transition-all ${
               canGoToPayment
-                ? 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer'
+                ? 'bg-mc-primary hover:bg-mc-primary-dark active:scale-[0.98] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer'
                 : 'bg-[#E2E8F0] text-[#64748B] cursor-pointer'
             }`}
           >
@@ -948,7 +948,7 @@ export const NewSaleModal: React.FC = () => {
           <button
             type="button"
             onClick={() => setStep('PRODUCTS')}
-            className="w-full py-2 text-[12px] font-semibold text-slate-500 text-center cursor-pointer"
+            className="w-full py-2 text-[12px] font-semibold text-mc-soft text-center cursor-pointer"
           >
             ← Ajouter d'autres produits
           </button>
@@ -958,24 +958,24 @@ export const NewSaleModal: React.FC = () => {
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex flex-col justify-end md:justify-center md:items-center md:p-4 animate-in fade-in duration-150 overflow-x-hidden">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex flex-col justify-end md:justify-center md:items-center md:p-4 animate-in fade-in duration-150 overflow-x-hidden">
       <div
         id="new-sale-modal-container"
-        className="bg-white w-full md:max-w-6xl h-[94vh] md:h-[90vh] rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+        className="bg-white w-full md:max-w-6xl h-[94vh] md:h-[90vh] rounded-t-3xl md:rounded-mc shadow-2xl flex flex-col overflow-hidden border border-mc-line"
       >
         {/* ========================================================================= */}
         {/* TOP HEADER & STEPPER */}
         {/* ========================================================================= */}
-        <div className="h-14 md:h-auto px-3 md:px-6 py-0 md:py-3 bg-white border-b border-slate-200 shrink-0">
+        <div className="h-14 md:h-auto px-3 md:px-6 py-0 md:py-3 bg-white border-b border-mc-line shrink-0">
           <div className="h-14 md:h-auto flex items-center justify-between gap-2">
             {/* Left: App/Shop Title — l'avatar boutique n'apporte rien pendant
                 une commande, retiré sur mobile (point 7). */}
             <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial overflow-hidden">
-              <div className="hidden md:flex w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 items-center justify-center font-black text-[#4F46E5] text-xs shrink-0">
+              <div className="hidden md:flex w-8 h-8 rounded-xl bg-mc-primary-tint border border-[#DAD6FC] items-center justify-center font-extrabold text-[#5B4BF0] text-xs shrink-0">
                 MC
               </div>
               <div className="min-w-0">
-                <h2 className="text-[13.5px] md:text-xs font-[750] md:font-black text-slate-900 leading-tight md:leading-none whitespace-nowrap truncate">
+                <h2 className="text-[13px] md:text-xs font-[750] md:font-extrabold text-mc-ink tracking-tight leading-tight md:leading-none whitespace-nowrap truncate">
                   Nouvelle commande
                 </h2>
                 <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
@@ -1007,9 +1007,9 @@ export const NewSaleModal: React.FC = () => {
                       <span
                         className={`w-[22px] h-[22px] rounded-[50%] flex items-center justify-center text-[11px] font-[750] tabular-nums ${
                           isCurrent
-                            ? 'bg-[#4F46E5] text-white'
+                            ? 'bg-[#5B4BF0] text-white'
                             : isDone
-                              ? 'bg-[#EEF2FF] text-[#4F46E5]'
+                              ? 'bg-[#EEF2FF] text-[#5B4BF0]'
                               : 'bg-[#F1F5F9] text-[#94A3B8]'
                         }`}
                       >
@@ -1020,7 +1020,7 @@ export const NewSaleModal: React.FC = () => {
                           isCurrent
                             ? 'text-[#0F172A] font-[750]'
                             : isDone
-                              ? 'text-[#4F46E5] font-[650] hidden min-[440px]:inline'
+                              ? 'text-[#5B4BF0] font-[650] hidden min-[440px]:inline'
                               : 'text-[#94A3B8] font-[600] hidden min-[440px]:inline'
                         }`}
                       >
@@ -1065,7 +1065,7 @@ export const NewSaleModal: React.FC = () => {
           <>
           <div className="hidden md:flex flex-1 min-h-0 bg-slate-50/50">
             {/* GAUCHE : CATALOGUE PRODUITS (flex-1) */}
-            <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-white border-r border-slate-200/80">
+            <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-white border-r border-mc-line">
               <div className="border-b border-slate-100">{renderCatalogToolbar('desktop')}</div>
 
               {/* POINT 1 & 2 : GRILLE UNIQUE À 3 COLONNES — MODÈLE DE CARTE STANDARD 88PX */}
@@ -1080,7 +1080,7 @@ export const NewSaleModal: React.FC = () => {
                         setScannerPreBarcode('');
                         setIsProductFormOpen(true);
                       }}
-                      className="px-4 py-2 bg-indigo-50 text-[#4F46E5] hover:bg-indigo-100 rounded-xl text-xs font-bold cursor-pointer transition-colors mt-2 inline-block"
+                      className="px-4 py-2 bg-mc-primary-tint text-[#5B4BF0] hover:bg-mc-primary-tint rounded-xl text-xs font-bold cursor-pointer transition-colors mt-2 inline-block"
                     >
                       + Ajouter ce produit maintenant
                     </button>
@@ -1116,21 +1116,21 @@ export const NewSaleModal: React.FC = () => {
                           >
                             {/* In-cart badge in top-right */}
                             {inCart && (
-                              <span className="absolute top-2.5 right-2.5 px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-[#EEF2FF] text-[#4F46E5] shadow-2xs">
+                              <span className="absolute top-2.5 right-2.5 px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-[#EEF2FF] text-[#5B4BF0] shadow-2xs">
                                 ×{inCart.quantity}
                               </span>
                             )}
 
                             {/* Ligne 1 : Nom du produit en gras (14px), 1 seule ligne, tronqué */}
                             <div className="pr-8">
-                              <span className="text-sm font-bold text-slate-900 truncate block leading-snug">
+                              <span className="text-sm font-bold text-mc-ink truncate block leading-snug">
                                 {prod.name}
                               </span>
                             </div>
 
                             {/* Ligne 2 : Prix de vente en gras (15px) */}
                             <div>
-                              <span className="text-[15px] font-bold text-slate-900 leading-tight block">
+                              <span className="text-[15px] font-bold text-mc-ink leading-tight block">
                                 {formatMoney(prod.salePrice)}
                               </span>
                             </div>
@@ -1170,14 +1170,14 @@ export const NewSaleModal: React.FC = () => {
 
             {/* DROITE : LE PANIER, ET RIEN D'AUTRE (LARGEUR FIXE 400PX). Le
                 client, la remise et les totaux vivent à l'étape Vérifier. */}
-            <div className="w-full md:w-[400px] shrink-0 flex flex-col min-h-0 bg-white border-t md:border-t-0 md:border-l border-slate-200">
+            <div className="w-full md:w-[400px] shrink-0 flex flex-col min-h-0 bg-white border-t md:border-t-0 md:border-l border-mc-line">
               {/* POINT 6.2 : HEADER COMMANDE EN COURS */}
               <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-black text-slate-900 tracking-tight">
+                  <h3 className="text-xs font-extrabold text-mc-ink tracking-tight">
                     Commande en cours
                   </h3>
-                  <span className="text-[11px] font-medium text-slate-500">
+                  <span className="text-[11px] font-medium text-mc-soft">
                     • {cartItemCount} article{cartItemCount > 1 ? 's' : ''}
                   </span>
                 </div>
@@ -1201,7 +1201,7 @@ export const NewSaleModal: React.FC = () => {
                     <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
                       <ShoppingBag className="w-5 h-5" />
                     </div>
-                    <p className="text-xs font-semibold text-slate-500">Ton panier est vide</p>
+                    <p className="text-xs font-semibold text-mc-soft">Ton panier est vide</p>
                     <p className="text-[11px] text-slate-400">
                       Touche un article dans le catalogue pour l'ajouter
                     </p>
@@ -1210,28 +1210,28 @@ export const NewSaleModal: React.FC = () => {
                   cart.map((item) => (
                     <div
                       key={item.product.id}
-                      className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-2.5"
+                      className="p-2.5 rounded-xl border border-mc-line bg-slate-50/50 flex items-center justify-between gap-2.5"
                     >
                       {/* Left: Name and Unit price */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-slate-900 truncate leading-snug">
+                          <p className="text-xs font-bold text-mc-ink truncate leading-snug">
                             {item.product.name}
                           </p>
                           {item.product.isService && (
-                            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700 shrink-0">
+                            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-mc-primary-tint text-mc-primary-dark shrink-0">
                               Service
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-[11px] text-mc-soft mt-0.5">
                           {formatMoney(item.unitPrice)}
                         </p>
                       </div>
 
                       {/* Right: Controls [-] QTY [+] and Line Total */}
                       <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs">
+                        <div className="flex items-center bg-white border border-mc-line rounded-xl p-0.5 shadow-2xs">
                           <button
                             type="button"
                             onClick={() => updateCartQuantity(item.product.id, -1)}
@@ -1240,13 +1240,13 @@ export const NewSaleModal: React.FC = () => {
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="text-xs font-black px-2 text-slate-900 min-w-[20px] text-center">
+                          <span className="text-xs font-extrabold px-2 text-mc-ink min-w-[20px] text-center">
                             {item.quantity}
                           </span>
                           <button
                             type="button"
                             onClick={() => updateCartQuantity(item.product.id, 1)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#4F46E5] hover:bg-indigo-50 font-bold cursor-pointer transition-colors"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#5B4BF0] hover:bg-mc-primary-tint font-bold cursor-pointer transition-colors"
                             title="Augmenter"
                           >
                             <Plus className="w-3.5 h-3.5" />
@@ -1270,7 +1270,7 @@ export const NewSaleModal: React.FC = () => {
 
               {/* Étape suivante : un seul bouton, qui ne valide rien — il ouvre
                   l'écran Vérifier (client, remise, sous-total). */}
-              <div className="p-4 bg-white border-t border-slate-200 shadow-lg shrink-0">
+              <div className="p-4 bg-white border-t border-mc-line shadow-lg shrink-0">
                 <button
                   id="btn-pos-checkout"
                   type="button"
@@ -1279,7 +1279,7 @@ export const NewSaleModal: React.FC = () => {
                   className={`w-full h-[52px] rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
                     !isCheckoutReady
                       ? 'bg-[#94A3B8] text-white cursor-not-allowed opacity-100'
-                      : 'bg-[#4F46E5] hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md cursor-pointer'
+                      : 'bg-mc-primary hover:bg-mc-primary-dark active:scale-[0.98] text-white shadow-md cursor-pointer'
                   }`}
                 >
                   <span>Voir la commande</span>
@@ -1314,7 +1314,7 @@ export const NewSaleModal: React.FC = () => {
                         setScannerPreBarcode('');
                         setIsProductFormOpen(true);
                       }}
-                      className="px-4 py-2 bg-indigo-50 text-[#4F46E5] hover:bg-indigo-100 rounded-xl text-xs font-bold cursor-pointer transition-colors mt-2 inline-block"
+                      className="px-4 py-2 bg-mc-primary-tint text-[#5B4BF0] hover:bg-mc-primary-tint rounded-xl text-xs font-bold cursor-pointer transition-colors mt-2 inline-block"
                     >
                       + Ajouter ce produit maintenant
                     </button>
@@ -1345,7 +1345,7 @@ export const NewSaleModal: React.FC = () => {
                               />
                             ) : (
                               <div
-                                className="w-10 h-10 min-w-10 rounded-[10px] flex items-center justify-center text-white font-black text-[15px] shrink-0 select-none"
+                                className="w-10 h-10 min-w-10 rounded-[10px] flex items-center justify-center text-white font-extrabold text-[15px] shrink-0 select-none"
                                 style={{ backgroundColor: getProductThumbColor(prod.name) }}
                                 aria-hidden="true"
                               >
@@ -1353,10 +1353,10 @@ export const NewSaleModal: React.FC = () => {
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="text-[11.5px] font-bold text-slate-900 leading-snug line-clamp-2">
+                              <p className="text-[11.5px] font-bold text-mc-ink leading-snug line-clamp-2">
                                 {prod.name}
                               </p>
-                              <p className="text-[12.5px] font-bold text-[#4F46E5] mt-0.5 leading-none">
+                              <p className="text-[12.5px] font-bold text-[#5B4BF0] mt-0.5 leading-none">
                                 {formatMoney(prod.salePrice)}
                               </p>
                               <div className="leading-none mt-1">
@@ -1384,7 +1384,7 @@ export const NewSaleModal: React.FC = () => {
                               C'est ce qui rend le tiroir replié tenable. */}
                           {inCart ? (
                             <div
-                              className="h-[26px] rounded-lg bg-[#F8FAFC] border border-slate-200/80 flex items-center justify-between px-1"
+                              className="h-[26px] rounded-lg bg-[#F8FAFC] border border-mc-line flex items-center justify-between px-1"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <button
@@ -1395,20 +1395,20 @@ export const NewSaleModal: React.FC = () => {
                               >
                                 <Minus className="w-3.5 h-3.5" />
                               </button>
-                              <span className="text-[12.5px] font-black text-slate-900 tabular-nums">
+                              <span className="text-[12.5px] font-extrabold text-mc-ink tabular-nums">
                                 {inCart.quantity}
                               </span>
                               <button
                                 type="button"
                                 aria-label={`Ajouter un ${prod.name}`}
                                 onClick={() => updateCartQuantity(prod.id, 1)}
-                                className="w-7 h-[22px] rounded-md flex items-center justify-center text-[#4F46E5] active:bg-indigo-100 cursor-pointer"
+                                className="w-7 h-[22px] rounded-md flex items-center justify-center text-[#5B4BF0] active:bg-mc-primary-tint cursor-pointer"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           ) : (
-                            <div className="h-[26px] rounded-lg bg-[#EEF2FF] flex items-center justify-center gap-1 text-[#4F46E5]">
+                            <div className="h-[26px] rounded-lg bg-[#EEF2FF] flex items-center justify-center gap-1 text-[#5B4BF0]">
                               <Plus className="w-3 h-3" />
                               <span className="text-[11px] font-bold">Ajouter</span>
                             </div>
@@ -1460,7 +1460,7 @@ export const NewSaleModal: React.FC = () => {
                     }`}
                   >
                     {cart.length > 0 && (
-                      <span className="w-[26px] h-[26px] rounded-full bg-[#4F46E5] text-white text-[11px] font-black flex items-center justify-center shrink-0 tabular-nums">
+                      <span className="w-[26px] h-[26px] rounded-full bg-[#5B4BF0] text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 tabular-nums">
                         {cartItemCount}
                       </span>
                     )}
@@ -1469,7 +1469,7 @@ export const NewSaleModal: React.FC = () => {
                         {cart.length === 0 ? 'Ton panier est vide' : 'Commande en cours'}
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="text-[15px] font-[800] text-slate-900 tabular-nums leading-tight">
+                        <span className="text-[15px] font-[800] text-mc-ink tabular-nums leading-tight">
                           {cartItemCount} article{cartItemCount > 1 ? 's' : ''}
                         </span>
                         {cart.length > 0 && <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" />}
@@ -1488,7 +1488,7 @@ export const NewSaleModal: React.FC = () => {
                     onClick={() => isCheckoutReady && setStep('REVIEW')}
                     className={`${isCheckoutReady ? 'h-12' : 'h-10'} px-[16px] rounded-xl text-[14px] font-[750] flex items-center gap-1 shrink-0 whitespace-nowrap transition-colors ${
                       isCheckoutReady
-                        ? 'bg-[#4F46E5] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] active:scale-[0.98] cursor-pointer'
+                        ? 'bg-[#5B4BF0] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] active:scale-[0.98] cursor-pointer'
                         : 'bg-[#E2E8F0] text-[#94A3B8] cursor-default'
                     }`}
                   >
@@ -1517,7 +1517,7 @@ export const NewSaleModal: React.FC = () => {
                   </div>
 
                   <div className="shrink-0 px-4 py-2 flex items-center justify-between border-b border-slate-100">
-                    <h3 className="text-xs font-black text-slate-900">
+                    <h3 className="text-xs font-extrabold text-mc-ink">
                       Commande en cours · {cartItemCount} article{cartItemCount > 1 ? 's' : ''}
                     </h3>
                     {cart.length > 0 && (
@@ -1536,16 +1536,16 @@ export const NewSaleModal: React.FC = () => {
                     {cart.map((item) => (
                       <div
                         key={item.product.id}
-                        className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-2.5"
+                        className="p-2.5 rounded-xl border border-mc-line bg-slate-50/50 flex items-center justify-between gap-2.5"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-900 truncate leading-snug">
+                          <p className="text-xs font-bold text-mc-ink truncate leading-snug">
                             {item.product.name}
                           </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{formatMoney(item.unitPrice)}</p>
+                          <p className="text-[11px] text-mc-soft mt-0.5">{formatMoney(item.unitPrice)}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs">
+                          <div className="flex items-center bg-white border border-mc-line rounded-xl p-0.5 shadow-2xs">
                             <button
                               type="button"
                               onClick={() => updateCartQuantity(item.product.id, -1)}
@@ -1553,13 +1553,13 @@ export const NewSaleModal: React.FC = () => {
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
-                            <span className="text-xs font-black px-2 text-slate-900 min-w-[20px] text-center">
+                            <span className="text-xs font-extrabold px-2 text-mc-ink min-w-[20px] text-center">
                               {item.quantity}
                             </span>
                             <button
                               type="button"
                               onClick={() => updateCartQuantity(item.product.id, 1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#4F46E5] cursor-pointer"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#5B4BF0] cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -1576,7 +1576,7 @@ export const NewSaleModal: React.FC = () => {
                     ))}
                   </div>
 
-                  <div className="shrink-0 p-3.5 border-t border-slate-200">
+                  <div className="shrink-0 p-3.5 border-t border-mc-line">
                     <button
                       id="btn-pos-checkout-mobile"
                       type="button"
@@ -1587,7 +1587,7 @@ export const NewSaleModal: React.FC = () => {
                       }}
                       className={`w-full h-12 rounded-xl text-[14px] font-[750] flex items-center justify-center gap-1 transition-colors ${
                         isCheckoutReady
-                          ? 'bg-[#4F46E5] active:scale-[0.98] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer'
+                          ? 'bg-[#5B4BF0] active:scale-[0.98] text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] cursor-pointer'
                           : 'bg-[#E2E8F0] text-[#94A3B8] cursor-default'
                       }`}
                     >
@@ -1625,12 +1625,12 @@ export const NewSaleModal: React.FC = () => {
                       {getInitials(selectedCustomerObj.name)}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-sm font-[650] text-slate-900 truncate leading-snug">
+                      <h4 className="text-sm font-[650] text-mc-ink truncate leading-snug">
                         {selectedCustomerObj.name}
                       </h4>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         {selectedCustomerObj.phone && selectedCustomerObj.phone !== 'Non renseigné' && (
-                          <span className="text-[11px] text-slate-500 font-medium">
+                          <span className="text-[11px] text-mc-soft font-medium">
                             {selectedCustomerObj.phone}
                           </span>
                         )}
@@ -1650,7 +1650,7 @@ export const NewSaleModal: React.FC = () => {
                     id="btn-change-customer-step2"
                     type="button"
                     onClick={() => setIsCustomerPickerOpen(true)}
-                    className="shrink-0 text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer px-2 py-1"
+                    className="shrink-0 text-xs font-bold text-[#5B4BF0] hover:underline cursor-pointer px-2 py-1"
                   >
                     Changer
                   </button>
@@ -1659,12 +1659,12 @@ export const NewSaleModal: React.FC = () => {
 
               {/* Header Title & Total */}
               <div className="text-center space-y-1">
-                <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                <h3 className="text-lg sm:text-xl font-extrabold text-mc-ink">
                   Comment il paie ?
                 </h3>
-                <p className="text-xs font-semibold text-slate-500">
+                <p className="text-xs font-semibold text-mc-soft">
                   Total à encaisser :{' '}
-                  <strong className="text-[#4F46E5] text-base">{formatMoney(finalTotal)}</strong>
+                  <strong className="text-[#5B4BF0] text-base">{formatMoney(finalTotal)}</strong>
                 </p>
               </div>
 
@@ -1695,14 +1695,14 @@ export const NewSaleModal: React.FC = () => {
                   }}
                   className={`py-4 px-2 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
                     cashRegisterBlocksPayment
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                      ? 'bg-slate-100 text-slate-400 border-mc-line cursor-not-allowed'
                       : paymentType === 'FULL'
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-600/25 scale-[1.02] cursor-pointer'
-                      : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50 cursor-pointer'
+                      : 'bg-white text-mc-ink border-mc-line hover:bg-slate-50 cursor-pointer'
                   }`}
                 >
                   <Check className="w-5 h-5" />
-                  <span className="text-xs sm:text-sm font-black">Il paie tout</span>
+                  <span className="text-xs sm:text-sm font-extrabold">Il paie tout</span>
                   <span className="text-[10px] opacity-80">(100% encaissé)</span>
                 </button>
 
@@ -1717,14 +1717,14 @@ export const NewSaleModal: React.FC = () => {
                   }}
                   className={`py-4 px-2 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
                     cashRegisterBlocksPayment
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                      ? 'bg-slate-100 text-slate-400 border-mc-line cursor-not-allowed'
                       : paymentType === 'PARTIAL'
                       ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-lg shadow-amber-500/25 scale-[1.02] cursor-pointer'
-                      : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50 cursor-pointer'
+                      : 'bg-white text-mc-ink border-mc-line hover:bg-slate-50 cursor-pointer'
                   }`}
                 >
                   <AlertCircle className="w-5 h-5" />
-                  <span className="text-xs sm:text-sm font-black">Il paie une partie</span>
+                  <span className="text-xs sm:text-sm font-extrabold">Il paie une partie</span>
                   <span className="text-[10px] opacity-80">(Acompte reçu)</span>
                 </button>
 
@@ -1739,11 +1739,11 @@ export const NewSaleModal: React.FC = () => {
                   className={`py-4 px-2 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                     paymentType === 'CREDIT'
                       ? 'bg-rose-600 text-white border-rose-600 shadow-lg shadow-rose-600/25 scale-[1.02]'
-                      : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
+                      : 'bg-white text-mc-ink border-mc-line hover:bg-slate-50'
                   }`}
                 >
                   <User className="w-5 h-5" />
-                  <span className="text-xs sm:text-sm font-black">Il paie plus tard</span>
+                  <span className="text-xs sm:text-sm font-extrabold">Il paie plus tard</span>
                   <span className="text-[10px] opacity-80">(0 F reçu)</span>
                 </button>
               </div>
@@ -1752,7 +1752,7 @@ export const NewSaleModal: React.FC = () => {
               {paymentType === 'PARTIAL' && (
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-3 animate-in fade-in">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-black text-amber-950">
+                    <label className="text-xs font-extrabold text-amber-950">
                       Combien il te donne maintenant ?
                     </label>
                     <span className="text-xs font-bold text-amber-800">
@@ -1784,15 +1784,15 @@ export const NewSaleModal: React.FC = () => {
               )}
 
               {/* RÉCAPITULATIF PERMANENT (avec possibilité de modifier la remise) */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-2.5 shadow-xs">
-                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+              <div className="p-4 rounded-2xl bg-white border border-mc-line space-y-2.5 shadow-xs">
+                <div className="flex justify-between items-center text-xs text-mc-soft font-medium">
                   <span>Sous-total articles</span>
                   <span className="font-semibold text-slate-700">{formatMoney(cartTotal)}</span>
                 </div>
 
                 {/* Remise récap */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className={appliedDiscount > 0 ? 'font-bold text-rose-600' : 'text-slate-500'}>
+                  <span className={appliedDiscount > 0 ? 'font-bold text-rose-600' : 'text-mc-soft'}>
                     {appliedDiscount > 0
                       ? `Remise (${discountMode === 'PERCENTAGE' && discountValue > 0 ? discountValue + ' %' : discountPercent + ' %'})`
                       : 'Remise'}
@@ -1804,7 +1804,7 @@ export const NewSaleModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsDiscountModalOpen(true)}
-                      className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
+                      className="text-xs font-bold text-[#5B4BF0] hover:underline cursor-pointer"
                     >
                       {appliedDiscount > 0 ? 'Modifier' : '+ Ajouter'}
                     </button>
@@ -1813,27 +1813,27 @@ export const NewSaleModal: React.FC = () => {
 
                 {/* Livraison récap */}
                 <div className="flex justify-between items-center text-xs">
-                  <span className={deliveryFee > 0 ? 'font-bold text-slate-800' : 'text-slate-500'}>Livraison</span>
+                  <span className={deliveryFee > 0 ? 'font-bold text-mc-ink' : 'text-mc-soft'}>Livraison</span>
                   <div className="flex items-center gap-2">
                     {deliveryFee > 0 && (
-                      <span className="font-bold text-slate-800">+ {formatMoney(deliveryFee)}</span>
+                      <span className="font-bold text-mc-ink">+ {formatMoney(deliveryFee)}</span>
                     )}
                     <button
                       type="button"
                       onClick={() => setIsDeliveryModalOpen(true)}
-                      className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
+                      className="text-xs font-bold text-[#5B4BF0] hover:underline cursor-pointer"
                     >
                       {deliveryFee > 0 ? 'Modifier' : '+ Ajouter'}
                     </button>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-sm font-black text-slate-900">
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-sm font-extrabold text-mc-ink">
                   <span>Total final</span>
-                  <span className="text-base text-[#4F46E5]">{formatMoney(finalTotal)}</span>
+                  <span className="text-base text-[#5B4BF0]">{formatMoney(finalTotal)}</span>
                 </div>
 
-                <div className="flex justify-between text-xs font-bold text-slate-800">
+                <div className="flex justify-between text-xs font-bold text-mc-ink">
                   <span>Ce qu'il te donne maintenant</span>
                   <span className="text-emerald-600">{formatMoney(actualPaid)}</span>
                 </div>
@@ -1843,7 +1843,7 @@ export const NewSaleModal: React.FC = () => {
                     <span className="text-xs font-extrabold uppercase tracking-wide">
                       IL TE DEVRA ENCORE :
                     </span>
-                    <span className="text-xl sm:text-2xl font-black text-rose-600">
+                    <span className="text-xl sm:text-2xl font-extrabold text-rose-600">
                       {formatMoney(remainingDebt)}
                     </span>
                   </div>
@@ -1853,7 +1853,7 @@ export const NewSaleModal: React.FC = () => {
               {/* MOYEN DE PAIEMENT */}
               {paymentType !== 'CREDIT' && (
                 <div className="space-y-2">
-                  <label className="text-xs font-extrabold text-slate-500 uppercase tracking-wider block">
+                  <label className="text-xs font-extrabold text-mc-soft uppercase tracking-wider block">
                     Mode d'encaissement
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -1871,8 +1871,8 @@ export const NewSaleModal: React.FC = () => {
                         onClick={() => setSelectedPaymentMethod(m.id as PaymentMethod)}
                         className={`p-3 rounded-2xl border text-center transition-all cursor-pointer text-xs font-bold flex items-center justify-center gap-2 ${
                           selectedPaymentMethod === m.id
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-xs scale-[1.02]'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-mc-ink text-white border-slate-900 shadow-xs scale-[1.02]'
+                            : 'bg-white text-slate-700 border-mc-line hover:bg-slate-100'
                         }`}
                       >
                         {m.icon}
@@ -1886,7 +1886,7 @@ export const NewSaleModal: React.FC = () => {
 
             {/* Bottom Step Actions */}
             <div
-              className="px-4 pt-3 bg-white border-t border-slate-200 mt-auto shrink-0 sticky bottom-0 space-y-1"
+              className="px-4 pt-3 bg-white border-t border-mc-line mt-auto shrink-0 sticky bottom-0 space-y-1"
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}
             >
               <div className="max-w-2xl mx-auto w-full space-y-1">
@@ -1907,7 +1907,7 @@ export const NewSaleModal: React.FC = () => {
                 id="btn-back-to-review"
                 type="button"
                 onClick={() => setStep('REVIEW')}
-                className="w-full py-2 text-[12px] font-semibold text-slate-500 text-center cursor-pointer"
+                className="w-full py-2 text-[12px] font-semibold text-mc-soft text-center cursor-pointer"
               >
                 ← Revenir à la commande
               </button>

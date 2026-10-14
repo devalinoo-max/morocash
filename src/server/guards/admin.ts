@@ -1,6 +1,7 @@
 import { prisma } from '@/server/database/client';
 import { AppError } from '@/server/shared/errors';
 import { getAdminSessionFromCookies } from '@/server/modules/admin/session';
+import { ensureCsrfToken } from '@/server/middleware/csrf';
 
 export interface AdminContext {
   adminUserId: string;
@@ -25,5 +26,6 @@ export async function requireAdminSession(): Promise<AdminContext> {
     throw new AppError('AUTH_SESSION_EXPIRED', 'Compte administrateur introuvable ou désactivé.');
   }
 
+  await ensureCsrfToken();
   return { adminUserId: admin.id, nom: admin.nom, email: admin.email };
 }

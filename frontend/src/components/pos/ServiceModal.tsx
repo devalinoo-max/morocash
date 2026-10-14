@@ -107,8 +107,8 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-[460px] rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white w-full max-w-[460px] rounded-mc shadow-2xl overflow-hidden border border-mc-line flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -133,7 +133,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
         <div className="p-5 space-y-4">
           {/* Champ 1: Quel service ? */}
           <div>
-            <label className="text-xs font-bold text-slate-800 block mb-1.5">
+            <label className="text-xs font-bold text-mc-ink block mb-1.5">
               Quel service ? *
             </label>
             <input
@@ -143,13 +143,13 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               onChange={(e) => setServiceName(e.target.value)}
               placeholder="Ex : Livraison à Cocody, Retouche..."
               autoFocus
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5] transition-all"
+              className="w-full h-11 px-3.5 rounded-xl border border-mc-line bg-slate-50 text-sm font-semibold text-mc-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B4BF0] transition-all"
             />
           </div>
 
           {/* Champ 2: Combien tu factures ? */}
           <div>
-            <label className="text-xs font-bold text-slate-800 block mb-1.5">
+            <label className="text-xs font-bold text-mc-ink block mb-1.5">
               Combien tu factures ? *
             </label>
             <MoneyInput
@@ -167,7 +167,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                 key={v}
                 type="button"
                 onClick={() => setAmount(v)}
-                className="flex-1 py-1.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100 text-[#4F46E5] font-bold text-xs transition-colors cursor-pointer"
+                className="flex-1 py-1.5 rounded-xl bg-mc-primary-tint hover:bg-mc-primary-tint text-[#5B4BF0] font-bold text-xs transition-colors cursor-pointer"
               >
                 +{v} F
               </button>
@@ -188,7 +188,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                     onClick={() => handleSelectRecent(svc)}
                     className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                       serviceName === svc
-                        ? 'bg-[#4F46E5] text-white shadow-xs'
+                        ? 'bg-[#5B4BF0] text-white shadow-xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
@@ -199,13 +199,13 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             </div>
           )}
 
-          <p className="pt-2 text-[11px] text-slate-500">
+          <p className="pt-2 text-[11px] text-mc-soft">
             Le service est gardé dans ton catalogue : tu le retrouveras pour les prochaines commandes.
           </p>
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+        <div className="p-4 bg-slate-50 border-t border-mc-line flex items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
@@ -218,7 +218,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             type="button"
             onClick={handleConfirm}
             disabled={!serviceName.trim() || amount <= 0}
-            className="h-11 px-5 rounded-2xl bg-[#4F46E5] hover:bg-indigo-700 disabled:opacity-40 text-white text-xs sm:text-sm font-bold shadow-md cursor-pointer flex items-center gap-2 transition-all"
+            className="h-11 px-5 rounded-full bg-mc-primary hover:bg-mc-primary-dark disabled:opacity-40 text-white text-xs sm:text-sm font-bold shadow-md cursor-pointer flex items-center gap-2 transition-all"
           >
             <Check className="w-4 h-4" />
             <span>Ajouter à la commande</span>
