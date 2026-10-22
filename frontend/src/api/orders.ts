@@ -56,6 +56,8 @@ export interface ApiOrder {
   /** Payé et reste à payer, calculés par le serveur (absents sur un serveur plus ancien). */
   paye?: number;
   reste?: number;
+  /** Commercial de la vente (null = non attribuée ; absent sur un serveur plus ancien). */
+  commercialId?: string | null;
 }
 
 export interface CreateOrderInput {
@@ -67,6 +69,10 @@ export interface CreateOrderInput {
   fraisLivraison?: number;
   montantRecu: number;
   methode: string;
+  /** « Vendu par » : envoyé seulement si un commercial est choisi. */
+  commercialId?: string;
+  /** Nom joint, pour un commercial créé hors ligne que le serveur ne connaît pas encore. */
+  commercialNom?: string;
 }
 
 export function listOrders() {
@@ -163,6 +169,7 @@ export function toFrontendSale(
     syncStatus: 'SYNCED',
     isCancelled: order.statut === 'ANNULEE',
     cancelReason: order.motifAnnulation ?? undefined,
+    commercialId: order.commercialId ?? null,
   };
 }
 
@@ -175,6 +182,8 @@ export function toCreateOrderInput(params: {
   fraisLivraison?: number;
   montantRecu: number;
   methode: PaymentMethod;
+  commercialId?: string | null;
+  commercialNom?: string;
 }): CreateOrderInput {
   return {
     clientUuid: params.clientUuid ?? generateClientUuid(),
@@ -191,5 +200,6 @@ export function toCreateOrderInput(params: {
     fraisLivraison: params.fraisLivraison ? params.fraisLivraison : undefined,
     montantRecu: params.montantRecu,
     methode: toApiPaymentMethode(params.methode),
+    ...(params.commercialId ? { commercialId: params.commercialId, commercialNom: params.commercialNom } : {}),
   };
 }

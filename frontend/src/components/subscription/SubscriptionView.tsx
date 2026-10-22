@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Crown,
@@ -19,22 +19,26 @@ import { formatMoney, formatPaymentMethod } from '../../utils/formatters';
 import {
   PLANS,
   BILLING_PERIODS,
-  PRICING_JUSTIFICATION,
   TRIAL_DAYS,
   getFullPrice,
   type BillingPeriod,
 } from '../../data/plans';
-import { ApiError } from '../../api/client';
+import { ApiError, generateClientUuid } from '../../api/client';
 import {
+  fetchRenewalQuote,
   fetchSubscriptionOverview,
   fetchSubscriptionPayment,
   startSubscriptionCheckout,
+  type RenewalQuote,
   type SubscriptionOverview,
   type SubscriptionPaymentStatus,
 } from '../../api/subscriptions';
+import { RenewSheet, formatDateCourte } from './RenewSheet';
 
 interface SubscriptionViewProps {
   onBack?: () => void;
+  /** Ouvrir directement la feuille « Prolonger mon abonnement » (bandeau du menu). */
+  openRenew?: boolean;
 }
 
 /** Paramètre ajouté à l'adresse de retour par le backend (voir startCheckout). */
@@ -70,7 +74,7 @@ const discountedPrice = (price: number, reductionPct: number): number =>
 
 const AFFILIATE_DISCOUNT_LABEL = "Réduction code d'affiliation";
 
-export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
+export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openRenew = false }) => {
   const { settings, showToast, refreshPlanStatus } = useApp();
 
   // Formule dont on choisit la durée (page « Choisis ta durée »), puis durée
@@ -79,6 +83,10 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
   const [checkoutPeriod, setCheckoutPeriod] = useState<BillingPeriod | null>(null);
   const [returnState, setReturnState] = useState<ReturnState | null>(null);
   const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
+  // Feuille « Prolonger mon abonnement » (même formule, 1, 3 ou 12 mois).
+  const [renewOpen, setRenewOpen] = useState(openRenew);
+  // Un identifiant par formule et durée : un double clic sur « Payer » n'ouvre qu'un paiement.
+  const checkoutUuids = useRef<Record<string, string>>({});
 
   const loadOverview = () =>
     fetchSubscriptionOverview()
@@ -120,7 +128,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
           if (payment.statut === 'REUSSI') {
             await refreshPlanStatus().catch(() => undefined);
             await loadOverview();
-            if (!cancelled) showToast('Paiement reçu : ton abonnement est actif.', 'success');
+            if (!cancelled) showToast('Paiement reçu : ton abonnement est prolongé.', 'success');
           }
           return;
         }
@@ -160,8 +168,10 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
   const startPayment = async (periode: BillingPeriod) => {
     if (!durationPlan || checkoutPeriod) return;
     setCheckoutPeriod(periode);
+    const key = `${durationPlan}:${periode}`;
+    const clientUuid = (checkoutUuids.current[key] ??= generateClientUuid());
     try {
-      const { redirectUrl } = await startSubscriptionCheckout(durationPlan, periode);
+      const { redirectUrl } = await startSubscriptionCheckout(durationPlan, periode, clientUuid);
       window.location.assign(redirectUrl);
     } catch (error) {
       setCheckoutPeriod(null);
@@ -256,7 +266,28 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
       </div>
 
       {/* Mon abonnement : visible dès qu'une formule a été payée */}
-      {overview?.current && <MySubscriptionCard overview={overview} />}
+      {overview?.current && (
+        <MySubscriptionCard
+          overview={overview}
+          onRenew={overview.planCode ? () => setRenewOpen(true) : undefined}
+        />
+      )}
+
+      {renewOpen && overview?.planCode && (
+        <RenewSheet
+          planCode={overview.planCode}
+          onClose={() => setRenewOpen(false)}
+          onError={(message) => showToast(message, 'error')}
+          onUpgrade={
+            overview.planCode === 'SOLO'
+              ? () => {
+                  setRenewOpen(false);
+                  openDurationPicker('BUSINESS');
+                }
+              : undefined
+          }
+        />
+      )}
 
       {/* Formule la plus complète : plus de choix, on détaille ce qu'elle apporte */}
       {!showBusinessCard && <BusinessAdvantages overview={overview} />}
@@ -284,16 +315,6 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = () => {
               ctaLabel={currentPlan === 'SOLO' ? 'Passer en Business' : 'Choisir la formule Business'}
               onSelect={() => openDurationPicker('BUSINESS')}
             />
-          </div>
-
-          {/* Justifier le prix : encadré discret */}
-          <div className="max-w-4xl mx-auto p-5 sm:p-6 rounded-2xl bg-white border border-mc-line text-mc-ink space-y-2 text-center sm:text-left">
-            <p className="text-xs sm:text-sm font-semibold leading-relaxed text-slate-700">
-              "{PRICING_JUSTIFICATION.quote}"
-            </p>
-            <p className="text-[11px] font-bold text-mc-soft uppercase tracking-wider">
-              MoroCash s'autofinance dès ta première semaine d'utilisation.
-            </p>
           </div>
 
           <MobileMoneyMethods />
@@ -443,6 +464,26 @@ const DurationPicker: React.FC<{
   const [selected, setSelected] = useState<BillingPeriod>('ANNUEL');
   const selectedPeriod = BILLING_PERIODS.find((p) => p.id === selected) ?? BILLING_PERIODS[0];
   const isPending = pendingPeriod !== null;
+  // Devis du serveur : nouvelle date de fin (jours restants convertis au
+  // prorata) et durées refusées par le plafond de 12 mois d'avance.
+  const [quote, setQuote] = useState<RenewalQuote | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchRenewalQuote(planId)
+      .then((q) => {
+        if (cancelled) return;
+        setQuote(q);
+        const annuel = q.options.find((o) => o.periode === 'ANNUEL');
+        const premier = q.options.find((o) => !o.bloque);
+        if (annuel?.bloque && premier) setSelected(premier.periode);
+      })
+      .catch(() => undefined); // hors ligne : la page reste utilisable, le serveur tranchera au paiement
+    return () => {
+      cancelled = true;
+    };
+  }, [planId]);
+  const quoteOf = (periode: BillingPeriod) => quote?.options.find((o) => o.periode === periode) ?? null;
+  const selectedQuote = quoteOf(selected);
   // Prix normal, puis prix à payer (réduction du code d'affiliation au premier paiement).
   const prixNormalDe = (periode: BillingPeriod) => priceForPeriod(planId, periode, tarifAnnuelBusiness);
   const prixDe = (periode: BillingPeriod) => discountedPrice(prixNormalDe(periode), reduction);
@@ -473,6 +514,7 @@ const DurationPicker: React.FC<{
           const savings = Math.max(0, getFullPrice(planId, period.id) - normal);
           const isSelected = selected === period.id;
           const isYear = period.id === 'ANNUEL';
+          const bloque = quoteOf(period.id)?.bloque ?? false;
 
           return (
             <button
@@ -480,10 +522,15 @@ const DurationPicker: React.FC<{
               type="button"
               role="radio"
               aria-checked={isSelected}
-              disabled={isPending}
+              disabled={isPending || bloque}
+              title={bloque ? 'Plus de 12 mois d’avance' : undefined}
               onClick={() => setSelected(period.id)}
               className={`relative text-left p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer disabled:cursor-not-allowed ${
-                isSelected ? 'border-[#5B4BF0] bg-[#EEF2FF]' : 'border-mc-line bg-white hover:border-slate-300'
+                bloque
+                  ? 'border-mc-line bg-slate-50 opacity-60'
+                  : isSelected
+                  ? 'border-[#5B4BF0] bg-[#EEF2FF]'
+                  : 'border-mc-line bg-white hover:border-slate-300'
               }`}
             >
               {isYear && (
@@ -499,7 +546,11 @@ const DurationPicker: React.FC<{
                     <span className="block text-xs font-bold text-slate-400 line-through">{formatMoney(normal)}</span>
                   )}
                   <span className="block text-[11px] text-mc-soft">
-                    {period.mois > 1 ? `soit ${formatMoney(Math.round(total / period.mois))} / mois` : 'sans engagement'}
+                    {bloque
+                      ? 'Plus de 12 mois d’avance'
+                      : period.mois > 1
+                      ? `soit ${formatMoney(Math.round(total / period.mois))} / mois`
+                      : 'sans engagement'}
                   </span>
                 </div>
                 <span
@@ -539,9 +590,21 @@ const DurationPicker: React.FC<{
             {AFFILIATE_DISCOUNT_LABEL} (-{reduction} %) : premier paiement seulement, les suivants au prix normal.
           </p>
         )}
+        {selectedQuote && !selectedQuote.bloque && (
+          <p className="text-xs text-slate-700">
+            {selectedQuote.conversion && selectedQuote.conversion.joursConvertis > 0 && (
+              <>
+                Tes jours restants valent {formatMoney(selectedQuote.conversion.valeur)}, soit{' '}
+                {selectedQuote.conversion.joursConvertis} jour{selectedQuote.conversion.joursConvertis > 1 ? 's' : ''} de{' '}
+                {plan.nom} en plus.{' '}
+              </>
+            )}
+            Ton abonnement ira jusqu’au <strong>{formatDateCourte(selectedQuote.dateFinApres)}</strong>
+          </p>
+        )}
         <button
           onClick={() => onPay(selected)}
-          disabled={isPending}
+          disabled={isPending || !!selectedQuote?.bloque}
           className="w-full py-3.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all disabled:opacity-60 disabled:cursor-wait"
         >
           {isPending ? (
@@ -630,7 +693,10 @@ const BusinessAdvantages: React.FC<{ overview: SubscriptionOverview | null }> = 
   );
 };
 
-const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ overview }) => {
+const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview; onRenew?: () => void }> = ({
+  overview,
+  onRenew,
+}) => {
   const { current, payments, joursRestants, subscriptionEndsAt } = overview;
   if (!current) return null;
 
@@ -697,6 +763,18 @@ const MySubscriptionCard: React.FC<{ overview: SubscriptionOverview }> = ({ over
               : `Expire dans ${joursRestants} jour${joursRestants > 1 ? 's' : ''} — le ${formatShortDate(endIso)}`}
           </p>
         </div>
+
+        {/* Prolonger sans attendre l'échéance : les jours restants s'ajoutent. */}
+        {onRenew && (
+          <button
+            type="button"
+            onClick={onRenew}
+            className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
+          >
+            <span>Renouveler maintenant</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <InfoTile label="Début de la période" value={formatLongDate(current.dateDebut)} />
@@ -831,7 +909,7 @@ const PaymentReturnBanner: React.FC<{ state: ReturnState; onClose: () => void }>
   let tone = 'bg-slate-50 border-mc-line text-mc-ink';
   let icon = <Loader2 className="w-5 h-5 animate-spin text-[#5B4BF0]" />;
   let title = 'Vérification de ton paiement…';
-  let text = 'Valide le paiement sur ton téléphone si ce n’est pas encore fait. Ne ferme pas cette page.';
+  let text: React.ReactNode = 'Valide le paiement sur ton téléphone si ce n’est pas encore fait. Ne ferme pas cette page.';
   let closable = false;
 
   if (state.phase === 'pending') {
@@ -852,10 +930,16 @@ const PaymentReturnBanner: React.FC<{ state: ReturnState; onClose: () => void }>
     if (payment.statut === 'REUSSI') {
       tone = 'bg-emerald-50 border-emerald-200 text-emerald-950';
       icon = <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
-      title = `Paiement de ${formatMoney(payment.montant)} reçu`;
-      text = payment.subscriptionEndsAt
-        ? `Ta formule ${payment.planCode === 'BUSINESS' ? 'Business' : 'Solo'} est active jusqu’au ${new Date(payment.subscriptionEndsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}.`
-        : 'Ton abonnement est actif.';
+      // La date est celle posée par le serveur sur CE paiement, jamais recalculée ici.
+      const fin = payment.dateFinApres ?? payment.subscriptionEndsAt;
+      title = `Paiement reçu (${formatMoney(payment.montant)})`;
+      text = fin ? (
+        <>
+          Ton abonnement va maintenant jusqu’au <strong>{formatDateCourte(fin)}</strong>.
+        </>
+      ) : (
+        'Ton abonnement est actif.'
+      );
     } else {
       tone = 'bg-rose-50 border-rose-200 text-rose-900';
       icon = <XCircle className="w-5 h-5 text-rose-600" />;

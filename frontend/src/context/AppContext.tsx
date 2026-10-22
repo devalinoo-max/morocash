@@ -57,6 +57,7 @@ import * as cashApi from '../api/cash';
 import * as expensesApi from '../api/expenses';
 import * as stockApi from '../api/stock';
 import * as usersApi from '../api/users';
+import * as commerciauxApi from '../api/commerciaux';
 import { ApiError, generateClientUuid } from '../api/client';
 import * as paymentsApi from '../api/payments';
 import {
@@ -268,6 +269,8 @@ interface AppContextType {
   settings: ShopSettings;
   updateSettings: (newSettings: Partial<ShopSettings>) => void;
   updateCashRegisterMode: (mode: 'LIBRE' | 'STRICT') => Promise<boolean>;
+  /** Réglages → « Suivre les ventes par commercial » (propriétaire). */
+  updateSuiviCommercial: (actif: boolean) => Promise<boolean>;
   /** Relit la formule depuis le serveur (après un paiement d'abonnement). */
   refreshPlanStatus: () => Promise<void>;
   /** Relit tout de suite le serveur (bouton « Actualiser » de la barre haute). */
@@ -412,8 +415,12 @@ interface AppContextType {
     pin: string;
     role: 'SELLER' | 'ACCOUNTANT';
     permissions: EmployeePermission[];
+    estCommercial?: boolean;
   }) => Promise<boolean>;
   setEmployeeActive: (id: string, actif: boolean) => Promise<boolean>;
+  setEmployeeCommercial: (id: string, estCommercial: boolean) => Promise<boolean>;
+  /** Correction du commercial d'une vente (propriétaire, en ligne). */
+  setSaleCommercial: (saleId: string, commercialId: string | null) => Promise<boolean>;
 
   // "Mes appareils connectés" (réglages > Mon compte) — sessions réelles de l'utilisateur.
   mySessions: authApi.ApiSession[];
@@ -1024,6 +1031,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // côté serveur — limite pré-existante de ce prototype), le mode de caisse a
   // un vrai impact serveur (createOrder/createManualMovement en dépendent) :
   // il doit donc être écrit en base, pas seulement en mémoire locale.
+  // Suivi des ventes par commercial : réglage de la boutique, écrit en base
+  // (le serveur attribue d'office les ventes d'un vendeur commercial).
+  const updateSuiviCommercial = async (actif: boolean): Promise<boolean> => {
+    try {
+      const business = await businessApi.updateBusinessSettings({ suiviCommercialActif: actif });
+      updateSettings({ suiviCommercialActif: business.suiviCommercialActif });
+      setCurrentBusiness((prev) => (prev ? { ...prev, suiviCommercialActif: business.suiviCommercialActif } : prev));
+      showToast(
+        business.suiviCommercialActif
+          ? 'Suivi par commercial activé : choisis qui a vendu à chaque vente.'
+          : 'Suivi par commercial désactivé. Les attributions passées sont gardées.',
+        'success'
+      );
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
+  };
+
   const updateCashRegisterMode = async (mode: 'LIBRE' | 'STRICT'): Promise<boolean> => {
     try {
       const business = await businessApi.updateBusinessSettings({ cashRegisterMode: mode });
@@ -1925,6 +1952,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       subscriptionDaysLeft,
       quotaMaxProducts,
       cashRegisterMode: session.business.cashRegisterMode ?? 'LIBRE',
+      suiviCommercialActif: session.business.suiviCommercialActif ?? false,
     }));
     setAuthStatus('authenticated');
     authStatusRef.current = 'authenticated';
@@ -2173,6 +2201,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     customerName?: string;
     customerPhone?: string;
     notes?: string;
+    /** « Vendu par » : commercial choisi (null ou absent = non attribuée). */
+    commercialId?: string | null;
+    commercialNom?: string;
   }): Promise<Sale | null> => {
     if (cart.length === 0) {
       showToast('Le panier est vide', 'warning');
@@ -2226,6 +2257,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       notes: params.notes,
       sellerName,
     });
+    sale.commercialId = params.commercialId ?? null;
 
     setSales((prev) => [sale, ...prev]);
     setProducts((prev) => applySaleToStock(prev, sale));
@@ -2255,6 +2287,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         fraisLivraison: params.deliveryFee,
         montantRecu: Math.max(0, Math.round(params.paidAmount)),
         methode: params.paymentMethod,
+        commercialId: params.commercialId,
+        commercialNom: params.commercialNom,
       }),
       meta: {
         customerName: params.customerName,
@@ -2934,10 +2968,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     pin: string;
     role: 'SELLER' | 'ACCOUNTANT';
     permissions: EmployeePermission[];
+    estCommercial?: boolean;
   }): Promise<boolean> => {
     try {
       await usersApi.createEmployee(input);
       showToast(`${input.nom} a été ajouté à l'équipe`, 'success');
+      await fetchEmployees();
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
+  };
+
+  const setSaleCommercial = async (saleId: string, commercialId: string | null): Promise<boolean> => {
+    try {
+      const order = await commerciauxApi.changeOrderCommercial(saleId, commercialId);
+      setSales((prev) => prev.map((s) => (s.id === saleId ? { ...s, commercialId: order.commercialId } : s)));
+      showToast('Commercial de la vente modifié', 'success');
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
+  };
+
+  const setEmployeeCommercial = async (id: string, estCommercial: boolean): Promise<boolean> => {
+    try {
+      await usersApi.setEmployeeCommercial(id, estCommercial);
+      showToast(estCommercial ? 'Ses ventes lui seront attribuées' : 'N’est plus commercial', 'info');
       await fetchEmployees();
       return true;
     } catch (error) {
@@ -3292,6 +3351,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         settings,
         updateSettings,
         updateCashRegisterMode,
+        updateSuiviCommercial,
         refreshPlanStatus,
         refreshNow,
         isRefreshing,
@@ -3371,6 +3431,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         fetchEmployees,
         addEmployee,
         setEmployeeActive,
+        setEmployeeCommercial,
+        setSaleCommercial,
         mySessions,
         fetchMySessions,
         revokeMySession,

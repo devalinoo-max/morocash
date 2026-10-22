@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApp } from '../../context/AppContext';
+import { CommerciauxSettings } from './CommerciauxSettings';
 import { CategoriesManager } from './CategoriesManager';
 import { ShopLogoUploader } from './ShopLogoUploader';
 import { PushNotificationsSetting } from './PushNotificationsSetting';
@@ -1155,6 +1156,9 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Suivi des ventes par commercial */}
+                <CommerciauxSettings />
 
                 {/* 6. Mode de caisse */}
                 <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-3">

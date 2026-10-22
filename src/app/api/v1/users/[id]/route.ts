@@ -9,7 +9,9 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const patchSchema = z.object({ actif: z.boolean() });
+const patchSchema = z
+  .object({ actif: z.boolean().optional(), estCommercial: z.boolean().optional() })
+  .refine((v) => v.actif !== undefined || v.estCommercial !== undefined);
 
 // Désactivation/réactivation uniquement — pas de suppression réelle (spec §0
 // règle 4), réservé au propriétaire.
@@ -24,10 +26,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       throw new AppError('VALIDATION_ERROR', 'Données invalides.', parsed.error.flatten());
     }
 
-    const user = await setEmployeeActive(ctx.businessId, id, parsed.data.actif);
+    const user = await setEmployeeActive(ctx.businessId, id, parsed.data);
 
     await auditable(ctx, {
-      action: parsed.data.actif ? 'USER_REACTIVATED' : 'USER_DEACTIVATED',
+      action:
+        parsed.data.actif === undefined
+          ? 'USER_UPDATED'
+          : parsed.data.actif
+            ? 'USER_REACTIVATED'
+            : 'USER_DEACTIVATED',
+      nouvellesValeurs: parsed.data,
       entite: 'User',
       entiteId: id,
     });

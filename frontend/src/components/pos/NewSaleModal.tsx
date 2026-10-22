@@ -40,6 +40,8 @@ import { DiscountModal } from './DiscountModal';
 import { DeliveryModal } from './DeliveryModal';
 import { ServiceModal } from './ServiceModal';
 import { CustomerPickerModal } from './CustomerPickerModal';
+import { SalesRepPicker } from './SalesRepPicker';
+import { rememberLastCommercial, type LocalCommercial } from '../../offline/commerciaux';
 
 type SaleStep = 'PRODUCTS' | 'REVIEW' | 'PAYMENT';
 
@@ -138,6 +140,7 @@ export const NewSaleModal: React.FC = () => {
     setSelectedSaleForReceipt,
     showToast,
     activeCashSession,
+    currentBusiness,
   } = useApp();
 
   // Navigation state
@@ -159,6 +162,11 @@ export const NewSaleModal: React.FC = () => {
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL' | 'CREDIT'>('FULL');
   const [customPaidAmount, setCustomPaidAmount] = useState<number>(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('CASH');
+
+  // « Vendu par » (suivi par commercial activé seulement). undefined = la
+  // pré-sélection n'a pas encore eu lieu pour cette vente.
+  const [commercial, setCommercial] = useState<LocalCommercial | null | undefined>(undefined);
+  const suiviCommercial = !!settings.suiviCommercialActif;
 
   // Customer State (Mandatory)
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -432,9 +440,15 @@ export const NewSaleModal: React.FC = () => {
       customerName: selectedCustomerObj?.name,
       customerPhone: selectedCustomerObj?.phone,
       notes: discountReason ? `Remise: ${discountReason}` : undefined,
+      ...(suiviCommercial && commercial ? { commercialId: commercial.id, commercialNom: commercial.nom } : {}),
     });
 
     if (createdSale) {
+      // Pré-sélection de la vente suivante (propriétaire et gestionnaire).
+      if (suiviCommercial && currentBusiness && settings.role !== 'SELLER') {
+        rememberLastCommercial(currentBusiness.id, commercial?.id ?? null);
+      }
+      setCommercial(undefined);
       setIsNewSaleOpen(false);
       setSelectedSaleForReceipt(createdSale);
 
@@ -1881,6 +1895,14 @@ export const NewSaleModal: React.FC = () => {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* VENDU PAR : juste au-dessus de la validation, jamais obligatoire. */}
+              {suiviCommercial && (
+                <SalesRepPicker
+                  value={commercial === undefined ? undefined : commercial?.id ?? null}
+                  onChange={setCommercial}
+                />
               )}
             </div>
 

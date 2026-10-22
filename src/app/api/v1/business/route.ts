@@ -28,7 +28,11 @@ export async function PATCH(request: Request) {
     });
 
     return ok({
-      business: { cashRegisterMode: business.cashRegisterMode, reglages: business.reglages },
+      business: {
+        cashRegisterMode: business.cashRegisterMode,
+        suiviCommercialActif: business.suiviCommercialActif,
+        reglages: business.reglages,
+      },
     });
   } catch (error) {
     return fail(error);

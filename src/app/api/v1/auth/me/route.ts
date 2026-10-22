@@ -31,6 +31,7 @@ export async function GET() {
         // L'app masque les écrans auxquels la personne n'a pas droit ; le
         // serveur refuse de toute façon les appels correspondants (guards).
         permissions: user.permissions,
+        estCommercial: user.estCommercial,
       },
       business: {
         id: ctx.business.id,
@@ -48,6 +49,7 @@ export async function GET() {
         dureeEssaiJours: ctx.business.dureeEssaiJours,
         locked: isBusinessLocked(ctx.business),
         cashRegisterMode: ctx.business.cashRegisterMode,
+        suiviCommercialActif: ctx.business.suiviCommercialActif,
         // Réglages partagés entre les appareils de la boutique (null tant que
         // le propriétaire n'en a envoyé aucun).
         reglages: ctx.business.reglages ?? null,

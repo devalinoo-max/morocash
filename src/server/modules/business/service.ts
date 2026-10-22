@@ -16,6 +16,8 @@ const LOGO_KEYS = ['logoUrl', 'logoTransparentUrl'] as const;
 
 export const updateBusinessSettingsSchema = z.object({
   cashRegisterMode: z.enum(['LIBRE', 'STRICT']).optional(),
+  // « Suivre les ventes par commercial ». Le couper ne supprime aucune attribution.
+  suiviCommercialActif: z.boolean().optional(),
   reglages: z
     .record(z.string(), z.unknown())
     .refine((r) => JSON.stringify(r).length <= MAX_REGLAGES_LENGTH, {
@@ -73,6 +75,7 @@ export async function updateBusinessSettings(businessId: string, input: UpdateBu
     where: { id: businessId },
     data: {
       ...(input.cashRegisterMode !== undefined ? { cashRegisterMode: input.cashRegisterMode } : {}),
+      ...(input.suiviCommercialActif !== undefined ? { suiviCommercialActif: input.suiviCommercialActif } : {}),
       ...(reglages !== undefined ? { reglages } : {}),
     },
   });

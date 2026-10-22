@@ -61,6 +61,7 @@ type Ctx = {
   role: UserRole;
   remiseMaxVendeur: number;
   cashRegisterMode: CashRegisterMode;
+  suiviCommercialActif?: boolean;
 };
 
 async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
@@ -83,6 +84,7 @@ async function processOne(ctx: Ctx, op: SyncOperation): Promise<SyncResult> {
             // toujours (DISCOUNT_ABOVE_LIMIT) au moment de la synchronisation.
             remiseMaxVendeur: ctx.remiseMaxVendeur,
             cashRegisterMode: ctx.cashRegisterMode,
+            suiviCommercialActif: ctx.suiviCommercialActif,
           },
           parsed
         );

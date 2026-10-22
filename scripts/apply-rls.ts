@@ -17,6 +17,7 @@ const DIRECT_TABLES = [
   'ProductCode',
   'DailyStats',
   'Notification',
+  'Commercial',
 ];
 
 async function applyDirectPolicy(client: Client, table: string) {

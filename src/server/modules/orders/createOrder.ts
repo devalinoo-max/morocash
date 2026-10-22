@@ -4,6 +4,7 @@ import { AppError } from '@/server/shared/errors';
 import { upsertDailyStatsForOrder } from '@/server/modules/reports/dailyStats';
 import { ensureOpenRegisterForPayment } from '@/server/modules/cash/service';
 import { receiptNumber } from '@/server/modules/payments/versements';
+import { resolveOrderCommercial } from '@/server/modules/commerciaux/service';
 import type { UserRole, CashRegisterMode } from '@prisma/client';
 
 export const orderItemInputSchema = z.object({
@@ -23,6 +24,11 @@ export const createOrderSchema = z.object({
   methode: z
     .enum(['ESPECES', 'WAVE', 'ORANGE_MONEY', 'MTN', 'MOOV', 'VIREMENT', 'AUTRE'])
     .default('ESPECES'),
+  // « Vendu par » : commercial choisi (UUID tiré par l'appareil). Facultatif :
+  // une vente sans commercial est valide (« Non attribué »).
+  commercialId: z.string().uuid().nullish(),
+  // Nom joint pour un commercial créé hors ligne que le serveur ne connaît pas encore.
+  commercialNom: z.string().trim().max(120).optional(),
 });
 
 // fraisLivraison reste facultatif pour les appels directs au service : seul le
@@ -37,6 +43,8 @@ export interface CreateOrderContext {
   role: UserRole;
   remiseMaxVendeur: number;
   cashRegisterMode: CashRegisterMode;
+  /** Suivi des ventes par commercial activé pour la boutique. */
+  suiviCommercialActif?: boolean;
 }
 
 function formatOrderNumero(date: Date, sequence: number): string {
@@ -177,6 +185,10 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
       const dernierRang = dernier ? Number(dernier.numero.slice(prefixeDuJour.length)) || 0 : 0;
       const numero = formatOrderNumero(new Date(), dernierRang + 1);
 
+      // Commercial de la vente : décidé par le serveur (un vendeur commercial
+      // vend toujours pour lui-même ; un commercial créé hors ligne est créé ici).
+      const commercialId = await resolveOrderCommercial(tx, ctx, input);
+
       // 5. Créer Order + OrderItem
       const order = await tx.order.create({
         data: {
@@ -193,6 +205,7 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
           total,
           coutTotal,
           statutPaiement,
+          commercialId,
           items: { create: lines },
         },
         include: { items: true },

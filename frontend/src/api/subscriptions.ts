@@ -9,6 +9,27 @@ export interface SubscriptionPaymentStatus {
   periode: SubscriptionPeriod | null;
   montant: number;
   subscriptionEndsAt: string | null;
+  /** Fin d'abonnement posée par ce paiement, calculée par le serveur (null tant qu'il n'a pas réussi). */
+  dateFinApres: string | null;
+}
+
+/** Devis de prolongation : tout est calculé par le serveur, l'écran ne fait qu'afficher. */
+export interface RenewalQuote {
+  planCode: 'SOLO' | 'BUSINESS';
+  planNom: string;
+  dateFinActuelle: string | null;
+  joursRestants: number;
+  enEssai: boolean;
+  options: {
+    periode: SubscriptionPeriod;
+    mois: number;
+    montant: number;
+    prixNormal: number;
+    dateFinApres: string;
+    /** Plus de 12 mois d'avance : le serveur refusera cette durée. */
+    bloque: boolean;
+    conversion: { valeur: number; joursConvertis: number } | null;
+  }[];
 }
 
 export interface SubscriptionOverview {
@@ -34,6 +55,9 @@ export interface SubscriptionOverview {
     referencePasserelle: string | null;
     /** Remise du code d'affiliation (prix normal = montant + remise). */
     remiseAffiliation: number;
+    nombreMois: number | null;
+    dateFinAvant: string | null;
+    dateFinApres: string | null;
     planCode: 'SOLO' | 'BUSINESS' | null;
     periode: SubscriptionPeriod | null;
     dateDebut: string | null;
@@ -47,8 +71,27 @@ export function fetchSubscriptionOverview() {
 }
 
 /** POST /subscriptions/checkout — renvoie l'adresse de la page de paiement pawaPay. */
-export function startSubscriptionCheckout(planCode: 'SOLO' | 'BUSINESS', periode: SubscriptionPeriod) {
-  return api.post<{ paymentId: string; redirectUrl: string }>('/subscriptions/checkout', { planCode, periode });
+/**
+ * `clientUuid` est tiré une fois par choix de durée : un double clic sur
+ * « Payer » renvoie le même paiement au lieu d'en ouvrir un second.
+ */
+export function startSubscriptionCheckout(
+  planCode: 'SOLO' | 'BUSINESS',
+  periode: SubscriptionPeriod,
+  clientUuid?: string
+) {
+  return api.post<{ paymentId: string; redirectUrl: string }>('/subscriptions/checkout', {
+    planCode,
+    periode,
+    ...(clientUuid ? { clientUuid } : {}),
+  });
+}
+
+/** GET /subscriptions/quote — prix et nouvelle date de fin de chaque durée, avant paiement. */
+export function fetchRenewalQuote(planCode: 'SOLO' | 'BUSINESS') {
+  return api
+    .get<{ quote: RenewalQuote }>(`/subscriptions/quote?planCode=${planCode}`)
+    .then((d) => d.quote);
 }
 
 export function fetchSubscriptionPayment(paymentId: string) {

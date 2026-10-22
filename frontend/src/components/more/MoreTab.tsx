@@ -40,6 +40,7 @@ import { PLANS } from '../../data/plans';
 import { PERMISSION_OPTIONS, type EmployeePermission } from '../../data/permissions';
 import { MoneyInput } from '../common/UIStates';
 import { SubscriptionView } from '../subscription/SubscriptionView';
+import { SubscriptionBanner } from './SubscriptionBanner';
 import { ReportsTab } from '../reports/ReportsTab';
 import { SettingsPage } from '../settings/SettingsPage';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
@@ -67,6 +68,7 @@ export const MoreTab: React.FC = () => {
     fetchEmployees,
     addEmployee,
     setEmployeeActive,
+    setEmployeeCommercial,
     isWriteLocked,
     gateWrite,
     newExpenseRequested,
@@ -77,6 +79,8 @@ export const MoreTab: React.FC = () => {
 
   // State for Employees (BLOC 8) — la liste vient du backend (voir fetchEmployees
   // déclenché ci-dessous quand cet onglet s'ouvre), plus de données locales figées.
+  // « Renouveler » du bandeau d'abonnement : la page s'ouvre sur la feuille de prolongation.
+  const [renouvelerDirect, setRenouvelerDirect] = useState(false);
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
   const [empName, setEmpName] = useState('');
   const [empPhone, setEmpPhone] = useState('');
@@ -85,6 +89,9 @@ export const MoreTab: React.FC = () => {
   // Toutes décochées : un employé ne reçoit que ce que le propriétaire coche
   // lui-même. Rien n'est accordé « pour faire gagner du temps ».
   const [empPermissions, setEmpPermissions] = useState<EmployeePermission[]>([]);
+  // Case « Commercial » : visible seulement si le suivi par commercial est activé.
+  const [empCommercial, setEmpCommercial] = useState(false);
+  const suiviCommercial = !!settings.suiviCommercialActif;
 
   const toggleEmpPermission = (code: EmployeePermission) =>
     setEmpPermissions((current) =>
@@ -116,6 +123,7 @@ export const MoreTab: React.FC = () => {
       pin: empPin,
       role: empRole,
       permissions: empPermissions,
+      estCommercial: suiviCommercial && empCommercial,
     });
     setIsSavingEmployee(false);
     if (!success) return;
@@ -123,6 +131,7 @@ export const MoreTab: React.FC = () => {
     setEmpPhone('');
     setEmpPin('');
     setEmpPermissions([]);
+    setEmpCommercial(false);
     setIsAddEmployeeOpen(false);
   };
 
@@ -251,6 +260,11 @@ export const MoreTab: React.FC = () => {
                           ? 'Gestionnaire'
                           : 'Vendeur'}
                       </span>
+                      {suiviCommercial && emp.estCommercial && (
+                        <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
+                          Commercial
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-mc-soft mt-0.5 flex items-center gap-2">
                       <span>{emp.telephone}</span>
@@ -270,6 +284,17 @@ export const MoreTab: React.FC = () => {
                   </div>
                 </div>
 
+                {isOwner && emp.role !== 'OWNER' && suiviCommercial && (
+                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={!!emp.estCommercial}
+                      onChange={(e) => void setEmployeeCommercial(emp.id, e.target.checked)}
+                      className="w-4 h-4 accent-[#5B4BF0] cursor-pointer"
+                    />
+                    Commercial
+                  </label>
+                )}
                 {isOwner && emp.role !== 'OWNER' && (
                   <button
                     onClick={() => setEmployeeActive(emp.id, false)}
@@ -382,6 +407,27 @@ export const MoreTab: React.FC = () => {
                       : `${empPermissions.length} droit${empPermissions.length > 1 ? 's' : ''} accordé${empPermissions.length > 1 ? 's' : ''}.`}
                   </p>
                 </fieldset>
+
+                {suiviCommercial && (
+                  <label
+                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-colors ${
+                      empCommercial ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-mc-line hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={empCommercial}
+                      onChange={(e) => setEmpCommercial(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 shrink-0 accent-[#5B4BF0] cursor-pointer"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold text-mc-ink">Commercial</span>
+                      <span className="block text-[10px] text-mc-soft leading-snug">
+                        Ses ventes lui sont attribuées d’office ; il ne peut pas les attribuer à un collègue.
+                      </span>
+                    </span>
+                  </label>
+                )}
 
                 <div className="pt-2 flex gap-2">
                   <button
@@ -663,7 +709,7 @@ export const MoreTab: React.FC = () => {
           <ArrowLeft className="w-5 h-5" />
           <span>Menu</span>
         </button>
-        <SubscriptionView onBack={() => setActiveMoreSubTab(null)} />
+        <SubscriptionView onBack={() => setActiveMoreSubTab(null)} openRenew={renouvelerDirect} />
       </div>
     );
   }
@@ -944,6 +990,18 @@ export const MoreTab: React.FC = () => {
             : 'Solo'}
         </button>
       </div>
+
+      {/* OÙ EN EST L'ABONNEMENT — jours restants et date de fin, essai compris */}
+      <SubscriptionBanner
+        onOpen={() => {
+          setRenouvelerDirect(false);
+          setActiveMoreSubTab('subscription');
+        }}
+        onRenew={() => {
+          setRenouvelerDirect(true);
+          setActiveMoreSubTab('subscription');
+        }}
+      />
 
       {/* TOUS LES JOURS — quatre grandes tuiles, faciles au pouce */}
       <section className="space-y-2">

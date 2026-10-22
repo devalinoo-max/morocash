@@ -1,7 +1,6 @@
-import { addMonths } from 'date-fns';
 import type { PaymentMethod, Prisma, SubPayState, SubPeriod } from '@prisma/client';
 import { prisma } from '@/server/database/client';
-import { PERIOD_MONTHS } from '@/server/shared/subscription';
+import { PERIOD_MONTHS, computeRenewal } from '@/server/shared/subscription';
 import { creditAffiliateCommission } from './affiliates';
 
 /**
@@ -33,6 +32,8 @@ export function createPendingSubscriptionPayment(input: {
   /** Remise du code d'affiliation déjà déduite de montant, en FCFA. */
   remiseAffiliation?: number;
   depositId: string;
+  /** Identifiant tiré par l'appareil : un second envoi retombe sur ce paiement. */
+  clientUuid?: string;
 }) {
   const now = new Date();
   return prisma.subscription.create({
@@ -53,10 +54,27 @@ export function createPendingSubscriptionPayment(input: {
           referenceInterne: input.depositId,
           statut: 'INITIE',
           remiseAffiliation: input.remiseAffiliation ?? 0,
+          nombreMois: PERIOD_MONTHS[input.periode],
+          clientUuid: input.clientUuid ?? null,
         },
       },
     },
   });
+}
+
+/** Paiement déjà ouvert par ce clic (même clientUuid), pour cette boutique seulement. */
+export function findBusinessPaymentByClientUuid(businessId: string, clientUuid: string) {
+  return prisma.subscriptionPayment.findFirst({ where: { clientUuid, businessId }, include: withPlan });
+}
+
+/** Garde l'adresse de la page pawaPay, renvoyée telle quelle à un double clic. */
+export async function savePaymentUrl(depositId: string, urlPaiement: string): Promise<void> {
+  await prisma.subscriptionPayment.update({ where: { referenceInterne: depositId }, data: { urlPaiement } });
+}
+
+/** Formule payée en ce moment par la boutique (prix mensuel pour le prorata). */
+export function findPlanById(planId: string) {
+  return prisma.plan.findUnique({ where: { id: planId } });
 }
 
 export function findPaymentByReference(depositId: string) {
@@ -139,11 +157,9 @@ export async function closePendingPayment(
  * le même callback, et la page de retour interroge le statut en parallèle :
  * seul le premier passage INITIE → REUSSI prolonge l'abonnement.
  *
- * Rien de ce qui est déjà acquis n'est perdu : la nouvelle période démarre à la
- * fin de l'abonnement en cours s'il court encore, ou à la fin de l'essai si
- * l'essai n'est pas terminé, sinon maintenant. Payer en avance ne coûte donc
- * jamais un jour — c'est pourtant ce que les bandeaux d'alerte encouragent à
- * faire dès la première semaine.
+ * Rien de ce qui est déjà payé n'est perdu : la nouvelle période démarre à la
+ * fin de l'abonnement en cours s'il court encore, sinon maintenant (voir
+ * computeRenewal). Payer en avance ne coûte donc jamais un jour.
  */
 export function activatePaidSubscription(input: {
   payment: SubscriptionPaymentWithPlan;
@@ -165,23 +181,32 @@ export function activatePaidSubscription(input: {
     if (claimed.count === 0 || !payment.subscription) return false;
 
     const business = await tx.business.findUniqueOrThrow({ where: { id: payment.businessId } });
+    const planActuel = business.planId ? await tx.plan.findUnique({ where: { id: business.planId } }) : null;
     const now = new Date();
-    // Report du temps restant, qu'il soit payé (abonnement en cours) ou offert
-    // (essai non terminé) : on démarre à la plus lointaine de ces échéances.
-    const enCours =
-      business.statut === 'ACTIF' && business.subscriptionEndsAt && business.subscriptionEndsAt > now
-        ? business.subscriptionEndsAt
-        : null;
-    const essaiRestant =
-      business.statut === 'ESSAI' && business.trialEndsAt && business.trialEndsAt > now
-        ? business.trialEndsAt
-        : null;
-    const dateDebut = enCours ?? essaiRestant ?? now;
-    const dateFin = addMonths(dateDebut, PERIOD_MONTHS[payment.subscription.periode]);
+    // Seule règle de prolongation (computeRenewal) : fin actuelle + N mois si
+    // l'abonnement court encore, sinon maintenant + N mois. L'essai ne se
+    // reporte pas. Pas de plafond ici : l'argent est déjà encaissé, le
+    // plafond de 12 mois d'avance est vérifié à l'ouverture du paiement.
+    const renewal = computeRenewal({
+      now,
+      statut: business.statut,
+      subscriptionEndsAt: business.subscriptionEndsAt,
+      planActuel,
+      planCible: payment.subscription.plan,
+      mois: payment.nombreMois ?? PERIOD_MONTHS[payment.subscription.periode],
+    });
+    // Changement de formule : la nouvelle période commence aujourd'hui, les
+    // jours convertis s'ajoutent à sa durée.
+    const dateDebut = renewal.conversion ? now : renewal.dateDebut;
+    const dateFin = renewal.dateFinApres;
 
     await tx.subscription.update({
       where: { id: payment.subscription.id },
       data: { dateDebut, dateFin, actif: true },
+    });
+    await tx.subscriptionPayment.update({
+      where: { id: payment.id },
+      data: { dateFinAvant: renewal.dateFinAvant, dateFinApres: dateFin },
     });
 
     // Une boutique suspendue ou résiliée entre-temps garde ce statut : c'est
@@ -213,6 +238,8 @@ export function activatePaidSubscription(input: {
           methode: input.methode,
           dateDebut,
           dateFin,
+          dateFinAvant: renewal.dateFinAvant,
+          conversion: renewal.conversion,
         },
       },
     });

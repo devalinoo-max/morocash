@@ -59,6 +59,7 @@ export async function POST(request: Request) {
         role: ctx.role,
         remiseMaxVendeur: ctx.business.remiseMaxVendeur,
         cashRegisterMode: ctx.business.cashRegisterMode,
+        suiviCommercialActif: ctx.business.suiviCommercialActif,
       },
       parsed.data
     );

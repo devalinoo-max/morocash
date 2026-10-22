@@ -30,6 +30,7 @@ import {
 import { formatMoney, formatMoneyCompact, formatDate, formatNumber } from '../../utils/formatters';
 import { Sale, Expense, CashMovement, PaymentMethod, Customer } from '../../types';
 import { CustomerDetailPanel } from '../customers/CustomerDetailPanel';
+import { CommerciauxReport } from './CommerciauxReport';
 
 type PeriodPreset = 'today' | '7days' | '30days' | 'thisMonth' | 'thisYear' | 'custom';
 
@@ -37,7 +38,7 @@ interface ReportsTabProps {
   onBack?: () => void;
 }
 
-export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
+const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
   const {
     sales,
     expenses,
@@ -1789,6 +1790,53 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+type ReportsView = 'general' | 'commerciaux';
+
+/**
+ * Rapports. Suivi par commercial activé : un onglet « Commerciaux » s'ajoute,
+ * pour le propriétaire et le gestionnaire. Le gestionnaire n'a que lui (la vue
+ * générale, avec marges et bénéfices, reste réservée au propriétaire).
+ */
+export const ReportsTab: React.FC<ReportsTabProps> = ({ onBack }) => {
+  const { settings } = useApp();
+  const isOwner = settings.role === 'OWNER';
+  const voitCommerciaux = !!settings.suiviCommercialActif && (isOwner || settings.role === 'ACCOUNTANT');
+  const [vue, setVue] = useState<ReportsView>(isOwner ? 'general' : 'commerciaux');
+
+  if (!voitCommerciaux) return <GeneralReports onBack={onBack} />;
+
+  return (
+    <div className="space-y-4 pb-20 max-w-[1400px] mx-auto">
+      {isOwner ? (
+        <Segmented<ReportsView>
+          id="btn-reports-view"
+          label="Rapport"
+          value={vue}
+          onChange={setVue}
+          options={[
+            { id: 'general', label: 'Vue générale' },
+            { id: 'commerciaux', label: 'Commerciaux' },
+          ]}
+        />
+      ) : (
+        <>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Menu</span>
+            </button>
+          )}
+          <h2 className="text-xl font-extrabold text-mc-ink">Commerciaux</h2>
+        </>
+      )}
+      {vue === 'commerciaux' ? <CommerciauxReport /> : <GeneralReports onBack={onBack} />}
     </div>
   );
 };

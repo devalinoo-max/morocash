@@ -5,6 +5,8 @@ import { checkQuota } from '@/server/guards';
 import { AppError } from '@/server/shared/errors';
 import { hashPin } from '@/server/modules/auth/pin';
 import { EMPLOYEE_PERMISSIONS } from './permissions';
+import { runInTenantTransaction } from '@/server/repositories/base';
+import { syncEmployeeCommercial } from '@/server/modules/commerciaux/service';
 
 export const createEmployeeSchema = z.object({
   nom: z.string().trim().min(2).max(120),
@@ -14,6 +16,8 @@ export const createEmployeeSchema = z.object({
   // Chaque droit est coché individuellement par le propriétaire. Liste absente
   // ou vide = aucun droit : on n'en accorde jamais un par défaut.
   permissions: z.array(z.enum(EMPLOYEE_PERMISSIONS)).default([]),
+  // Case « Commercial » : ses ventes lui sont attribuées (suivi par commercial).
+  estCommercial: z.boolean().default(false),
 });
 
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
@@ -29,13 +33,18 @@ export async function createEmployee(businessId: string, input: CreateEmployeeIn
   const codeHash = await hashPin(input.pin);
   const repo = scoped(businessId);
   try {
-    return await repo.users.create({
+    const user = await repo.users.create({
       nom: input.nom,
       telephone: input.telephone,
       codeHash,
       role: input.role,
       permissions: input.permissions,
+      estCommercial: input.estCommercial,
     });
+    if (user.estCommercial) {
+      await runInTenantTransaction(businessId, (tx) => syncEmployeeCommercial(tx, businessId, user, true));
+    }
+    return user;
   } catch (error) {
     // Contrainte unique [businessId, telephone] — aucun code dédié dans la liste
     // fixe (spec §8) pour "téléphone déjà utilisé dans cette boutique" ;
@@ -52,7 +61,11 @@ export async function createEmployee(businessId: string, input: CreateEmployeeIn
  * même politique que Product : historique des ventes/mouvements attaché à
  * l'utilisateur ne doit pas se retrouver orphelin).
  */
-export async function setEmployeeActive(businessId: string, id: string, actif: boolean) {
+export async function setEmployeeActive(
+  businessId: string,
+  id: string,
+  input: { actif?: boolean; estCommercial?: boolean }
+) {
   const repo = scoped(businessId);
   const existing = await repo.users.findById(id);
   if (!existing) {
@@ -61,10 +74,20 @@ export async function setEmployeeActive(businessId: string, id: string, actif: b
   if (existing.role === 'OWNER') {
     throw new AppError('FORBIDDEN_ROLE', 'Le propriétaire ne peut pas être désactivé.');
   }
-  await repo.users.update(id, { actif });
+  await repo.users.update(id, {
+    ...(input.actif !== undefined ? { actif: input.actif } : {}),
+    ...(input.estCommercial !== undefined ? { estCommercial: input.estCommercial } : {}),
+  });
   const updated = await repo.users.findById(id);
   if (!updated) {
     throw new AppError('RESOURCE_NOT_OWNED', 'Employé introuvable.');
+  }
+  // Fiche commercial : active seulement si l'employé est actif ET commercial.
+  // Décocher ou désactiver la passe inactive, sans toucher à ses ventes.
+  if (updated.estCommercial || existing.estCommercial) {
+    await runInTenantTransaction(businessId, (tx) =>
+      syncEmployeeCommercial(tx, businessId, updated, updated.actif && updated.estCommercial)
+    );
   }
   return updated;
 }

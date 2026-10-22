@@ -12,6 +12,7 @@ import { buildHistory, debtSentence, statusSubtitle } from '../../utils/orderDet
 import { buildReceiptMessage, buildReminderMessage, openWhatsApp } from '../../utils/saleMessages';
 import { CancelOrderDialog } from './CancelOrderDialog';
 import { CollectRemainingModal } from './CollectRemainingModal';
+import { SaleCommercialRow } from './SaleCommercialRow';
 
 interface OrderDetailPanelProps {
   sale: Sale;
@@ -235,6 +236,9 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
             </div>
             {client && <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />}
           </button>
+
+          {/* Commercial de la vente (suivi par commercial activé seulement) */}
+          <SaleCommercialRow sale={sale} />
 
           {/* B3 — Quand, par qui, et sous quel numéro */}
           <section className="bg-white rounded-2xl border border-mc-line grid grid-cols-3 divide-x divide-slate-100">

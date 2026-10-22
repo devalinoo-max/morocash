@@ -4,8 +4,10 @@ import * as Sentry from '@sentry/nextjs';
 import type { Business, PaymentMethod, SubPeriod } from '@prisma/client';
 import { AppError } from '@/server/shared/errors';
 import {
+  PERIOD_MONTHS,
   affiliateDiscountedPrice,
   businessPriceForPeriod,
+  computeRenewal,
   isAdministrativelyLocked,
   periodLabel,
 } from '@/server/shared/subscription';
@@ -21,6 +23,9 @@ import {
   countActiveUsers,
   hasSuccessfulPayment,
   findPaymentByReference,
+  findBusinessPaymentByClientUuid,
+  findPlanById,
+  savePaymentUrl,
   type SubscriptionPaymentWithPlan,
 } from '@/server/repositories/subscriptions';
 
@@ -30,7 +35,47 @@ const PAYMENT_PAGE_EXPIRY_MS = 20 * 60 * 1000;
 export const checkoutSchema = z.object({
   planCode: z.enum(['SOLO', 'BUSINESS']),
   periode: z.enum(['MENSUEL', 'TRIMESTRIEL', 'SEMESTRIEL', 'ANNUEL']),
+  // Tiré par l'appareil à l'ouverture de la feuille de paiement. Facultatif
+  // pour les versions de l'app qui ne l'envoient pas encore.
+  clientUuid: z.string().uuid().optional(),
 });
+
+const PERIODES: SubPeriod[] = ['MENSUEL', 'TRIMESTRIEL', 'SEMESTRIEL', 'ANNUEL'];
+
+/** Nouvelle date de fin si cette boutique payait maintenant cette formule pour cette durée. */
+async function renewalFor(business: Business, plan: { code: string; prixMensuel: number }, periode: SubPeriod) {
+  const planActuel = business.planId ? await findPlanById(business.planId) : null;
+  return computeRenewal({
+    now: new Date(),
+    statut: business.statut,
+    subscriptionEndsAt: business.subscriptionEndsAt,
+    planActuel,
+    planCible: plan,
+    mois: PERIOD_MONTHS[periode],
+  });
+}
+
+const AVANCE_MAX_MESSAGE =
+  "Tu as déjà plus de 12 mois payés d'avance. Reviens plus près de ta date de fin pour prolonger.";
+
+/** Double clic sur « Payer » : le paiement déjà ouvert par ce clic, s'il existe. */
+async function existingCheckout(
+  businessId: string,
+  clientUuid: string
+): Promise<{ paymentId: string; redirectUrl: string } | null> {
+  // L'autre clic peut être encore en train d'ouvrir la page pawaPay : on lui
+  // laisse quelques secondes pour en poser l'adresse.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const payment = await findBusinessPaymentByClientUuid(businessId, clientUuid);
+    if (!payment) return null;
+    if (payment.statut !== 'INITIE') {
+      throw new AppError('VALIDATION_ERROR', 'Ce paiement a déjà été traité. Recharge la page pour voir ton abonnement.');
+    }
+    if (payment.urlPaiement) return { paymentId: payment.referenceInterne, redirectUrl: payment.urlPaiement };
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new AppError('SERVER_ERROR', 'Le paiement est en cours d’ouverture. Réessaie dans un instant.');
+}
 
 export async function startCheckout(
   business: Business,
@@ -46,9 +91,17 @@ export async function startCheckout(
     throw new AppError('VALIDATION_ERROR', "Le paiement en ligne n'est pas encore disponible dans ton pays.");
   }
 
+  if (input.clientUuid) {
+    const already = await existingCheckout(business.id, input.clientUuid);
+    if (already) return already;
+  }
+
   const plan = await findActivePlanByCode(input.planCode);
   if (!plan) {
     throw new AppError('VALIDATION_ERROR', 'Offre introuvable ou inactive.');
+  }
+  if ((await renewalFor(business, plan, input.periode)).depasseAvanceMax) {
+    throw new AppError('VALIDATION_ERROR', AVANCE_MAX_MESSAGE);
   }
 
   // Le montant vient toujours de la base, jamais du navigateur. Réduction du
@@ -60,14 +113,27 @@ export async function startCheckout(
     throw new AppError('VALIDATION_ERROR', "Cette durée n'est pas disponible pour cette offre.");
   }
   const depositId = randomUUID();
-  const subscription = await createPendingSubscriptionPayment({
-    businessId: business.id,
-    planId: plan.id,
-    periode: input.periode,
-    montant,
-    remiseAffiliation: prixNormal - montant,
-    depositId,
-  });
+  let subscription;
+  try {
+    subscription = await createPendingSubscriptionPayment({
+      businessId: business.id,
+      planId: plan.id,
+      periode: input.periode,
+      montant,
+      remiseAffiliation: prixNormal - montant,
+      depositId,
+      clientUuid: input.clientUuid,
+    });
+  } catch (error) {
+    // Deux clics arrivés ensemble : le second bute sur le clientUuid unique
+    // et retombe sur le paiement ouvert par le premier.
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === 'P2002' && input.clientUuid) {
+      const already = await existingCheckout(business.id, input.clientUuid);
+      if (already) return already;
+    }
+    throw error;
+  }
 
   try {
     const redirectUrl = await createPaymentPage({
@@ -79,6 +145,7 @@ export async function startCheckout(
       reason: `Abonnement MoroCash ${plan.code === 'BUSINESS' ? 'Business' : 'Solo'} ${periodLabel(input.periode)}`,
       customerMessage: `MoroCash ${plan.code === 'BUSINESS' ? 'Business' : 'Solo'}`,
     });
+    await savePaymentUrl(depositId, redirectUrl);
     return { paymentId: depositId, redirectUrl };
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -97,6 +164,77 @@ export async function startCheckout(
 async function firstPaymentReduction(business: Pick<Business, 'id' | 'reductionPremierPaiement'>): Promise<number> {
   if (business.reductionPremierPaiement <= 0) return 0;
   return (await hasSuccessfulPayment(business.id)) ? 0 : business.reductionPremierPaiement;
+}
+
+export interface RenewalQuote {
+  planCode: string;
+  planNom: string;
+  /** Fin d'abonnement actuelle (null si jamais payé). */
+  dateFinActuelle: Date | null;
+  joursRestants: number;
+  enEssai: boolean;
+  options: {
+    periode: SubPeriod;
+    mois: number;
+    /** Montant qui sera demandé (réduction d'affiliation déduite). */
+    montant: number;
+    prixNormal: number;
+    /** Nouvelle fin si le paiement était confirmé maintenant. */
+    dateFinApres: Date;
+    /** Plus de 12 mois d'avance : cette durée sera refusée. */
+    bloque: boolean;
+    conversion: { valeur: number; joursConvertis: number } | null;
+  }[];
+}
+
+/**
+ * Devis de prolongation affiché AVANT le paiement : montant et nouvelle date
+ * de fin pour chaque durée, calculés ici et nulle part ailleurs (le navigateur
+ * ne fait qu'afficher). La date définitive est recalculée au paiement réussi
+ * avec la même règle.
+ */
+export async function getRenewalQuote(business: Business, planCode: 'SOLO' | 'BUSINESS'): Promise<RenewalQuote> {
+  const plan = await findActivePlanByCode(planCode);
+  if (!plan) {
+    throw new AppError('VALIDATION_ERROR', 'Offre introuvable ou inactive.');
+  }
+  const reduction = await firstPaymentReduction(business);
+  const planActuel = business.planId ? await findPlanById(business.planId) : null;
+  const now = new Date();
+
+  const options: RenewalQuote['options'] = [];
+  let joursRestants = 0;
+  for (const periode of PERIODES) {
+    const prixNormal = businessPriceForPeriod(business, plan, periode);
+    if (prixNormal <= 0) continue;
+    const r = computeRenewal({
+      now,
+      statut: business.statut,
+      subscriptionEndsAt: business.subscriptionEndsAt,
+      planActuel,
+      planCible: plan,
+      mois: PERIOD_MONTHS[periode],
+    });
+    joursRestants = r.joursRestants;
+    options.push({
+      periode,
+      mois: PERIOD_MONTHS[periode],
+      montant: affiliateDiscountedPrice(prixNormal, reduction),
+      prixNormal,
+      dateFinApres: r.dateFinApres,
+      bloque: r.depasseAvanceMax,
+      conversion: r.conversion,
+    });
+  }
+
+  return {
+    planCode: plan.code,
+    planNom: plan.nom,
+    dateFinActuelle: business.subscriptionEndsAt,
+    joursRestants,
+    enEssai: business.statut === 'ESSAI',
+    options,
+  };
 }
 
 function methodFromProvider(provider: string | undefined): PaymentMethod {
@@ -168,6 +306,8 @@ export interface PaymentStatusView {
   periode: SubPeriod | null;
   montant: number;
   subscriptionEndsAt: Date | null;
+  /** Fin d'abonnement posée par CE paiement (null tant qu'il n'a pas réussi). */
+  dateFinApres: Date | null;
 }
 
 export interface SubscriptionOverview {
@@ -204,6 +344,9 @@ export interface SubscriptionOverview {
     referencePasserelle: string | null;
     /** Remise du code d'affiliation sur ce paiement (prix normal = montant + remise). */
     remiseAffiliation: number;
+    nombreMois: number | null;
+    dateFinAvant: Date | null;
+    dateFinApres: Date | null;
     planCode: string | null;
     periode: SubPeriod | null;
     dateDebut: Date | null;
@@ -227,8 +370,14 @@ export async function getSubscriptionOverview(businessId: string): Promise<Subsc
   const now = Date.now();
   // Périodes triées par fin décroissante : on cherche celle qui couvre
   // aujourd'hui ; à défaut (tout est échu), la plus récente.
+  // Après un changement de formule, l'ancienne période court encore sur le
+  // papier : c'est la plus récemment commencée qui fait foi.
   const current =
-    subscriptions.find((s) => s.dateDebut.getTime() <= now && s.dateFin.getTime() > now) ?? subscriptions[0] ?? null;
+    subscriptions
+      .filter((s) => s.dateDebut.getTime() <= now && s.dateFin.getTime() > now)
+      .sort((a, b) => b.dateDebut.getTime() - a.dateDebut.getTime())[0] ??
+    subscriptions[0] ??
+    null;
   const plan = current?.plan ?? null;
   const endsAt = business.subscriptionEndsAt;
 
@@ -253,6 +402,9 @@ export async function getSubscriptionOverview(businessId: string): Promise<Subsc
       methode: p.methode,
       referencePasserelle: p.referencePasserelle,
       remiseAffiliation: p.remiseAffiliation,
+      nombreMois: p.nombreMois,
+      dateFinAvant: p.dateFinAvant,
+      dateFinApres: p.dateFinApres,
       planCode: p.subscription?.plan.code ?? null,
       periode: p.subscription?.periode ?? null,
       dateDebut: p.subscription?.dateDebut ?? null,
@@ -278,5 +430,6 @@ export async function getPaymentStatus(businessId: string, depositId: string): P
     periode: payment.subscription?.periode ?? null,
     montant: payment.montant,
     subscriptionEndsAt: business?.subscriptionEndsAt ?? null,
+    dateFinApres: payment.dateFinApres,
   };
 }

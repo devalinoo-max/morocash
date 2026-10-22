@@ -198,6 +198,8 @@ export interface Sale {
   isCancelled?: boolean;
   cancelledAt?: string;
   cancelReason?: string;
+  /** Commercial à qui la vente est attribuée (« Vendu par »). null = non attribuée. */
+  commercialId?: string | null;
 }
 
 export interface Customer {
@@ -326,6 +328,8 @@ export interface ShopSettings {
   // le commerçant doit explicitement ouvrir/fermer sa caisse (comportement
   // historique) — un paiement encaissé sans caisse ouverte est refusé.
   cashRegisterMode?: 'LIBRE' | 'STRICT';
+  /** « Suivre les ventes par commercial » : réglage de la boutique, lu à la connexion. */
+  suiviCommercialActif?: boolean;
   autoriserStockNegatif?: boolean;
   seuilEcartComptage?: number;
   depenseAutoReception?: boolean;

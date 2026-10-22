@@ -13,6 +13,8 @@ export interface ApiUser {
    * Absent des réponses d'inscription, où le compte créé est forcément OWNER.
    */
   permissions?: EmployeePermission[];
+  /** Case « Commercial » de la fiche employé. */
+  estCommercial?: boolean;
 }
 
 export type CountryCode = 'CI' | 'SN' | 'BJ' | 'TG' | 'ML' | 'BF';
@@ -34,6 +36,8 @@ export interface ApiBusiness {
   dureeEssaiJours?: number;
   locked?: boolean;
   cashRegisterMode?: 'LIBRE' | 'STRICT';
+  /** « Suivre les ventes par commercial » (Réglages), désactivé par défaut. */
+  suiviCommercialActif?: boolean;
   /**
    * Réglages partagés entre les appareils de la boutique (GET /auth/me).
    * null : le propriétaire n'en a encore envoyé aucun. Absent (réponse de

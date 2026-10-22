@@ -11,6 +11,7 @@ export function serializeUser(u: User) {
     // renvoie donc que la liste réellement accordée, l'UI traite le cas OWNER.
     permissions: u.permissions,
     actif: u.actif,
+    estCommercial: u.estCommercial,
     lastLoginAt: u.lastLoginAt,
     createdAt: u.createdAt,
   };
