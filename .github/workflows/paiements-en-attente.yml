@@ -1,0 +1,22 @@
+# Rattrapage des paiements d'abonnement : relit chez pawaPay ceux restés
+# « en attente » et active ceux qui ont été encaissés, au cas où le callback
+# de pawaPay n'est jamais arrivé. GitHub lance ce job toutes les 5 minutes
+# (parfois avec quelques minutes de retard). Le secret CRON_SECRET doit être
+# le même que dans Vercel (projet morocash).
+name: Paiements en attente
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  rattraper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Vérifier les paiements en attente chez pawaPay
+        run: |
+          curl --fail-with-body -sS -m 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://morocash.vercel.app/api/cron/paiements-en-attente

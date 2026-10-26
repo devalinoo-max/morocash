@@ -23,6 +23,7 @@ import {
   countActiveUsers,
   hasSuccessfulPayment,
   findPaymentByReference,
+  findPendingPayments,
   findBusinessPaymentByClientUuid,
   findPlanById,
   savePaymentUrl,
@@ -297,6 +298,55 @@ export async function handleDepositCallback(depositId: string): Promise<void> {
   const payment = await findPaymentByReference(depositId);
   if (!payment) return; // dépôt qui ne concerne pas les abonnements
   await reconcile(payment);
+}
+
+/** Paiements vérifiés par passage : large au-dessus du volume réel, borné pour tenir dans le délai de la route. */
+const PENDING_BATCH_SIZE = 50;
+
+export interface PendingReconciliationResult {
+  verifies: number;
+  reussis: number;
+  echoues: number;
+  expires: number;
+  /** Encore en cours chez pawaPay, ou montant inattendu à régler à la main. */
+  enAttente: number;
+  /** pawaPay injoignable ou réponse illisible : sera retenté au prochain passage. */
+  erreurs: number;
+}
+
+/**
+ * Rattrapage planifié (toutes les 5 minutes) : relit chez pawaPay chaque
+ * paiement resté INITIE. Sans lui, un paiement encaissé n'activait rien si le
+ * callback de pawaPay se perdait et que le client ne revenait pas sur l'app
+ * (ORIGINAL GALERIE, 22/10/2026). Même chemin que le callback (reconcile) :
+ * idempotent, un passage en double ne prolonge jamais deux fois.
+ */
+export async function reconcilePendingPayments(): Promise<PendingReconciliationResult> {
+  const pending = await findPendingPayments(PENDING_BATCH_SIZE);
+  const result: PendingReconciliationResult = {
+    verifies: pending.length,
+    reussis: 0,
+    echoues: 0,
+    expires: 0,
+    enAttente: 0,
+    erreurs: 0,
+  };
+
+  for (const payment of pending) {
+    try {
+      const after = await reconcile(payment);
+      if (after.statut === 'REUSSI') result.reussis += 1;
+      else if (after.statut === 'ECHOUE') result.echoues += 1;
+      else if (after.statut === 'EXPIRE') result.expires += 1;
+      else result.enAttente += 1;
+    } catch (error) {
+      // Un paiement en erreur ne bloque pas les suivants.
+      result.erreurs += 1;
+      console.error('[pawapay/rattrapage]', payment.referenceInterne, error);
+      Sentry.captureException(error, { extra: { depositId: payment.referenceInterne } });
+    }
+  }
+  return result;
 }
 
 export interface PaymentStatusView {

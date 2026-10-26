@@ -81,6 +81,16 @@ export function findPaymentByReference(depositId: string) {
   return prisma.subscriptionPayment.findUnique({ where: { referenceInterne: depositId }, include: withPlan });
 }
 
+/** Paiements encore en attente, les plus récents d'abord (rattrapage planifié). */
+export function findPendingPayments(limit: number) {
+  return prisma.subscriptionPayment.findMany({
+    where: { statut: 'INITIE' },
+    include: withPlan,
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+}
+
 export function findBusinessPaymentByReference(businessId: string, depositId: string) {
   return prisma.subscriptionPayment.findFirst({
     where: { referenceInterne: depositId, businessId },
