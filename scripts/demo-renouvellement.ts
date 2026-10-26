@@ -20,7 +20,7 @@ import {
 import { getRenewalQuote, getSubscriptionOverview } from '@/server/modules/subscriptions/service';
 import { createProduct } from '@/server/modules/products/service';
 import { createCustomer } from '@/server/modules/customers/service';
-import { createOrder } from '@/server/modules/orders/createOrder';
+import { createOrder, type CreateOrderContext } from '@/server/modules/orders/createOrder';
 import { cancelOrder } from '@/server/modules/orders/cancelOrder';
 import { collectOrderPayment } from '@/server/modules/payments/versements';
 import { createEmployee } from '@/server/modules/users/service';
@@ -122,15 +122,15 @@ async function main() {
 
   console.log('\nCHANTIER 2 — Commerciaux');
   await ownerPrisma.business.update({ where: { id: bid }, data: { suiviCommercialActif: true } });
-  const ctxOwner = { businessId: bid, userId: owner.id, role: 'OWNER' as const, remiseMaxVendeur: 0, cashRegisterMode: 'LIBRE' as const, suiviCommercialActif: true };
+  const ctxOwner: CreateOrderContext = { businessId: bid, userId: owner.id, role: 'OWNER', remiseMaxVendeur: 0, cashRegisterMode: 'LIBRE', suiviCommercialActif: true };
 
-  const koffi = await createCommercial({ businessId: bid, userId: owner.id }, { id: randomUUID(), nom: 'Koffi' });
-  const mariam = await createCommercial({ businessId: bid, userId: owner.id }, { id: randomUUID(), nom: 'Mariam' });
-  const awa = await createCommercial({ businessId: bid, userId: owner.id }, { id: randomUUID(), nom: 'Awa' });
+  const koffi = await createCommercial({ businessId: bid, userId: owner.id }, { id: randomUUID(), nom: 'Koffi', telephone: undefined });
+  const mariam = await createCommercial({ businessId: bid, userId: owner.id }, { id: randomUUID(), nom: 'Mariam', telephone: undefined });
+  const awa = await createCommercial({ businessId: bid, userId: owner.id }, { id: randomUUID(), nom: 'Awa', telephone: undefined });
 
   const produit = await createProduct(bid, { nom: 'Pagne wax', prixVente: 15000, prixAchat: 8000, stock: 100, seuilAlerte: 0, unite: 'pièce', type: 'PRODUIT' });
   const client = await createCustomer(bid, { nom: 'Client Démo' });
-  const vendre = (qte: number, recu: number, commercialId: string | null, commercialNom?: string, ctx = ctxOwner) =>
+  const vendre = (qte: number, recu: number, commercialId: string | null, commercialNom?: string, ctx: CreateOrderContext = ctxOwner) =>
     createOrder(ctx, {
       clientUuid: randomUUID(),
       customerId: client.id,
