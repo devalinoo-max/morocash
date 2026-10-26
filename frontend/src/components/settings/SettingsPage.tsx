@@ -25,6 +25,7 @@ import {
 import { motion } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import { CommerciauxSettings } from './CommerciauxSettings';
+import { SettingsDesktopNav } from './SettingsDesktopNav';
 import { CategoriesManager } from './CategoriesManager';
 import { ShopLogoUploader } from './ShopLogoUploader';
 import { PushNotificationsSetting } from './PushNotificationsSetting';
@@ -102,7 +103,7 @@ export const SettingsPage: React.FC = () => {
     { id: 'boutique', label: 'Ma boutique', desc: 'Nom, logo, téléphone, adresse', icon: Store, allowedRoles: ['OWNER'] },
     { id: 'recus', label: 'Mes reçus', desc: 'Ce qui s’affiche sur tes reçus', icon: Receipt, allowedRoles: ['OWNER'] },
     { id: 'etiquettes', label: 'Mes étiquettes', desc: 'Format et couleur', icon: Tag, allowedRoles: ['OWNER'] },
-    { id: 'vente', label: 'Ma façon de vendre', desc: 'Remises, stock, caisse', icon: ShoppingBag, allowedRoles: ['OWNER'] },
+    { id: 'vente', label: 'Ventes et caisse', desc: 'Remises, stock, caisse, commerciaux', icon: ShoppingBag, allowedRoles: ['OWNER'] },
     { id: 'affichage', label: 'Mon affichage', desc: 'Ce que tu vois à l’accueil', icon: Monitor, allowedRoles: ['OWNER'] },
     { id: 'categories', label: 'Mes catégories', desc: 'Produits et dépenses', icon: FolderTree, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
     { id: 'compte', label: 'Mon compte', desc: 'Nom, mot de passe, appareils', icon: UserCheck, allowedRoles: ['OWNER', 'SELLER', 'ACCOUNTANT'] },
@@ -282,13 +283,28 @@ export const SettingsPage: React.FC = () => {
   // côte à côte et cet état ne sert pas.
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const openSection = (sectionId: string) => {
+  const openSection = (sectionId: string, focus?: string) => {
     setActiveSection(sectionId);
     setMobileOpen(true);
     // La rubrique s'ouvre par son début, pas au milieu de la précédente.
     requestAnimationFrame(() => {
       document.getElementById('settings-page')?.scrollIntoView({ block: 'start' });
     });
+    // Recherche : on amène la ligne trouvée à l'écran et on la fait briller.
+    if (focus) {
+      window.setTimeout(() => {
+        const zone = document.getElementById(`section-${sectionId}`);
+        const cible = [...(zone?.querySelectorAll<HTMLElement>('label, h3, h4, p, span') ?? [])].find((el) =>
+          el.textContent?.includes(focus)
+        );
+        const ligne = (cible?.closest('.mc-setting-row') as HTMLElement | null) ?? cible?.parentElement ?? null;
+        if (!ligne) return;
+        ligne.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        ligne.classList.remove('mc-setting-flash');
+        void ligne.offsetWidth;
+        ligne.classList.add('mc-setting-flash');
+      }, 120);
+    }
   };
 
   // Inline "Enregistré" badge component
@@ -329,7 +345,7 @@ export const SettingsPage: React.FC = () => {
       <div className="flex flex-col lg:flex-row items-start gap-4 lg:gap-6">
         <nav
           aria-label="Rubriques des réglages"
-          className={`${mobileOpen ? 'hidden lg:block' : 'block'} w-full lg:w-72 shrink-0 lg:sticky lg:top-4`}
+          className={`${mobileOpen ? 'hidden' : 'block'} lg:hidden w-full`}
         >
           <div className="p-2 bg-white rounded-mc border border-mc-line shadow-mc-card space-y-1">
             {visibleSections.map((sec) => {
@@ -375,6 +391,9 @@ export const SettingsPage: React.FC = () => {
             })}
           </div>
         </nav>
+
+        {/* Ordinateur : menu court groupé par thème, avec recherche */}
+        <SettingsDesktopNav sections={visibleSections} active={activeSection} onOpen={openSection} />
 
         {/* La rubrique ouverte */}
         <div className={`${mobileOpen ? 'block' : 'hidden'} lg:block flex-1 w-full min-w-0 space-y-4`}>
@@ -1015,15 +1034,16 @@ export const SettingsPage: React.FC = () => {
                     <ShoppingBag className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-[20px] font-extrabold text-mc-ink">Ma façon de vendre</h2>
-                    <p className="text-[12px] text-mc-soft font-medium">Règles métier, plafonds vendeurs, gestion des stocks et de la caisse</p>
+                    <h2 className="text-[20px] font-extrabold text-mc-ink">Ventes et caisse</h2>
+                    <p className="text-[12px] text-mc-soft font-medium">Remises des vendeurs, stock, caisse et commerciaux</p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-5 mc-setting-list">
+                <h3 className="mc-setting-group">Vendeurs et remises</h3>
                 {/* 1. Remise maximale qu'un vendeur peut accorder */}
-                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
+                <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
@@ -1053,8 +1073,9 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
 
+                <h3 className="mc-setting-group">Stock</h3>
                 {/* 2. Autoriser la vente quand le stock est à zéro */}
-                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex items-center justify-between gap-4">
+                <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <label className="text-[14px] font-bold text-mc-ink">
@@ -1075,7 +1096,7 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 {/* 3. Écart de comptage qui demande une explication */}
-                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
+                <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
@@ -1106,7 +1127,7 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 {/* 4. Dépense automatique à chaque réception de marchandise */}
-                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex items-center justify-between gap-4">
+                <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <label className="text-[14px] font-bold text-mc-ink">
@@ -1126,8 +1147,9 @@ export const SettingsPage: React.FC = () => {
                   />
                 </div>
 
+                <h3 className="mc-setting-group">Caisse</h3>
                 {/* 5. Fond de caisse habituel */}
-                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
+                <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
@@ -1157,11 +1179,8 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Suivi des ventes par commercial */}
-                <CommerciauxSettings />
-
                 {/* 6. Mode de caisse */}
-                <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-3">
+                <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <label className="text-[14px] font-bold text-mc-ink">
@@ -1201,7 +1220,7 @@ export const SettingsPage: React.FC = () => {
 
                 {/* 7. Rappel fermeture caisse — pertinent seulement en mode Stricte */}
                 {settings.cashRegisterMode === 'STRICT' && (
-                  <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <label className="text-[14px] font-bold text-mc-ink">
@@ -1223,6 +1242,9 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                <h3 className="mc-setting-group">Commerciaux</h3>
+                <CommerciauxSettings />
               </div>
             </section>
           )}
@@ -1473,7 +1495,7 @@ export const SettingsPage: React.FC = () => {
                       value={pinConfirm}
                       onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="••••"
-                      className="flex-1 px-3 py-2 rounded-xl border border-mc-line text-sm text-center font-mono font-bold tracking-widest"
+                      className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-mc-line text-sm text-center font-mono font-bold tracking-widest"
                     />
                     <button
                       type="submit"

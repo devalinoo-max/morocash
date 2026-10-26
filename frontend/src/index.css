@@ -697,6 +697,61 @@ body {
   }
 }
 
+/* Réglages : titre d'un groupe de lignes (« Stock », « Caisse »...). */
+.mc-setting-group {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7091;
+  padding-top: 8px;
+}
+
+/* Réglages sur ordinateur : une liste de lignes séparées par un trait, comme
+   les pages de réglages de référence (libellé et aide à gauche, contrôle à
+   droite), au lieu d'une carte par réglage dans la carte de la rubrique. Sur
+   téléphone, les cartes restent : elles se touchent mieux au pouce. */
+@media (min-width: 1024px) {
+  .mc-setting-list > * {
+    margin-block: 0 !important;
+  }
+  .mc-setting-row {
+    border-width: 0 0 1px 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 20px 0 !important;
+  }
+  .mc-setting-list > .mc-setting-row:last-child {
+    border-bottom-width: 0 !important;
+  }
+  .mc-setting-group {
+    padding-top: 32px;
+    padding-bottom: 0;
+  }
+  /* La ligne qui précède un titre de groupe n'a pas de trait : l'espace suffit. */
+  .mc-setting-list > .mc-setting-row:has(+ .mc-setting-group) {
+    border-bottom-width: 0 !important;
+  }
+  .mc-setting-list > .mc-setting-group:first-child {
+    padding-top: 0;
+  }
+}
+
+/* Ligne trouvée par la recherche des réglages : brève surbrillance. */
+@keyframes mc-setting-flash {
+  0%,
+  60% {
+    background-color: #eef2ff;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.mc-setting-flash {
+  animation: mc-setting-flash 1.6s ease-out;
+  border-radius: 12px;
+}
+
 /* Interrupteur : une case à cocher habillée. 44 px de large, facile au pouce,
    et l'état se lit de loin (violet = activé). */
 .mc-switch {

@@ -51,7 +51,7 @@ export const CommerciauxSettings: React.FC = () => {
   };
 
   return (
-    <div className="p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-3">
+    <div className="mc-setting-row p-4 rounded-2xl border border-mc-line bg-mc-bg/50 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <label className="text-[14px] font-bold text-mc-ink">Suivre les ventes par commercial</label>
