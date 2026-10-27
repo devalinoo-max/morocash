@@ -36,6 +36,7 @@ import { useHardwareScanner } from '../../hooks/useHardwareScanner';
 import { resolveKeyboardScan } from '../../utils/hardwareScanner';
 import { playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { ProductFormModal } from '../products/ProductFormModal';
+import { ProductPhotoLightbox } from '../products/ProductPhotoLightbox';
 import { DiscountModal } from './DiscountModal';
 import { DeliveryModal } from './DeliveryModal';
 import { ServiceModal } from './ServiceModal';
@@ -112,6 +113,40 @@ function getProductInitial(name: string): string {
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
 }
 
+/**
+ * La vignette d'un produit dans la grille de vente, en 56 px : assez grande
+ * pour reconnaître l'article d'un coup d'œil sans perdre de produits à
+ * l'écran. Un appui sur la photo l'ouvre en grand au lieu d'ajouter au panier
+ * — le reste de la tuile ajoute, comme avant. Sans photo, l'initiale sur une
+ * couleur calculée sur le nom tient la même place.
+ */
+const ProductThumb: React.FC<{ product: Product; onZoom: (product: Product) => void }> = ({ product, onZoom }) => {
+  if (!product.photo) {
+    return (
+      <div
+        aria-hidden="true"
+        className="w-14 h-14 min-w-14 rounded-xl flex items-center justify-center text-white font-extrabold text-[20px] shrink-0 select-none"
+        style={{ backgroundColor: getProductThumbColor(product.name) }}
+      >
+        {getProductInitial(product.name)}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      aria-label={`Voir la photo de ${product.name} en grand`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onZoom(product);
+      }}
+      className="w-14 h-14 min-w-14 shrink-0 rounded-xl overflow-hidden bg-slate-100 cursor-zoom-in"
+    >
+      <img src={product.photo} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+    </button>
+  );
+};
+
 // Le tiroir ne se soulève qu'au tout premier ajout, sur cet appareil.
 const DRAWER_HINT_STORAGE_KEY = 'morocash_pos_drawer_hint_seen';
 
@@ -167,6 +202,8 @@ export const NewSaleModal: React.FC = () => {
   // pré-sélection n'a pas encore eu lieu pour cette vente.
   const [commercial, setCommercial] = useState<LocalCommercial | null | undefined>(undefined);
   const suiviCommercial = !!settings.suiviCommercialActif;
+  // Photo ouverte en grand depuis la grille : un coup d'œil, rien de plus.
+  const [photoAgrandie, setPhotoAgrandie] = useState<Product | null>(null);
 
   // Customer State (Mandatory)
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -908,6 +945,15 @@ export const NewSaleModal: React.FC = () => {
           </div>
         )}
 
+        {/* c ter) VENDU PAR : sous la livraison, là où on relit la commande —
+            plus visible qu'à l'étape du paiement. Jamais obligatoire. */}
+        {suiviCommercial && (
+          <SalesRepPicker
+            value={commercial === undefined ? undefined : commercial?.id ?? null}
+            onChange={setCommercial}
+          />
+        )}
+
         {/* d) Le récapitulatif */}
         <div className="rounded-2xl border border-mc-line p-3.5 space-y-2">
           <div className="flex justify-between items-center text-[13px] text-slate-600">
@@ -1126,7 +1172,7 @@ export const NewSaleModal: React.FC = () => {
                           <div
                             id={`pos-prod-card-${prod.id}`}
                             onClick={() => addToCart(prod)}
-                            className="h-[88px] p-3 rounded-[14px] border border-[#E2E8F0] bg-white flex flex-col justify-between transition-all hover:bg-[#F8FAFC] hover:border-[#CBD5E1] active:scale-[0.98] cursor-pointer relative text-left select-none shadow-xs group"
+                            className="h-[88px] p-3 rounded-[14px] border border-[#E2E8F0] bg-white flex items-stretch gap-3 transition-all hover:bg-[#F8FAFC] hover:border-[#CBD5E1] active:scale-[0.98] cursor-pointer relative text-left select-none shadow-xs group"
                           >
                             {/* In-cart badge in top-right */}
                             {inCart && (
@@ -1135,6 +1181,10 @@ export const NewSaleModal: React.FC = () => {
                               </span>
                             )}
 
+                            {/* La photo : reconnaître l'article sans lire le nom. */}
+                            <ProductThumb product={prod} onZoom={setPhotoAgrandie} />
+
+                            <div className="flex-1 min-w-0 flex flex-col justify-between">
                             {/* Ligne 1 : Nom du produit en gras (14px), 1 seule ligne, tronqué */}
                             <div className="pr-8">
                               <span className="text-sm font-bold text-mc-ink truncate block leading-snug">
@@ -1172,6 +1222,7 @@ export const NewSaleModal: React.FC = () => {
                                   Il te reste {prod.stock}
                                 </span>
                               ) : null}
+                            </div>
                             </div>
                           </div>
                         </React.Fragment>
@@ -1350,22 +1401,7 @@ export const NewSaleModal: React.FC = () => {
                           className="rounded-2xl border border-[#E2E8F0] bg-white flex flex-col gap-2 p-2.5 active:scale-[0.98] cursor-pointer relative select-none shadow-xs"
                         >
                           <div className="flex items-start gap-2.5">
-                            {prod.photo ? (
-                              <img
-                                src={prod.photo}
-                                alt=""
-                                referrerPolicy="no-referrer"
-                                className="w-10 h-10 min-w-10 rounded-[10px] object-cover shrink-0 bg-slate-100"
-                              />
-                            ) : (
-                              <div
-                                className="w-10 h-10 min-w-10 rounded-[10px] flex items-center justify-center text-white font-extrabold text-[15px] shrink-0 select-none"
-                                style={{ backgroundColor: getProductThumbColor(prod.name) }}
-                                aria-hidden="true"
-                              >
-                                {getProductInitial(prod.name)}
-                              </div>
-                            )}
+                            <ProductThumb product={prod} onZoom={setPhotoAgrandie} />
                             <div className="min-w-0 flex-1">
                               <p className="text-[11.5px] font-bold text-mc-ink leading-snug line-clamp-2">
                                 {prod.name}
@@ -1896,14 +1932,6 @@ export const NewSaleModal: React.FC = () => {
                   </div>
                 </div>
               )}
-
-              {/* VENDU PAR : juste au-dessus de la validation, jamais obligatoire. */}
-              {suiviCommercial && (
-                <SalesRepPicker
-                  value={commercial === undefined ? undefined : commercial?.id ?? null}
-                  onChange={setCommercial}
-                />
-              )}
             </div>
 
             {/* Bottom Step Actions */}
@@ -1977,6 +2005,16 @@ export const NewSaleModal: React.FC = () => {
           setIsProductFormOpen(false);
         }}
       />
+
+      {/* La photo du produit en grand, ouverte depuis une vignette de la grille. */}
+      {photoAgrandie?.photo && (
+        <ProductPhotoLightbox
+          photo={photoAgrandie.photo}
+          nom={photoAgrandie.name}
+          prix={formatMoney(photoAgrandie.salePrice)}
+          onClose={() => setPhotoAgrandie(null)}
+        />
+      )}
 
       {/* 4. POINT 4: DISCOUNT MODAL (460px width, % or fixed, real-time math, chips) */}
       <DiscountModal

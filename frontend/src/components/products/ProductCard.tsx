@@ -88,16 +88,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             src={product.photo}
             alt=""
             referrerPolicy="no-referrer"
-            className="w-11 h-11 rounded-[11px] object-cover border border-mc-line shrink-0"
+            className="w-14 h-14 rounded-[12px] object-cover border border-mc-line shrink-0"
           />
         ) : (
           <div
-            className="w-11 h-11 rounded-[11px] shrink-0 flex items-center justify-center text-white text-[16px]"
+            className="w-14 h-14 rounded-[12px] shrink-0 flex items-center justify-center text-white text-[20px]"
             style={{ backgroundColor: avatarColor(product.name), fontWeight: 800 }}
             aria-hidden="true"
           >
             {product.isService ? (
-              <Scissors className="w-5 h-5" />
+              <Scissors className="w-6 h-6" />
             ) : (
               avatarInitials(product.name).charAt(0)
             )}

@@ -1428,10 +1428,10 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
                       <img
                         src={p.photo}
                         alt={p.name}
-                        className="w-10 h-10 rounded-xl object-cover border border-mc-line shrink-0"
+                        className="w-12 h-12 rounded-xl object-cover border border-mc-line shrink-0"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-xl bg-mc-primary-tint border border-[#DAD6FC] flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-mc-primary-tint border border-[#DAD6FC] flex items-center justify-center shrink-0">
                         <Package className="w-5 h-5 text-mc-primary" />
                       </div>
                     )}
@@ -1480,10 +1480,10 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
                       <img
                         src={p.photo}
                         alt={p.name}
-                        className="w-10 h-10 rounded-xl object-cover border border-mc-line shrink-0"
+                        className="w-12 h-12 rounded-xl object-cover border border-mc-line shrink-0"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
                         <Package className="w-5 h-5 text-emerald-600" />
                       </div>
                     )}
