@@ -56,13 +56,22 @@ type PlanId = 'SOLO' | 'BUSINESS';
 
 /**
  * Prix affiché pour une durée. C'est la grille publique (data/plans.ts), sauf
- * tarif annuel négocié sur la formule Business : le serveur facture alors ce
- * montant (voir businessPriceForPeriod), l'écran doit annoncer le même.
+ * tarif négocié sur la formule Business, à l'année ou au mois : le serveur
+ * facture alors ce montant (voir businessPriceForPeriod), l'écran doit
+ * annoncer le même.
  */
-const priceForPeriod = (planId: PlanId, periode: BillingPeriod, tarifAnnuelBusiness: number | null): number =>
-  periode === 'ANNUEL' && planId === 'BUSINESS' && tarifAnnuelBusiness !== null
-    ? tarifAnnuelBusiness
-    : PLANS[planId].prix[periode];
+const priceForPeriod = (
+  planId: PlanId,
+  periode: BillingPeriod,
+  tarifAnnuelBusiness: number | null,
+  tarifMensuelBusiness: number | null = null
+): number => {
+  if (planId === 'BUSINESS') {
+    if (periode === 'ANNUEL' && tarifAnnuelBusiness !== null) return tarifAnnuelBusiness;
+    if (periode === 'MENSUEL' && tarifMensuelBusiness !== null) return tarifMensuelBusiness;
+  }
+  return PLANS[planId].prix[periode];
+};
 
 /**
  * Prix après la réduction du code d'affiliation (premier paiement seulement),
@@ -182,6 +191,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openRenew = 
   // Tarif annuel négocié : le serveur facture ce montant à la place des
   // 199 000 F publics, l'écran doit donc annoncer le même.
   const tarifAnnuelBusiness = overview?.tarifAnnuelBusiness ?? null;
+  // Pendant du précédent pour la durée d'un mois.
+  const tarifMensuelBusiness = overview?.tarifMensuelBusiness ?? null;
   // Réduction (%) du code d'affiliation sur le premier paiement ; 0 ensuite.
   const reduction = overview?.reductionAffiliation ?? 0;
 
@@ -190,6 +201,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openRenew = 
       <DurationPicker
         planId={durationPlan}
         tarifAnnuelBusiness={tarifAnnuelBusiness}
+        tarifMensuelBusiness={tarifMensuelBusiness}
         reduction={reduction}
         pendingPeriod={checkoutPeriod}
         onBack={() => setDurationPlan(null)}
@@ -455,11 +467,12 @@ const PlanCard: React.FC<{
 const DurationPicker: React.FC<{
   planId: PlanId;
   tarifAnnuelBusiness: number | null;
+  tarifMensuelBusiness: number | null;
   reduction: number;
   pendingPeriod: BillingPeriod | null;
   onBack: () => void;
   onPay: (periode: BillingPeriod) => void;
-}> = ({ planId, tarifAnnuelBusiness, reduction, pendingPeriod, onBack, onPay }) => {
+}> = ({ planId, tarifAnnuelBusiness, tarifMensuelBusiness, reduction, pendingPeriod, onBack, onPay }) => {
   const plan = PLANS[planId];
   const [selected, setSelected] = useState<BillingPeriod>('ANNUEL');
   const selectedPeriod = BILLING_PERIODS.find((p) => p.id === selected) ?? BILLING_PERIODS[0];
@@ -485,7 +498,8 @@ const DurationPicker: React.FC<{
   const quoteOf = (periode: BillingPeriod) => quote?.options.find((o) => o.periode === periode) ?? null;
   const selectedQuote = quoteOf(selected);
   // Prix normal, puis prix à payer (réduction du code d'affiliation au premier paiement).
-  const prixNormalDe = (periode: BillingPeriod) => priceForPeriod(planId, periode, tarifAnnuelBusiness);
+  const prixNormalDe = (periode: BillingPeriod) =>
+    priceForPeriod(planId, periode, tarifAnnuelBusiness, tarifMensuelBusiness);
   const prixDe = (periode: BillingPeriod) => discountedPrice(prixNormalDe(periode), reduction);
 
   return (

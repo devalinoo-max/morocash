@@ -43,6 +43,8 @@ export interface SubscriptionOverview {
   utilisateurs: number;
   /** Tarif annuel négocié pour la formule Business (null = prix public de la grille). */
   tarifAnnuelBusiness: number | null;
+  /** Même chose pour la durée d'un mois (null = prix public de la grille). */
+  tarifMensuelBusiness: number | null;
   /** Durée de l'essai offerte à l'inscription (30, ou 45 avec un code d'affiliation). */
   dureeEssaiJours: number;
   /** Réduction (%) du code d'affiliation sur le prochain paiement, null si aucune. */

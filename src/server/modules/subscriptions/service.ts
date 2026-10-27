@@ -382,6 +382,8 @@ export interface SubscriptionOverview {
    * 199 000 F, pour que le prix annoncé soit celui réellement demandé.
    */
   tarifAnnuelBusiness: number | null;
+  /** Même chose pour la durée d'un mois. null = prix public. */
+  tarifMensuelBusiness: number | null;
   /** Durée de l'essai offerte à l'inscription (30, ou 45 avec un code d'affiliation). */
   dureeEssaiJours: number;
   /** Réduction (%) du code d'affiliation sur le prochain paiement, null si aucune. */
@@ -441,6 +443,7 @@ export async function getSubscriptionOverview(businessId: string): Promise<Subsc
     trialEndsAt: business.trialEndsAt,
     utilisateurs,
     tarifAnnuelBusiness: business.tarifAnnuelBusiness,
+    tarifMensuelBusiness: business.tarifMensuelBusiness,
     dureeEssaiJours: business.dureeEssaiJours,
     // `payments` ne contient que les paiements réussis : vide = premier paiement à venir.
     reductionAffiliation:

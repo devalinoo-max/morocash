@@ -29,17 +29,23 @@ export function planPriceForPeriod(
 
 /**
  * Prix réellement dû par une boutique : le prix public du plan, sauf tarif
- * annuel négocié pour la formule Business (Business.tarifAnnuelBusiness), posé
- * à la main au cas par cas. Sert au paiement comme à l'affichage, pour que la
- * boutique ne voie jamais un montant différent de celui qui lui sera demandé.
+ * négocié pour la formule Business (tarifAnnuelBusiness pour l'année,
+ * tarifMensuelBusiness pour le mois), posé à la main au cas par cas. Sert au
+ * paiement comme à l'affichage, pour que la boutique ne voie jamais un montant
+ * différent de celui qui lui sera demandé.
  */
 export function businessPriceForPeriod(
-  business: Pick<Business, 'tarifAnnuelBusiness'>,
+  business: Pick<Business, 'tarifAnnuelBusiness' | 'tarifMensuelBusiness'>,
   plan: Pick<Plan, 'code' | 'prixMensuel' | 'prixTrimestriel' | 'prixSemestriel' | 'prixAnnuel'>,
   periode: SubPeriod
 ): number {
-  if (periode === 'ANNUEL' && plan.code === 'BUSINESS' && business.tarifAnnuelBusiness !== null) {
-    return business.tarifAnnuelBusiness;
+  if (plan.code === 'BUSINESS') {
+    if (periode === 'ANNUEL' && business.tarifAnnuelBusiness !== null) {
+      return business.tarifAnnuelBusiness;
+    }
+    if (periode === 'MENSUEL' && business.tarifMensuelBusiness !== null) {
+      return business.tarifMensuelBusiness;
+    }
   }
   return planPriceForPeriod(plan, periode);
 }

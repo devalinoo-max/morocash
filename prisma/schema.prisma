@@ -200,6 +200,9 @@ model Business {
   // null = prix public du plan. Le serveur l'applique au paiement et le
   // renvoie à l'écran d'abonnement, pour que le prix affiché soit celui payé.
   tarifAnnuelBusiness Int?
+  // Même chose pour la durée d'un mois, négociée au cas par cas. Posé à la
+  // main en base : aucune interface ne le modifie.
+  tarifMensuelBusiness Int?
   // Réglages de l'app partagés par tous les appareils de la boutique (reçus,
   // étiquettes, coordonnées, remise max...). Écrits par l'OWNER, relus par
   // chaque appareil à la connexion et à chaque recalage. null = jamais envoyés.
