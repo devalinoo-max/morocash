@@ -25,24 +25,52 @@ function saveHiddenChoice(hidden: boolean): void {
 }
 
 /**
- * Clavier ouvert sur téléphone : la zone visible rétrécit nettement par
- * rapport à la plus grande hauteur vue depuis l'ouverture.
+ * Mesures du viewport visible sur téléphone. Le clavier logiciel rétrécit la
+ * zone visible sans toucher à la hauteur de la page : un panneau `fixed
+ * bottom-0` se retrouve alors caché derrière le clavier, bouton « Fermer »
+ * compris. On lit donc `visualViewport` pour savoir de combien remonter.
  */
-function useKeyboardOpen(): boolean {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    let tallest = vv.height;
-    const onResize = () => {
-      tallest = Math.max(tallest, vv.height);
-      setOpen(window.matchMedia('(max-width: 767px)').matches && vv.height < tallest - 150);
-    };
-    vv.addEventListener('resize', onResize);
-    return () => vv.removeEventListener('resize', onResize);
-  }, []);
-  return open;
+interface ViewportMetrics {
+  /** Vrai sous 768 px de large. */
+  isMobile: boolean;
+  /** Hauteur cachée par le clavier, en pixels (0 : clavier fermé). */
+  keyboardInset: number;
+  /** Hauteur réellement visible, en pixels. */
+  visibleHeight: number;
 }
+
+function readMetrics(): ViewportMetrics {
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+  const vv = typeof window !== 'undefined' ? window.visualViewport : undefined;
+  if (!vv) {
+    return { isMobile, keyboardInset: 0, visibleHeight: typeof window !== 'undefined' ? window.innerHeight : 0 };
+  }
+  const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  return { isMobile, keyboardInset: inset, visibleHeight: Math.round(vv.height) };
+}
+
+function useViewportMetrics(): ViewportMetrics {
+  const [metrics, setMetrics] = useState<ViewportMetrics>(readMetrics);
+  useEffect(() => {
+    const update = () => setMetrics(readMetrics());
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', update);
+    vv?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    update();
+    return () => {
+      vv?.removeEventListener('resize', update);
+      vv?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+  return metrics;
+}
+
+// Au-delà de ce décalage, on considère le clavier ouvert.
+const KEYBOARD_OPEN_PX = 150;
 
 /**
  * Numéro WhatsApp du support MoroCash (indicatif compris, chiffres seuls),
@@ -108,7 +136,8 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
     if (!onActionScreen) setReopenedHere(false);
   }, [onActionScreen]);
   const isHidden = hiddenChoice || (onActionScreen && !reopenedHere);
-  const keyboardOpen = useKeyboardOpen();
+  const { isMobile, keyboardInset, visibleHeight } = useViewportMetrics();
+  const keyboardOpen = isMobile && keyboardInset > KEYBOARD_OPEN_PX;
 
   const hide = () => {
     saveHiddenChoice(true);
@@ -149,17 +178,19 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
 
   useEffect(() => {
     if (!isOpen) return;
-    inputRef.current?.focus();
+    // Sur téléphone on ne donne pas le focus : le clavier s'ouvrirait aussitôt
+    // et couvrirait le panneau avant qu'on ait pu lire la réponse d'accueil.
+    if (!isMobile) inputRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, isOpen]);
+  }, [messages, isOpen, keyboardInset]);
 
   const push = (message: Omit<ChatMessage, 'id'>) =>
     setMessages((prev) => [...prev, { ...message, id: nextId.current++ }]);
@@ -213,6 +244,19 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
   const position = `${installButtonShown ? 'bottom-[8.5rem]' : 'bottom-20'} ${
     aboveInstallBanner ? 'md:bottom-[5.5rem]' : 'md:bottom-6'
   }`;
+
+  // Téléphone : le panneau se cale au-dessus du clavier et ne dépasse jamais la
+  // zone visible, pour que l'en-tête et sa croix restent toujours atteignables.
+  // On laisse aussi une bande du fond visible : un appui dessus ferme aussi.
+  const panelStyle: React.CSSProperties | undefined = isMobile
+    ? {
+        bottom: keyboardInset,
+        height: Math.max(
+          200,
+          Math.min(Math.round((visibleHeight + keyboardInset) * 0.75), visibleHeight - 56)
+        ),
+      }
+    : undefined;
 
   return (
     <>
@@ -284,6 +328,7 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
           <div
             role="dialog"
             aria-label="Assistant MoroCash"
+            style={panelStyle}
             className="fixed z-[80] inset-x-0 bottom-0 h-[75dvh] rounded-t-3xl md:inset-x-auto md:right-6 md:bottom-6 md:w-[380px] md:h-[560px] md:max-h-[calc(100vh-3rem)] md:rounded-mc bg-white shadow-2xl border border-mc-line flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
           >
             <div className="shrink-0 px-4 py-3 bg-gradient-to-br from-[#5B4BF0] to-[#8B5CF6] text-white flex items-center gap-3">
