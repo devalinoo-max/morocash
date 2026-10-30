@@ -72,6 +72,7 @@ export function versementsOfSale(sale: Sale): Versement[] {
       orderDate: sale.createdAt,
       orderTotal: sale.totalAmount,
       orderClientUuid: sale.clientUuid,
+      orderItems: sale.items,
       customerId: sale.customerId ?? null,
       customerName: sale.customerName ?? null,
       customerPhone: sale.customerPhone ?? null,
@@ -109,7 +110,7 @@ export function receiptShellFor(v: Versement): Sale {
     id: `versement-${v.id}`,
     clientUuid: v.orderClientUuid ?? '',
     reference: v.receiptNumber ?? '',
-    items: [],
+    items: v.orderItems ?? [],
     subtotal: 0,
     discount: 0,
     totalAmount: v.orderTotal ?? 0,
@@ -150,7 +151,15 @@ export function versementWhatsAppText(v: Versement, settings: ShopSettings): str
   text += `📅 Date : ${dateHeure(v.createdAt)}\n`;
   if (v.orderReference) text += `🛒 ${orderLabel(v)} — ${versementLabel(v.numero)}\n`;
   text += `${line}\n`;
-  text += `*Payé ce jour : ${formatMoneyFull(v.amount)}* (${formatPaymentMethod(v.method)})\n`;
+  if (v.orderItems?.length) {
+    text += `🛍️ *Articles de la commande*\n`;
+    for (const item of v.orderItems) {
+      text += `• ${item.name} — ${item.quantity} × ${formatMoneyFull(item.unitPrice)} = ${formatMoneyFull(item.total)}\n`;
+    }
+    text += `${line}\n`;
+  }
+  const rang = v.numero ? ` (${versementLabel(v.numero)})` : '';
+  text += `*Payé ce jour${rang} : ${formatMoneyFull(v.amount)}* (${formatPaymentMethod(v.method)})\n`;
   if (v.orderTotal !== null) text += `Montant de la commande : ${formatMoneyFull(v.orderTotal)}\n`;
   if (v.paidSoFar !== null) text += `Déjà payé : ${formatMoneyFull(v.paidSoFar)}\n`;
   if (v.remainingAfter !== null) {

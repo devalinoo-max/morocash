@@ -36,7 +36,18 @@ export const cancelVersementSchema = z.object({
 type Ctx = { businessId: string; userId: string; cashRegisterMode: CashRegisterMode };
 
 export const VERSEMENT_INCLUDE = {
-  order: { select: { id: true, numero: true, createdAt: true, total: true, clientUuid: true } },
+  order: {
+    select: {
+      id: true,
+      numero: true,
+      createdAt: true,
+      total: true,
+      clientUuid: true,
+      // Le reçu d'un versement rappelle ce que contient la commande. Le coût
+      // d'achat reste dehors : ce reçu part chez le client.
+      items: { select: { productId: true, libelle: true, qte: true, prixUnitaire: true, totalLigne: true } },
+    },
+  },
   customer: { select: { id: true, nom: true, telephone: true } },
   user: { select: { nom: true } },
 } satisfies Prisma.PaymentInclude;
@@ -69,6 +80,14 @@ export function serializeVersement(p: PaymentWithRelations) {
     orderDate: p.order?.createdAt ?? null,
     orderTotal: p.order?.total ?? null,
     orderClientUuid: p.order?.clientUuid ?? null,
+    orderArticles:
+      p.order?.items.map((i) => ({
+        productId: i.productId,
+        libelle: i.libelle,
+        qte: i.qte,
+        prixUnitaire: i.prixUnitaire,
+        totalLigne: i.totalLigne,
+      })) ?? null,
     customerId: p.customerId,
     customerNom: p.customer?.nom ?? null,
     customerTelephone: p.customer?.telephone ?? null,

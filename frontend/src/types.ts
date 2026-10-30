@@ -144,6 +144,12 @@ export interface Versement {
   orderDate: string | null;
   orderTotal: number | null;
   orderClientUuid: string | null;
+  /**
+   * Les articles de la commande, rappelés sur le reçu du versement. Null
+   * quand on ne les connaît pas (versement pas encore envoyé, ou serveur
+   * d'une version plus ancienne) : le reçu saute alors la liste.
+   */
+  orderItems: SaleItem[] | null;
   customerId: string | null;
   customerName: string | null;
   customerPhone: string | null;

@@ -12,6 +12,14 @@ export interface ApiVersement {
   orderDate: string | null;
   orderTotal: number | null;
   orderClientUuid: string | null;
+  /** Articles de la commande. Absent d'un serveur plus ancien. */
+  orderArticles?: {
+    productId: string | null;
+    libelle: string;
+    qte: number;
+    prixUnitaire: number;
+    totalLigne: number;
+  }[] | null;
   customerId: string | null;
   customerNom: string | null;
   customerTelephone: string | null;
@@ -37,6 +45,14 @@ export function toFrontendVersement(v: ApiVersement): Versement {
     orderDate: v.orderDate,
     orderTotal: v.orderTotal,
     orderClientUuid: v.orderClientUuid,
+    orderItems:
+      v.orderArticles?.map((a) => ({
+        productId: a.productId ?? '',
+        name: a.libelle,
+        unitPrice: a.prixUnitaire,
+        quantity: a.qte,
+        total: a.totalLigne,
+      })) ?? null,
     customerId: v.customerId,
     customerName: v.customerNom,
     customerPhone: v.customerTelephone,

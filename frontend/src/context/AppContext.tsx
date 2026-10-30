@@ -227,6 +227,7 @@ function pendingVersementFrom(
     orderDate: null,
     orderTotal: null,
     orderClientUuid: null,
+    orderItems: null,
     customerId,
     customerName: customer?.name ?? null,
     customerPhone: customer?.phone ?? null,

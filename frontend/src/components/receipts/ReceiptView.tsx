@@ -81,9 +81,33 @@ const VersementBody: React.FC<{ versement: Versement; showCustomer: boolean; sho
         )}
       </div>
 
+      {/* Les articles de la commande, rappelés à chaque versement : le client
+          garde sous les yeux ce qu'il achète, reçu après reçu. */}
+      {v.orderItems && v.orderItems.length > 0 && (
+        <div className="py-2 border-b border-dashed border-slate-300 space-y-2">
+          <div className="flex justify-between font-bold text-[10px] text-slate-500 uppercase tracking-wider">
+            <span>Article</span>
+            <span>Total</span>
+          </div>
+          {v.orderItems.map((item, idx) => (
+            <div key={idx} className="flex justify-between gap-3 text-[11px] leading-snug">
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-slate-800 break-words">{item.name}</div>
+                <div className="text-[10px] text-slate-500 tabular-nums">
+                  {item.quantity} × {money(item.unitPrice)}
+                </div>
+              </div>
+              <span className="font-bold text-slate-900 shrink-0 tabular-nums whitespace-nowrap">
+                {money(item.total)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-1.5 text-[11px]">
         <div className="flex justify-between gap-3 font-extrabold text-sm text-slate-900 pt-1">
-          <span>PAYÉ CE JOUR :</span>
+          <span>PAYÉ CE JOUR{v.numero ? ` (${versementLabel(v.numero)})` : ''} :</span>
           <span className="text-[#4F46E5] tabular-nums whitespace-nowrap">{money(v.amount)}</span>
         </div>
         <div className="flex justify-between gap-3 text-slate-700">
