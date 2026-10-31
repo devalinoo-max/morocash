@@ -19,7 +19,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # `prisma.config.ts` exige DATABASE_URL et DIRECT_URL. Générer le client
+      # ne se connecte à rien : des adresses factices suffisent ici, la vraie
+      # base reste hors du CI.
       - run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
       - run: npx tsc --noEmit
       - run: npm run lint
 
