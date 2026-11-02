@@ -74,6 +74,9 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
 export const adminApi = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body ?? {} }),
+  // Le corps porte la confirmation de suppression (nom retapé) : un DELETE sans
+  // corps serait refusé par le serveur.
+  del: <T>(path: string, body?: unknown) => request<T>(path, { method: 'DELETE', body: body ?? {} }),
 };
 
 export function adminErrorMessage(error: unknown): string {

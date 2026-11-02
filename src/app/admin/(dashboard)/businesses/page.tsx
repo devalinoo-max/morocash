@@ -5,6 +5,7 @@ import { adminApi, adminErrorMessage } from '../../_lib/adminApi';
 import type { AdminAffiliate, AdminAffiliatesOverview, AdminBusiness, AdminPlan, BusinessStatus } from '../../_lib/types';
 import { COUNTRY_LABELS, affiliateLabel, countryLabel, formatOffer } from '../../_lib/format';
 import { BusinessActionsModal, type ActionMode } from './_components/BusinessActionsModal';
+import { DeleteBusinessModal, resumeSuppression } from './_components/DeleteBusinessModal';
 
 const STATUT_FILTERS: { value: BusinessStatus | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'Toutes' },
@@ -40,6 +41,11 @@ export default function AdminBusinessesPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [modal, setModal] = useState<{ mode: ActionMode; business: AdminBusiness } | null>(null);
+  // Boutique dont la suppression est en cours de confirmation, et résumé de la
+  // dernière suppression faite (la ligne disparaît : sans ce rappel, l'écran ne
+  // dirait rien de ce qui vient d'être effacé).
+  const [suppression, setSuppression] = useState<AdminBusiness | null>(null);
+  const [dernierResume, setDernierResume] = useState<string | null>(null);
 
   const loadBusinesses = useCallback(async () => {
     setIsLoading(true);
@@ -160,6 +166,18 @@ export default function AdminBusinessesPage() {
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>
       )}
 
+      {dernierResume && (
+        <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <span className="flex-1">{dernierResume}</span>
+          <button
+            onClick={() => setDernierResume(null)}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-700"
+          >
+            Fermer
+          </button>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full min-w-[1000px] text-left text-sm">
           <thead>
@@ -259,10 +277,18 @@ export default function AdminBusinessesPage() {
                       className={`rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-60 ${
                         b.statut === 'SUSPENDU'
                           ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                          : 'bg-rose-600 text-white hover:bg-rose-500'
+                          : 'bg-amber-600 text-white hover:bg-amber-500'
                       }`}
                     >
                       {b.statut === 'SUSPENDU' ? 'Réactiver' : 'Suspendre'}
+                    </button>
+                    {/* Rouge plein, à l'écart des autres actions : le seul bouton
+                        de cet écran dont le clic ne se rattrape pas. */}
+                    <button
+                      onClick={() => setSuppression(b)}
+                      className="ml-1.5 rounded-md bg-rose-700 px-2 py-1 text-xs font-semibold text-white hover:bg-rose-600"
+                    >
+                      Supprimer
                     </button>
                   </div>
                 </td>
@@ -280,6 +306,18 @@ export default function AdminBusinessesPage() {
           onClose={() => setModal(null)}
           onDone={async () => {
             setModal(null);
+            await loadBusinesses();
+          }}
+        />
+      )}
+
+      {suppression && (
+        <DeleteBusinessModal
+          business={suppression}
+          onClose={() => setSuppression(null)}
+          onDeleted={async (resume) => {
+            setSuppression(null);
+            setDernierResume(resumeSuppression(resume));
             await loadBusinesses();
           }}
         />

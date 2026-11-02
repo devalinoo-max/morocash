@@ -1,9 +1,11 @@
 import { z } from 'zod';
-import type { Plan, Prisma, Subscription } from '@prisma/client';
+import type { Business, Plan, Prisma, Subscription } from '@prisma/client';
 import { prisma } from '@/server/database/client';
 import { PERIOD_MONTHS } from '@/server/shared/subscription';
 import { AppError } from '@/server/shared/errors';
 import { hashPin } from '@/server/modules/auth/pin';
+import { setTenantContext } from '@/server/middleware/tenant';
+import { deleteProductImage } from '@/server/integrations/cloudinary';
 
 /**
  * Module admin — volontairement cross-tenant (spec : `AdminUser` est l'exception
@@ -131,6 +133,51 @@ export async function getMetrics() {
     })),
     activiteRecente,
   };
+}
+
+export interface RecentBusiness {
+  id: string;
+  nom: string;
+  ville: string | null;
+  statut: Business['statut'];
+  createdAt: Date;
+  /** Volume saisi dans la boutique : à zéro partout, c'est une coquille vide. */
+  produits: number;
+  ventes: number;
+  clients: number;
+}
+
+/**
+ * Les dernières boutiques inscrites, avec ce qu'elles contiennent — de quoi
+ * voir d'un coup d'œil, depuis la page d'accueil, si une boutique créée en
+ * testant est restée vide.
+ *
+ * Les trois compteurs portent sur des tables sous RLS : chacun demande une
+ * transaction avec son propre `app.business_id` (une variable de session ne
+ * vaut que pour une boutique à la fois, voir §3.1). Ces transactions partent
+ * donc en parallèle : en série, dix boutiques coûteraient dix allers-retours
+ * enchaînés sur le pilote Neon, soit plusieurs secondes de page blanche.
+ */
+export async function listRecentBusinesses(limit = 10): Promise<RecentBusiness[]> {
+  const businesses = await prisma.business.findMany({
+    select: { id: true, nom: true, ville: true, statut: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+
+  return Promise.all(
+    businesses.map(async (b) => {
+      const volume = await prisma.$transaction(async (tx) => {
+        await setTenantContext(tx, b.id);
+        return {
+          produits: await tx.product.count(),
+          ventes: await tx.order.count(),
+          clients: await tx.customer.count(),
+        };
+      });
+      return { ...b, ...volume };
+    })
+  );
 }
 
 /** « Formule Business » → « Business ». */
@@ -306,4 +353,143 @@ export async function resetUserCode(businessId: string, input: z.infer<typeof re
   }
   const codeHash = await hashPin(input.newPin);
   return prisma.user.update({ where: { id: user.id }, data: { codeHash } });
+}
+
+/**
+ * Suppression définitive d'une boutique et de tout ce qui lui est rattaché —
+ * destinée aux comptes de test et aux boutiques créées par erreur. Rien n'est
+ * récupérable ensuite : la route exige le nom exact de la boutique en
+ * confirmation (voir deleteBusinessSchema).
+ *
+ * Tout passe dans UNE transaction avec le contexte tenant posé : les tables à
+ * businessId sont sous RLS FORCE et le rôle applicatif n'a pas BYPASSRLS — sans
+ * `app.business_id`, chaque DELETE porterait sur zéro ligne sans lever d'erreur
+ * (spec §3.1). L'ordre suit les clés étrangères, des feuilles vers la racine :
+ * le schéma n'a presque aucun `onDelete: Cascade` côté boutique, donc une ligne
+ * oubliée ferait échouer la transaction entière — jamais une suppression
+ * partielle.
+ */
+export const deleteBusinessSchema = z.object({
+  /** Nom exact de la boutique, retapé par l'admin : garde-fou contre le mauvais clic. */
+  confirmation: z.string().min(1, 'Confirmation requise.'),
+  motif: z.string().max(500).optional(),
+});
+
+export interface DeletedBusinessSummary {
+  nom: string;
+  lignes: Record<string, number>;
+  total: number;
+}
+
+export async function deleteBusiness(
+  businessId: string,
+  input: z.infer<typeof deleteBusinessSchema>
+): Promise<DeletedBusinessSummary> {
+  const business = await findBusinessOrThrow(businessId);
+
+  if (input.confirmation.trim() !== business.nom.trim()) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'Le nom saisi ne correspond pas à celui de la boutique. Suppression annulée.'
+    );
+  }
+
+  // Une commission déjà payée à un affilié ne peut pas disparaître : son
+  // historique de retraits deviendrait faux. On bloque plutôt que de réécrire
+  // la comptabilité du programme d'affiliation à son insu.
+  const commissionPayee = await prisma.affiliateCommission.findFirst({
+    where: { businessId, payout: { statut: 'PAYE' } },
+    select: { id: true },
+  });
+  if (commissionPayee) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      "Cette boutique a généré une commission d'affiliation déjà payée : elle ne peut pas être supprimée. Suspends-la à la place."
+    );
+  }
+
+  const { lignes, imagesCloudinary } = await prisma.$transaction(
+    async (tx) => {
+      await setTenantContext(tx, businessId);
+
+      // Récupérées avant la suppression pour nettoyer Cloudinary après coup.
+      const images = await tx.productImage.findMany({
+        where: { product: { businessId } },
+        select: { cloudinaryPublicId: true },
+      });
+
+      const compte: Record<string, number> = {};
+      const effacer = async (cle: string, suppression: () => Promise<{ count: number }>) => {
+        const { count } = await suppression();
+        if (count > 0) compte[cle] = count;
+      };
+
+      // Caisse d'abord : CashMovement cite Payment, CashRegister et User.
+      await effacer('mouvementsCaisse', () => tx.cashMovement.deleteMany({ where: { businessId } }));
+      await effacer('caisses', () => tx.cashRegister.deleteMany({ where: { businessId } }));
+      // Stock : StockMovement cite produit, vente, réception et comptage.
+      await effacer('mouvementsStock', () => tx.stockMovement.deleteMany({ where: { businessId } }));
+      // Expense.receptionId est unique : la dépense part avant sa réception.
+      await effacer('depenses', () => tx.expense.deleteMany({ where: { businessId } }));
+      await effacer('receptions', () => tx.stockReception.deleteMany({ where: { businessId } }));
+      await effacer('comptages', () => tx.stockCount.deleteMany({ where: { businessId } }));
+      // Ventes : paiements, puis lignes (Cascade, comptées explicitement), puis ventes.
+      await effacer('paiements', () => tx.payment.deleteMany({ where: { businessId } }));
+      await effacer('lignesVente', () => tx.orderItem.deleteMany({ where: { order: { businessId } } }));
+      await effacer('ventes', () => tx.order.deleteMany({ where: { businessId } }));
+      await effacer('commerciaux', () => tx.commercial.deleteMany({ where: { businessId } }));
+      // Catalogue : codes et images avant les produits.
+      await effacer('codesBarres', () => tx.productCode.deleteMany({ where: { businessId } }));
+      await effacer('imagesProduit', () => tx.productImage.deleteMany({ where: { product: { businessId } } }));
+      await effacer('produits', () => tx.product.deleteMany({ where: { businessId } }));
+      await effacer('clients', () => tx.customer.deleteMany({ where: { businessId } }));
+      await effacer('categories', () => tx.category.deleteMany({ where: { businessId } }));
+      await effacer('statsJour', () => tx.dailyStats.deleteMany({ where: { businessId } }));
+      await effacer('notifications', () => tx.notification.deleteMany({ where: { businessId } }));
+      // Abonnement : commissions, puis paiements (cités par les commissions),
+      // puis factures et abonnements.
+      await effacer('commissionsAffiliation', () =>
+        tx.affiliateCommission.deleteMany({ where: { businessId } })
+      );
+      await effacer('paiementsAbonnement', () =>
+        tx.subscriptionPayment.deleteMany({ where: { businessId } })
+      );
+      await effacer('factures', () => tx.invoice.deleteMany({ where: { businessId } }));
+      await effacer('abonnements', () => tx.subscription.deleteMany({ where: { businessId } }));
+      await effacer('abonnementsPush', () => tx.pushSubscription.deleteMany({ where: { businessId } }));
+      // Le journal d'audit de la boutique part avec elle ; l'entrée qui trace
+      // CETTE suppression est écrite après, sans businessId (il n'existe plus).
+      await effacer('journalAudit', () => tx.auditLog.deleteMany({ where: { businessId } }));
+      // Sessions et visite guidée tombent en cascade avec les comptes.
+      await effacer('comptes', () => tx.user.deleteMany({ where: { businessId } }));
+
+      await tx.business.delete({ where: { id: businessId } });
+
+      return {
+        lignes: compte,
+        imagesCloudinary: images
+          .map((i) => i.cloudinaryPublicId)
+          .filter((id): id is string => Boolean(id)),
+      };
+    },
+    // Une boutique chargée fait beaucoup d'allers-retours, et le pilote Neon
+    // en fait un par requête : la marge par défaut (15 s) ne suffit pas.
+    { timeout: 60_000, maxWait: 20_000 }
+  );
+
+  // Hors transaction : un échec Cloudinary ne doit pas rendre la boutique
+  // à moitié supprimée en base. Au pire une image reste orpheline.
+  for (const publicId of imagesCloudinary) {
+    try {
+      await deleteProductImage(publicId);
+    } catch (error) {
+      console.error(`Cloudinary : image ${publicId} non supprimée`, error);
+    }
+  }
+
+  return {
+    nom: business.nom,
+    lignes,
+    total: Object.values(lignes).reduce((a, n) => a + n, 0),
+  };
 }

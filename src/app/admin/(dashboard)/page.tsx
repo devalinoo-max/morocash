@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { getMetrics } from '@/server/modules/admin/service';
+import { getMetrics, listRecentBusinesses } from '@/server/modules/admin/service';
+import { RecentBusinessesPanel } from './_components/RecentBusinessesPanel';
 
 const STATUT_LABELS: Record<string, string> = {
   ESSAI: 'À l’essai',
@@ -26,7 +27,9 @@ function formatMoney(amount: number): string {
 // même garantie d'auth que le layout parent) — pas besoin d'un aller-retour
 // HTTP pour une vue de lecture seule affichée une fois par chargement de page.
 export default async function AdminDashboardPage() {
-  const metrics = await getMetrics();
+  // Les deux lectures coûtent chacune ~1,5 s sur le pilote Neon : en parallèle,
+  // le panneau des dernières boutiques ne rallonge pas le chargement.
+  const [metrics, recentBusinesses] = await Promise.all([getMetrics(), listRecentBusinesses(10)]);
   const totalBusinesses = Object.values(metrics.businessesParStatut).reduce((a, b) => a + b, 0);
   const { conversion30j } = metrics;
 
@@ -118,6 +121,12 @@ export default async function AdminDashboardPage() {
           </ul>
         )}
       </div>
+
+      {/* Date convertie ici : le panneau est un composant client, et une chaîne
+          ISO traverse la frontière sans dépendre de la sérialisation des Date. */}
+      <RecentBusinessesPanel
+        businesses={recentBusinesses.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() }))}
+      />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
