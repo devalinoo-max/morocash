@@ -5,12 +5,13 @@ import { CountUp, Segmented, staggerChild, staggerParent } from '../sales/SalesK
 import { useApp } from '../../context/AppContext';
 import { useCashJournal } from '../../hooks/useCashJournal';
 import type { CashJournalLine } from '../../api/cash';
-import type { PaymentMethod, Versement } from '../../types';
+import type { PaymentMethod, Sale, Versement } from '../../types';
 import { formatMoney, formatPaymentMethod, formatShortDate } from '../../utils/formatters';
 import { endOfDay, getCustomRange, parseDateInput, startOfDay, toDateInputValue } from '../../utils/period';
 import { DateRangeInputs } from '../common/DateRangeInputs';
 import { VersementBadge } from '../payments/VersementRow';
 import { VersementReceiptModal } from '../payments/VersementReceiptModal';
+import { OrderDetailPanel } from '../sales/OrderDetailPanel';
 
 type PeriodMode = 'TODAY' | 'DAY' | 'RANGE';
 type JournalFilter = 'ALL' | 'ENTREE' | 'SORTIE';
@@ -171,7 +172,7 @@ const FigureCard: React.FC<FigureCardProps> = ({
  * journal (les actions de caisse).
  */
 export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
-  const { sales, pendingVersements, setSelectedSaleForReceipt, setActiveTab, setCustomersDebtorsFilter } = useApp();
+  const { sales, pendingVersements, setActiveTab, setCustomersDebtorsFilter } = useApp();
 
   const [mode, setMode] = useState<PeriodMode>('TODAY');
   const [day, setDay] = useState(() => toDateInputValue(new Date()));
@@ -203,6 +204,7 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [versementOuvert, setVersementOuvert] = useState<Versement | null>(null);
   const [sortieOuverte, setSortieOuverte] = useState<CashJournalLine | null>(null);
+  const [commandeOuverte, setCommandeOuverte] = useState<Sale | null>(null);
 
   // Versements gardés sur le téléphone : visibles tout de suite, dans aucun total
   // tant que le serveur ne les a pas reçus.
@@ -222,9 +224,12 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
     }
     const v = line.versement;
     if (!v) return;
-    // Le paiement fait à la commande figure sur le reçu de la commande.
+    // Une ligne née d'une commande ouvre la commande, pas son reçu : on vient
+    // ici pour savoir ce qui a été vendu, à qui, et ce qu'il reste à encaisser.
+    // Le reçu n'est qu'une des suites possibles — le panneau de la commande
+    // propose de l'ouvrir et de l'imprimer, comme depuis « Mes commandes ».
     const sale = v.atOrder && v.orderId ? sales.find((s) => s.id === v.orderId) : undefined;
-    if (sale) setSelectedSaleForReceipt(sale);
+    if (sale) setCommandeOuverte(sale);
     else setVersementOuvert(v);
   };
 
@@ -607,6 +612,15 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
       )}
 
       {versementOuvert && <VersementReceiptModal versement={versementOuvert} onClose={() => setVersementOuvert(null)} />}
+
+      {/* La commande est relue dans `sales` à chaque rendu : un encaissement ou
+          une annulation faits depuis le panneau s'y voient aussitôt. */}
+      {commandeOuverte && (
+        <OrderDetailPanel
+          sale={sales.find((s) => s.id === commandeOuverte.id) ?? commandeOuverte}
+          onClose={() => setCommandeOuverte(null)}
+        />
+      )}
     </>
   );
 };

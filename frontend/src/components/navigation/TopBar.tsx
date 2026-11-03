@@ -30,6 +30,7 @@ export const TopBar: React.FC<TopBarProps> = () => {
     customers,
     products,
     setActiveTab,
+    setActiveMoreSubTab,
     setCustomersDebtorsFilter,
     refreshNow,
     isRefreshing,
@@ -236,13 +237,25 @@ export const TopBar: React.FC<TopBarProps> = () => {
           )}
         </div>
 
-        {/* Avatar : deux lettres, jamais un tiret ni un caractère de remplissage */}
-        <div
-          title={`${settings.ownerName} (${settings.role})`}
-          className={`${CIBLE} bg-gradient-to-tr from-[#5B4BF0] to-purple-600 text-white font-extrabold text-[12px] shadow-xs ring-2 ring-[#DAD6FC]`}
+        {/* Avatar : deux lettres, jamais un tiret ni un caractère de remplissage.
+            C'est aussi la porte des réglages, là où se changent le logo, le nom
+            et le téléphone de la boutique. Le cercle ne réagissait à rien : on
+            cliquait dessus en croyant ouvrir son profil, il ne se passait rien. */}
+        <button
+          id="btn-profile-avatar"
+          type="button"
+          onClick={() => {
+            setShowNotifications(false);
+            setShowPageMenu(false);
+            setActiveMoreSubTab('settings');
+            setActiveTab('more');
+          }}
+          title={`${settings.ownerName} (${settings.role}) — Réglages`}
+          aria-label="Ouvrir les réglages"
+          className={`${CIBLE} bg-gradient-to-tr from-[#5B4BF0] to-purple-600 text-white font-extrabold text-[12px] shadow-xs ring-2 ring-[#DAD6FC] hover:brightness-110 active:scale-95`}
         >
           {avatarInitials(settings.ownerName)}
-        </div>
+        </button>
 
         {/* Menu de la page : n'apparaît que si la page y a déposé des actions */}
         {pageMenuEntries.length > 0 && (
