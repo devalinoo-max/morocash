@@ -11,6 +11,7 @@ const DIRECT_TABLES = [
   'StockMovement',
   'StockReception',
   'StockCount',
+  'StockCountLine',
   'CashRegister',
   'CashMovement',
   'Category',

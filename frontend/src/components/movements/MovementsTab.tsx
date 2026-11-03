@@ -20,10 +20,11 @@ import {
   ChevronRight,
   Info,
   Layers,
+  X,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
 import { countLabel } from '../../utils/plural';
-import { StockMovement, StockMovementType } from '../../types';
+import { StockCount, StockCountItem, StockMovement, StockMovementType } from '../../types';
 import { ReceptionModal } from './ReceptionModal';
 import { BreakageModal } from './BreakageModal';
 import { LossModal } from './LossModal';
@@ -35,7 +36,15 @@ import { Segmented } from '../sales/SalesKit';
 type PeriodFilter = 'TODAY' | '7D' | '30D' | 'THIS_MONTH' | 'CUSTOM';
 
 export const MovementsTab: React.FC = () => {
-  const { stockMovements, stockCounts, products, settings, isWriteLocked, gateWrite } = useApp();
+  const {
+    stockMovements,
+    stockCounts,
+    products,
+    settings,
+    isWriteLocked,
+    gateWrite,
+    fetchStockCountDetail,
+  } = useApp();
 
   const isVendeur = settings.role === 'SELLER';
 
@@ -45,6 +54,20 @@ export const MovementsTab: React.FC = () => {
   const [isLossOpen, setIsLossOpen] = useState(false);
   const [isCountOpen, setIsCountOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<StockMovement | null>(null);
+  // Feuille d'inventaire : le détail d'un comptage validé, relu depuis le
+  // serveur. Il n'est pas chargé avec la liste — on ne tire pas des centaines
+  // de lignes pour des cartes qui n'en montrent que les totaux.
+  const [feuilleInventaire, setFeuilleInventaire] = useState<
+    { count: StockCount; lines: StockCountItem[] } | null
+  >(null);
+  const [countEnChargement, setCountEnChargement] = useState<string | null>(null);
+
+  const ouvrirFeuilleInventaire = async (count: StockCount) => {
+    setCountEnChargement(count.id);
+    const lines = await fetchStockCountDetail(count.id);
+    setCountEnChargement(null);
+    if (lines) setFeuilleInventaire({ count, lines });
+  };
 
   // Active view mode: 'movements' | 'counts'
   const [viewMode, setViewMode] = useState<'movements' | 'counts'>('movements');
@@ -90,7 +113,11 @@ export const MovementsTab: React.FC = () => {
   // Filtered movements
   const filteredMovements = useMemo(() => {
     return stockMovements.filter((m) => {
-      const movDate = new Date(m.created_at);
+      // Le journal se range par date d'opération : une marchandise reçue
+      // samedi et saisie lundi appartient au samedi, c'est là qu'on la
+      // cherche. Les mouvements d'avant cette date n'en portent pas : ils
+      // retombent sur leur date de saisie, qui était alors la même chose.
+      const movDate = new Date(m.date_operation ?? m.created_at);
       if (movDate < dateRange.start || movDate > dateRange.end) {
         return false;
       }
@@ -123,14 +150,14 @@ export const MovementsTab: React.FC = () => {
     const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
     filteredMovements.forEach((mov) => {
-      const movDateStr = mov.created_at.slice(0, 10);
+      const movDateStr = (mov.date_operation ?? mov.created_at).slice(0, 10);
       let label = '';
       if (movDateStr === todayStr) {
         label = "Aujourd'hui";
       } else if (movDateStr === yesterdayStr) {
         label = 'Hier';
       } else {
-        label = new Date(mov.created_at).toLocaleDateString('fr-FR', {
+        label = new Date(mov.date_operation ?? mov.created_at).toLocaleDateString('fr-FR', {
           weekday: 'long',
           day: 'numeric',
           month: 'long',
@@ -214,6 +241,7 @@ export const MovementsTab: React.FC = () => {
       'ID',
       'Date',
       'Heure',
+      'Saisi le',
       'Type',
       'Produit',
       'Quantité',
@@ -229,11 +257,16 @@ export const MovementsTab: React.FC = () => {
     }
 
     const rows = filteredMovements.map((m) => {
-      const d = new Date(m.created_at);
+      // « Date » est celle de l'opération, « Saisi le » celle de la saisie :
+      // un comptable qui voit un écart daté d'hier doit pouvoir dire si la
+      // ligne a été écrite hier ou ce matin.
+      const dOperation = new Date(m.date_operation ?? m.created_at);
+      const dSaisie = new Date(m.created_at);
       const row = [
         m.id,
-        d.toLocaleDateString('fr-FR'),
-        d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        dOperation.toLocaleDateString('fr-FR'),
+        dSaisie.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        dSaisie.toLocaleDateString('fr-FR'),
         m.type,
         `"${m.product_name.replace(/"/g, '""')}"`,
         m.quantite,
@@ -353,7 +386,7 @@ export const MovementsTab: React.FC = () => {
             className={`min-h-11 px-3 py-1.5 leading-tight bg-mc-ink hover:bg-[#1E2140] text-white rounded-full text-[14px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
           >
             <ClipboardList className="w-4 h-4 text-[#B9B2FF]" />
-            <span>Faire un comptage</span>
+            <span>Comptage / Inventaire</span>
           </button>
         </div>
       </div>
@@ -465,7 +498,7 @@ export const MovementsTab: React.FC = () => {
             onChange={setViewMode}
             options={[
               { id: 'movements', label: 'Mouvements', count: filteredMovements.length },
-              { id: 'counts', label: 'Comptages', count: stockCounts.length },
+              { id: 'counts', label: 'Comptages / Inventaires', count: stockCounts.length },
             ]}
           />
         </div>
@@ -728,7 +761,7 @@ export const MovementsTab: React.FC = () => {
           <div className="bg-white p-5 rounded-2xl border border-mc-line shadow-xs flex items-center justify-between">
             <div>
               <h3 className="text-sm font-extrabold text-mc-ink">
-                Historique des comptages (Inventaires)
+                Historique des comptages / inventaires
               </h3>
               <p className="text-xs text-mc-soft">
                 Retrouvez chaque session de contrôle physique des rayons
@@ -738,7 +771,7 @@ export const MovementsTab: React.FC = () => {
               onClick={() => gateWrite(() => setIsCountOpen(true))}
               className={`px-4 py-2 bg-mc-primary hover:bg-mc-primary-dark text-white rounded-xl text-xs font-bold cursor-pointer ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
             >
-              Nouveau comptage
+              Nouveau comptage / inventaire
             </button>
           </div>
 
@@ -766,13 +799,10 @@ export const MovementsTab: React.FC = () => {
                           {count.perimetre}
                         </span>
                         <span className="text-xs text-slate-400 font-mono">
-                          {new Date(count.created_at).toLocaleString('fr-FR', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {new Date(count.date_operation ?? count.created_at).toLocaleDateString(
+                            'fr-FR',
+                            { day: 'numeric', month: 'short', year: 'numeric' }
+                          )}
                         </span>
                       </div>
                       {count.commentaire && (
@@ -823,20 +853,54 @@ export const MovementsTab: React.FC = () => {
                         <span className="text-[10px] font-bold text-slate-400 uppercase block">
                           Impact financier
                         </span>
-                        <span
-                          className={`font-extrabold ${
-                            count.ecart_valeur >= 0
-                              ? 'text-emerald-700'
-                              : 'text-rose-600'
-                          }`}
-                        >
-                          {count.ecart_valeur >= 0
-                            ? `+${formatFCFA(count.ecart_valeur)}`
-                            : formatFCFA(count.ecart_valeur)}
-                        </span>
+                        {/* `ecart_valeur` est une valeur absolue : il dit
+                            combien d'argent les écarts représentent, jamais
+                            dans quel sens. `ecart_valeur_nette`, signé, le
+                            dit — les inventaires d'avant ne l'ont pas. */}
+                        {(() => {
+                          const net = count.ecart_valeur_nette;
+                          if (net === undefined) {
+                            return (
+                              <span className="font-extrabold text-mc-ink">
+                                {formatFCFA(count.ecart_valeur)}
+                              </span>
+                            );
+                          }
+                          return (
+                            <span
+                              className={`font-extrabold ${
+                                net >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                              }`}
+                            >
+                              {net >= 0 ? `+${formatFCFA(net)}` : formatFCFA(net)}
+                            </span>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
+
+                  {!isVendeur && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                      {count.valeur_stock_comptee !== undefined && (
+                        <span className="text-xs text-mc-soft">
+                          Valeur du stock compté :{' '}
+                          <span className="font-extrabold text-mc-ink">
+                            {formatFCFA(count.valeur_stock_comptee)}
+                          </span>
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => ouvrirFeuilleInventaire(count)}
+                        disabled={countEnChargement === count.id}
+                        className="ml-auto px-3 py-1.5 rounded-lg border border-mc-line hover:border-mc-primary hover:text-mc-primary text-[11px] font-bold cursor-pointer disabled:opacity-50 disabled:cursor-wait inline-flex items-center gap-1.5"
+                      >
+                        <ClipboardList className="w-3.5 h-3.5" />
+                        {countEnChargement === count.id ? 'Ouverture…' : 'Feuille d’inventaire'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -862,6 +926,211 @@ export const MovementsTab: React.FC = () => {
         movement={selectedMovement}
         onClose={() => setSelectedMovement(null)}
       />
+
+      {feuilleInventaire && (
+        <FeuilleInventaireModal
+          count={feuilleInventaire.count}
+          lines={feuilleInventaire.lines}
+          shopName={settings.shopName}
+          onClose={() => setFeuilleInventaire(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+/**
+ * La feuille d'inventaire : ce qui a été compté, article par article, écart ou
+ * non. C'est la seule preuve qu'un article a été vérifié — un article conforme
+ * ne produit aucun mouvement de stock et ne laisse donc rien d'autre derrière
+ * lui. Les articles non comptés n'y figurent pas : l'inventaire ne prétend
+ * rien à leur sujet.
+ */
+const FeuilleInventaireModal: React.FC<{
+  count: StockCount;
+  lines: StockCountItem[];
+  shopName: string;
+  onClose: () => void;
+}> = ({ count, lines, shopName, onClose }) => {
+  const dateInventaire = new Date(count.date_operation ?? count.created_at).toLocaleDateString(
+    'fr-FR',
+    { day: 'numeric', month: 'long', year: 'numeric' }
+  );
+
+  const exporterCSV = () => {
+    const entetes = [
+      'Produit',
+      'Unité',
+      'Stock théorique',
+      'Stock compté',
+      'Écart',
+      'Coût unitaire',
+      'Valeur écart',
+      'Motif',
+    ];
+    const lignes = lines.map((l) =>
+      [
+        `"${l.productName.replace(/"/g, '""')}"`,
+        `"${(l.unite ?? '').replace(/"/g, '""')}"`,
+        l.stockTheorique,
+        l.stockCompte,
+        l.ecart,
+        l.coutUnitaire ?? '',
+        l.valeurEcart,
+        `"${(l.motif ?? '').replace(/"/g, '""')}"`,
+      ].join(',')
+    );
+    const contenu = [
+      `"Inventaire ${shopName || ''} — ${dateInventaire} — ${count.perimetre}"`,
+      '',
+      entetes.join(','),
+      ...lignes,
+    ].join('\n');
+
+    // Le BOM : sans lui, Excel lit les accents de travers.
+    const blob = new Blob(['﻿' + contenu], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const lien = document.createElement('a');
+    lien.href = url;
+    lien.download = `inventaire-${(count.date_operation ?? count.created_at).slice(0, 10)}.csv`;
+    lien.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+    >
+      <div className="bg-white rounded-2xl sm:rounded-mc shadow-2xl border border-mc-line w-full max-w-3xl my-auto overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-800 to-indigo-900 px-5 sm:px-6 py-4 text-white flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
+              Feuille d’inventaire
+            </h2>
+            <p className="text-xs text-indigo-200 font-medium truncate">
+              {dateInventaire} · {count.perimetre} · par {count.user_name}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="w-9 h-9 shrink-0 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+          {count.commentaire && (
+            <p className="text-xs font-semibold text-slate-700">« {count.commentaire} »</p>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Comptés</span>
+              <span className="font-extrabold text-mc-ink">{lines.length}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Écarts</span>
+              <span className="font-extrabold text-mc-ink">{count.nb_ecarts}</span>
+            </div>
+            {count.valeur_stock_comptee !== undefined && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                  Valeur comptée
+                </span>
+                <span className="font-extrabold text-mc-ink">
+                  {formatFCFA(count.valeur_stock_comptee)}
+                </span>
+              </div>
+            )}
+            {count.ecart_valeur_nette !== undefined && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                  Impact
+                </span>
+                <span
+                  className={`font-extrabold ${
+                    count.ecart_valeur_nette >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                  }`}
+                >
+                  {count.ecart_valeur_nette >= 0
+                    ? `+${formatFCFA(count.ecart_valeur_nette)}`
+                    : formatFCFA(count.ecart_valeur_nette)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="border border-mc-line rounded-xl overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-100 text-[11px] font-extrabold uppercase text-slate-600">
+                <tr>
+                  <th className="py-2.5 px-3">Produit</th>
+                  <th className="py-2.5 px-2 text-center">Théorique</th>
+                  <th className="py-2.5 px-2 text-center">Compté</th>
+                  <th className="py-2.5 px-3 text-right">Écart</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                {lines.map((l) => (
+                  <tr key={l.productId} className={l.ecart !== 0 ? 'bg-amber-50/40' : ''}>
+                    <td className="py-2.5 px-3">
+                      <p className="font-bold text-mc-ink leading-tight">{l.productName}</p>
+                      {l.motif && (
+                        <span className="text-[11px] text-amber-700">{l.motif}</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-2 text-center text-mc-soft font-bold">
+                      {l.stockTheorique}
+                    </td>
+                    <td className="py-2.5 px-2 text-center font-extrabold text-mc-ink">
+                      {l.stockCompte}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-extrabold">
+                      {l.ecart === 0 ? (
+                        <span className="text-emerald-600">Conforme</span>
+                      ) : l.ecart > 0 ? (
+                        <span className="text-emerald-700">+{l.ecart}</span>
+                      ) : (
+                        <span className="text-rose-700">{l.ecart}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="pt-2 border-t border-mc-line flex flex-wrap items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 border border-mc-line rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+            >
+              Fermer
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-4 py-2.5 border border-mc-line rounded-xl text-xs font-bold text-slate-700 hover:border-mc-primary hover:text-mc-primary cursor-pointer"
+            >
+              Imprimer
+            </button>
+            <button
+              type="button"
+              onClick={exporterCSV}
+              className="px-5 py-2.5 bg-mc-primary hover:bg-mc-primary-dark text-white rounded-xl text-xs font-extrabold cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              Exporter en CSV
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
