@@ -407,7 +407,11 @@ export const SalesTab: React.FC = () => {
     // « nouveau » versement : il ne déplace rien. Un versement dont la commande
     // n'est pas connue ici (pas encore envoyé, commande non chargée) garde sa
     // propre ligne.
-    const commandesParId = new Map(baseSales.map((s) => [s.id, s]));
+    // Le type est écrit : sans lui, `[s.id, s]` s'infère comme un tableau et
+    // non comme un couple, la Map devient `Map<unknown, unknown>` et tout ce
+    // qui en sort perd son type. Selon la machine, TypeScript laissait passer
+    // ou non — l'intégration continue, elle, refusait.
+    const commandesParId = new Map<string, Sale>(baseSales.map((s) => [s.id, s]));
     return Array.from(groups.values())
       .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
       .map((groupe) => {
