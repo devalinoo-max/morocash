@@ -284,6 +284,58 @@ export function scoped(businessId: string) {
         ),
     },
 
+    // Avancement de la visite guidée. Pas de RLS non plus (table indexée sur
+    // userId, pas businessId) : on vérifie que la personne appartient bien à
+    // cette boutique avant de lire ou d'écrire sa ligne.
+    onboarding: {
+      /**
+       * L'état de la visite pour cette personne, créé à la volée au premier
+       * appel : une ligne absente et une ligne toute neuve veulent dire la
+       * même chose — personne n'a encore rien vu.
+       */
+      ensure: async (userId: string) => {
+        const user = await prisma.user.findFirst({ where: { id: userId, ...where } });
+        if (!user) return null;
+        return prisma.onboarding.upsert({
+          where: { userId },
+          create: { userId },
+          update: {},
+        });
+      },
+      /**
+       * Fusion, jamais remplacement. Les booléens ne font qu'être posés,
+       * l'étape ne recule pas et les écrans déjà vus s'additionnent : deux
+       * téléphones qui ont avancé chacun de leur côté hors ligne gardent les
+       * deux avancements, quel que soit l'ordre d'arrivée.
+       */
+      merge: async (
+        userId: string,
+        patch: {
+          visiteAccueilVue?: boolean;
+          parcoursFait?: boolean;
+          parcoursEtape?: number;
+          bullesVues?: string[];
+        }
+      ) => {
+        const user = await prisma.user.findFirst({ where: { id: userId, ...where } });
+        if (!user) return null;
+        const current = await prisma.onboarding.upsert({
+          where: { userId },
+          create: { userId },
+          update: {},
+        });
+        return prisma.onboarding.update({
+          where: { userId },
+          data: {
+            visiteAccueilVue: current.visiteAccueilVue || (patch.visiteAccueilVue ?? false),
+            parcoursFait: current.parcoursFait || (patch.parcoursFait ?? false),
+            parcoursEtape: Math.max(current.parcoursEtape, patch.parcoursEtape ?? 0),
+            bullesVues: [...new Set([...current.bullesVues, ...(patch.bullesVues ?? [])])],
+          },
+        });
+      },
+    },
+
     // User n'est pas couvert par RLS (spec §3.1 ne le liste pas) — pas besoin de
     // contexte tenant, le filtre applicatif businessId suffit.
     users: {

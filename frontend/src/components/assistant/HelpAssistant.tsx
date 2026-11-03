@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronDown, ChevronLeft, MessageCircleMore, SendHorizontal, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronLeft, Compass, MessageCircleMore, SendHorizontal, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useTour } from '../tour/TourProvider';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { HelpIntent, HelpTarget, matchHelpIntent } from './helpIntents';
 
@@ -120,6 +121,7 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
   } = useApp();
   // Sur téléphone, le bouton « Installer l'application » occupe le même coin :
   // la bulle se place au-dessus de lui tant qu'il est affiché.
+  const tour = useTour();
   const { canPromptInstall, isIosManualInstall, isInstalled } = useInstallPrompt();
   const installButtonShown = !isInstalled && (canPromptInstall || isIosManualInstall);
 
@@ -385,6 +387,35 @@ export const HelpAssistant: React.FC<HelpAssistantProps> = ({ aboveInstallBanner
                     )}
                   </div>
                 )
+              )}
+            </div>
+
+            {/* Revoir la visite : la quatrième bulle d'accueil promet que « le
+                guide revient quand tu veux ». C'est ici qu'il revient. */}
+            <div className="shrink-0 px-3 pt-3 flex flex-wrap gap-2 bg-white border-t border-mc-line">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  tour.rejouerAccueil();
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-mc-primary-tint text-mc-primary-dark text-xs font-bold cursor-pointer hover:bg-[#DAD6FC] transition-colors"
+              >
+                <Compass className="w-3.5 h-3.5" />
+                Revoir la visite
+              </button>
+              {tour.parcoursRestant && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    tour.lancerParcours();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-mc-primary text-white text-xs font-bold cursor-pointer hover:bg-mc-primary-dark transition-colors"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  Faire ma première vente
+                </button>
               )}
             </div>
 

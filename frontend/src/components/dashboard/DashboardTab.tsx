@@ -676,7 +676,7 @@ export const DashboardTab: React.FC = () => {
               {renderHero(false)}
 
               {/* Les chiffres essentiels */}
-              <motion.div variants={staggerParent} className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+              <motion.div data-tour="kpis-accueil" variants={staggerParent} className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
                 <KpiCard
                   label="Total vendu"
                   value={totalVenduServeur}
@@ -846,6 +846,7 @@ export const DashboardTab: React.FC = () => {
                   ============================================================ */}
               <motion.div
                 variants={staggerParent}
+                data-tour="kpis-accueil"
                 className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4"
               >
                 <KpiCard

@@ -34,6 +34,7 @@ const PROXIED_PREFIXES = [
   '/api/v1/receipts/verify',
   '/api/v1/push',
   '/api/v1/affiliate',
+  '/api/v1/onboarding',
 ];
 
 async function startServer() {

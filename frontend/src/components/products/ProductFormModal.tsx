@@ -347,6 +347,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           <div className="pt-1 border-t border-slate-100">
             <button
               type="button"
+              id="btn-product-form-details"
               onClick={() => setShowDetails((prev) => !prev)}
               className="flex items-center justify-between w-full py-2.5 text-xs font-bold text-[#5B4BF0] hover:text-mc-primary-dark cursor-pointer"
             >

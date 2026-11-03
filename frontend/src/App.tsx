@@ -37,6 +37,7 @@ import { NewSaleModal } from './components/pos/NewSaleModal';
 import { ReceiptModal } from './components/pos/ReceiptModal';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
+import { TourProvider } from './components/tour/TourProvider';
 import { InstallAppButton } from './components/pwa/InstallAppButton';
 import { InstallBanner, useInstallBanner } from './components/pwa/InstallBanner';
 import { PwaUpdateToast } from './components/pwa/PwaUpdateToast';
@@ -508,7 +509,12 @@ export default function App() {
           export) remontent dans le menu « ... » de la barre haute : le
           fournisseur doit donc envelopper a la fois la barre et l'onglet. */}
       <PageMenuProvider>
-        <MainLayout />
+        {/* La visite guidée enveloppe la mise en page : son voile doit passer
+            au-dessus de tous les écrans, et l'assistant d'aide a besoin de
+            pouvoir la relancer (« Revoir la visite »). */}
+        <TourProvider>
+          <MainLayout />
+        </TourProvider>
       </PageMenuProvider>
     </AppProvider>
   );

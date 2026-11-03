@@ -146,6 +146,7 @@ export const BottomNav: React.FC = () => {
         <div className="flex-1 flex flex-col justify-center items-center -mt-6">
           <button
             id="btn-floating-new-sale"
+            data-tour="btn-vendre"
             onClick={() => setIsCreateMenuOpen((open) => !open)}
             aria-label="Créer"
             aria-expanded={isCreateMenuOpen}
@@ -160,6 +161,7 @@ export const BottomNav: React.FC = () => {
         {/* 4. PRODUITS / PRESTATIONS */}
         <button
           id="nav-tab-products"
+          data-tour="nav-produits"
           onClick={() => {
             setActiveTab('products');
             setActiveMoreSubTab(null);
@@ -189,6 +191,7 @@ export const BottomNav: React.FC = () => {
         {/* 5. PLUS (contient Clients, Dépenses, Chiffres, Caisse, Abonnement, Réglages, Aide) */}
         <button
           id="nav-tab-more"
+          data-tour="nav-plus"
           onClick={() => {
             setActiveTab('more');
           }}

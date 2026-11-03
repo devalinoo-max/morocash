@@ -1053,6 +1053,9 @@ export const MoreTab: React.FC = () => {
               return (
                 <button
                   key={e.key}
+                  // Repère stable pour la visite guidée : sur téléphone,
+                  // « Mes chiffres » n'est atteignable que par cette liste.
+                  id={`btn-more-${e.key}`}
                   type="button"
                   onClick={e.action}
                   className="w-full min-h-[64px] px-4 py-3 flex items-center gap-3 text-left cursor-pointer hover:bg-mc-bg/60 active:bg-mc-bg transition-colors"

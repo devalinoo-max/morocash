@@ -31,6 +31,7 @@ import { formatMoney, formatMoneyCompact, formatDate, formatNumber } from '../..
 import { Sale, Expense, CashMovement, PaymentMethod, Customer } from '../../types';
 import { CustomerDetailPanel } from '../customers/CustomerDetailPanel';
 import { CommerciauxReport } from './CommerciauxReport';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 
 type PeriodPreset = 'today' | '7days' | '30days' | 'thisMonth' | 'thisYear' | 'custom';
 
@@ -811,7 +812,7 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
       {/* =====================================================================
           2. QUATRE INDICATEURS, barre de couleur 4px en bas
           ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="chiffres-indicateurs" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* INDICATEUR 1: Total vendu (barre indigo 4px en bas) */}
         <div className="bg-white rounded-mc border border-mc-line shadow-mc-card relative overflow-hidden flex flex-col justify-between p-4 sm:p-5">
           <div>
@@ -1425,10 +1426,11 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
                       #{idx + 1}
                     </span>
                     {p.photo ? (
-                      <img
-                        src={p.photo}
-                        alt={p.name}
-                        className="w-12 h-12 rounded-xl object-cover border border-mc-line shrink-0"
+                      <ZoomablePhoto
+                        photo={p.photo}
+                        nom={p.name}
+                        legende={formatMoney(p.revenue)}
+                        className="w-12 h-12 rounded-xl border border-mc-line shrink-0"
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-xl bg-mc-primary-tint border border-[#DAD6FC] flex items-center justify-center shrink-0">
@@ -1477,10 +1479,11 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
                       #{idx + 1}
                     </span>
                     {p.photo ? (
-                      <img
-                        src={p.photo}
-                        alt={p.name}
-                        className="w-12 h-12 rounded-xl object-cover border border-mc-line shrink-0"
+                      <ZoomablePhoto
+                        photo={p.photo}
+                        nom={p.name}
+                        legende={`+${formatMoney(p.margin)}`}
+                        className="w-12 h-12 rounded-xl border border-mc-line shrink-0"
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">

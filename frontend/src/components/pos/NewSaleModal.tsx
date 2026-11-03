@@ -37,6 +37,7 @@ import { resolveKeyboardScan } from '../../utils/hardwareScanner';
 import { playScanSuccessBeep } from '../../utils/barcodeEngine';
 import { ProductFormModal } from '../products/ProductFormModal';
 import { ProductPhotoLightbox } from '../products/ProductPhotoLightbox';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 import { DiscountModal } from './DiscountModal';
 import { DeliveryModal } from './DeliveryModal';
 import { ServiceModal } from './ServiceModal';
@@ -813,11 +814,11 @@ export const NewSaleModal: React.FC = () => {
                 className="flex items-center gap-2.5 py-2 border-b border-slate-100 last:border-b-0"
               >
                 {item.product.photo ? (
-                  <img
-                    src={item.product.photo}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="w-[34px] h-[34px] min-w-[34px] rounded-[9px] object-cover bg-slate-100"
+                  <ZoomablePhoto
+                    photo={item.product.photo}
+                    nom={item.product.name}
+                    legende={formatMoney(item.unitPrice)}
+                    className="w-[34px] h-[34px] min-w-[34px] rounded-[9px]"
                   />
                 ) : (
                   <div
@@ -1171,6 +1172,7 @@ export const NewSaleModal: React.FC = () => {
                           {/* STANDARD PRODUCT CARD (POINT 2) */}
                           <div
                             id={`pos-prod-card-${prod.id}`}
+                            data-tour={index === 0 ? 'pos-produit' : undefined}
                             onClick={() => addToCart(prod)}
                             className="h-[88px] p-3 rounded-[14px] border border-[#E2E8F0] bg-white flex items-stretch gap-3 transition-all hover:bg-[#F8FAFC] hover:border-[#CBD5E1] active:scale-[0.98] cursor-pointer relative text-left select-none shadow-xs group"
                           >
@@ -1296,7 +1298,10 @@ export const NewSaleModal: React.FC = () => {
 
                       {/* Right: Controls [-] QTY [+] and Line Total */}
                       <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center bg-white border border-mc-line rounded-xl p-0.5 shadow-2xs">
+                        <div
+                          data-tour={cart[0]?.product.id === item.product.id ? 'pos-quantite' : undefined}
+                          className="flex items-center bg-white border border-mc-line rounded-xl p-0.5 shadow-2xs"
+                        >
                           <button
                             type="button"
                             onClick={() => updateCartQuantity(item.product.id, -1)}
@@ -1386,7 +1391,7 @@ export const NewSaleModal: React.FC = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-[9px]">
-                    {displayProducts.map((prod) => {
+                    {displayProducts.map((prod, index) => {
                       const inCart = cart.find((ci) => ci.product.id === prod.id);
                       const isStockNeg = !prod.isService && prod.stock < 0;
                       const isStockZero = !prod.isService && prod.stock === 0;
@@ -1397,6 +1402,7 @@ export const NewSaleModal: React.FC = () => {
                         <div
                           key={prod.id}
                           id={`pos-prod-card-mobile-${prod.id}`}
+                          data-tour={index === 0 ? 'pos-produit' : undefined}
                           onClick={() => addToCart(prod)}
                           className="rounded-2xl border border-[#E2E8F0] bg-white flex flex-col gap-2 p-2.5 active:scale-[0.98] cursor-pointer relative select-none shadow-xs"
                         >
@@ -1595,7 +1601,10 @@ export const NewSaleModal: React.FC = () => {
                           <p className="text-[11px] text-mc-soft mt-0.5">{formatMoney(item.unitPrice)}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="flex items-center bg-white border border-mc-line rounded-xl p-0.5 shadow-2xs">
+                          <div
+                            data-tour={cart[0]?.product.id === item.product.id ? 'pos-quantite' : undefined}
+                            className="flex items-center bg-white border border-mc-line rounded-xl p-0.5 shadow-2xs"
+                          >
                             <button
                               type="button"
                               onClick={() => updateCartQuantity(item.product.id, -1)}

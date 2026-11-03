@@ -12,6 +12,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { processImageFile, ImageProcessError } from '../../utils/imageProcessor';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 
 interface ProductPhotoUploaderProps {
   photos: string[];
@@ -236,11 +237,14 @@ export const ProductPhotoUploader: React.FC<ProductPhotoUploaderProps> = ({
               key={idx}
               className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border border-mc-line overflow-hidden bg-white shadow-xs group shrink-0"
             >
-              <img
-                src={url}
+              {/* Un appui ouvre la photo en grand : à 80 px on ne voit pas si
+                  c'est la bonne prise de vue. Les boutons posés par-dessus
+                  (supprimer, réordonner) gardent la priorité. */}
+              <ZoomablePhoto
+                photo={url}
+                nom={`Photo ${idx + 1}`}
                 alt={`Photo ${idx + 1}`}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
+                className="w-full h-full"
               />
 
               {/* Main Photo Badge */}

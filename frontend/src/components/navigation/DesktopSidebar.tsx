@@ -41,6 +41,8 @@ interface DesktopSidebarProps {
 interface NavItem {
   key: string;
   id?: string;
+  /** Repère visé par la visite guidée (voir components/tour/scenarios.ts). */
+  dataTour?: string;
   label: string;
   icon: LucideIcon;
   /** Teinte de l'icône au repos ; l'item actif passe tout en blanc. */
@@ -131,6 +133,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
       items: [
         {
           key: 'new-sale',
+          dataTour: 'btn-vendre',
           label: 'Nouvelle commande',
           icon: PlusCircle,
           iconClass: 'text-[#A79DFF]',
@@ -164,6 +167,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
       items: [
         {
           key: 'products',
+          dataTour: 'nav-produits',
           label: 'Produits',
           icon: Package,
           onClick: () => navigateTo('products'),
@@ -251,6 +255,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
         },
         {
           key: 'reports',
+          dataTour: 'nav-chiffres',
           label: 'Mes chiffres',
           icon: BarChart3,
           iconClass: 'text-[#A79DFF]',
@@ -410,6 +415,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
                       <button
                         key={item.key}
                         id={item.id}
+                        data-tour={item.dataTour}
                         onClick={item.onClick}
                         title={item.label}
                         aria-current={item.active ? 'page' : undefined}

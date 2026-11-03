@@ -4,6 +4,7 @@ import type { Product } from '../../types';
 import { formatMoneyCompact } from '../../utils/formatters';
 import { avatarColor, avatarInitials } from '../../utils/avatar';
 import { stockLabel } from '../../utils/stockLabel';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 
 interface ProductCardProps {
   product: Product;
@@ -84,11 +85,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             et différente d'un voisin. L'ancienne initiale indigo sur gris pâle
             rendait toutes les lignes identiques au premier coup d'œil. */}
         {product.photo ? (
-          <img
-            src={product.photo}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="w-14 h-14 rounded-[12px] object-cover border border-mc-line shrink-0"
+          <ZoomablePhoto
+            photo={product.photo}
+            nom={product.name}
+            legende={formatMoneyCompact(product.salePrice)}
+            className="w-14 h-14 rounded-[12px] border border-mc-line shrink-0"
           />
         ) : (
           <div
