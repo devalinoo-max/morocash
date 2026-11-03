@@ -2,6 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, Upload, Trash2, Store, Move, Check, Sparkles, AlertCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
+/** Côté du logo enregistré, en pixels. Le carré de sortie ne change jamais. */
+const TAILLE_SORTIE = 512;
+/** Côté du carré de recadrage affiché à l'écran (la classe `w-64 h-64`). */
+const TAILLE_APERCU = 256;
+/** Zoom maximal : au-delà, un logo net devient une bouillie de pixels. */
+const ZOOM_MAX = 4;
+
 interface ShopLogoUploaderProps {
   logoUrl?: string;
   logoTransparentUrl?: string;
@@ -20,6 +27,9 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [isPngOrSvg, setIsPngOrSvg] = useState<boolean>(false);
   const [zoom, setZoom] = useState<number>(1);
+  // Dimensions réelles du fichier choisi : on les annonce au commerçant plutôt
+  // que de le laisser deviner ce que l'application va garder de son image.
+  const [imageSize, setImageSize] = useState<{ w: number; h: number } | null>(null);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDraggingCrop, setIsDraggingCrop] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -71,10 +81,27 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
-          setCropImageSrc(result);
-          setZoom(1);
-          setPanOffset({ x: 0, y: 0 });
-          setIsProcessing(false);
+          // On mesure l'image avant d'ouvrir le recadrage : ses dimensions sont
+          // écrites dans la fenêtre, et elles servent de base au zoom — sans
+          // elles, 100 % ne voudrait rien dire.
+          const mesure = new Image();
+          mesure.onload = () => {
+            // Un SVG sans dimensions déclarées renvoie 0 : on retombe alors sur
+            // le carré de sortie, qui le fait tenir entier dans l'aperçu.
+            setImageSize({
+              w: mesure.naturalWidth || TAILLE_SORTIE,
+              h: mesure.naturalHeight || TAILLE_SORTIE,
+            });
+            setCropImageSrc(result);
+            setZoom(1);
+            setPanOffset({ x: 0, y: 0 });
+            setIsProcessing(false);
+          };
+          mesure.onerror = () => {
+            setIsProcessing(false);
+            showToast('Image illisible : essaie un autre fichier', 'error');
+          };
+          mesure.src = result;
         };
         reader.onerror = () => {
           setIsProcessing(false);
@@ -133,14 +160,26 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
     }
   };
 
+  // À 100 %, l'image tient tout entière dans le carré : rien n'est coupé sans
+  // que le commerçant l'ait décidé. C'est cette base qui donne son sens au
+  // pourcentage affiché — auparavant le curseur partait d'un « 50 % » qui ne
+  // correspondait à rien, et l'aperçu ne montrait pas ce qui serait enregistré.
+  // Le curseur descend jusqu'à 0 % : l'image y devient invisible, c'est voulu —
+  // on règle la place du logo dans son carré sans butée imposée.
+  const ajustement = imageSize
+    ? Math.min(TAILLE_APERCU / imageSize.w, TAILLE_APERCU / imageSize.h)
+    : 1;
+  const largeurAffichee = imageSize ? imageSize.w * ajustement * zoom : 0;
+  const hauteurAffichee = imageSize ? imageSize.h * ajustement * zoom : 0;
+
   // Perform square crop and browser compression (512x512, WebP quality 85, target under 80 Ko)
   const applyCrop = () => {
-    if (!cropImageSrc) return;
+    if (!cropImageSrc || !imageSize) return;
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      const outputSize = 512;
+      const outputSize = TAILLE_SORTIE;
       const canvas = document.createElement('canvas');
       canvas.width = outputSize;
       canvas.height = outputSize;
@@ -157,23 +196,14 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
       // Clear transparent
       ctx.clearRect(0, 0, outputSize, outputSize);
 
-      // Compute bounding box based on zoom and panOffset
-      const naturalAspect = img.width / img.height;
-      let baseW = outputSize;
-      let baseH = outputSize;
-
-      if (naturalAspect > 1) {
-        baseH = outputSize;
-        baseW = outputSize * naturalAspect;
-      } else {
-        baseW = outputSize;
-        baseH = outputSize / naturalAspect;
-      }
-
-      const drawW = baseW * zoom;
-      const drawH = baseH * zoom;
-      const drawX = (outputSize - drawW) / 2 + panOffset.x;
-      const drawY = (outputSize - drawH) / 2 + panOffset.y;
+      // Le carré enregistré est le carré montré, agrandi d'autant : l'aperçu
+      // et le résultat ne peuvent plus diverger. Le déplacement est en pixels
+      // d'écran, il passe donc par la même échelle.
+      const echelle = outputSize / TAILLE_APERCU;
+      const drawW = largeurAffichee * echelle;
+      const drawH = hauteurAffichee * echelle;
+      const drawX = (outputSize - drawW) / 2 + panOffset.x * echelle;
+      const drawY = (outputSize - drawH) / 2 + panOffset.y * echelle;
 
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
@@ -188,6 +218,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
 
       onLogoChange(finalWebpUrl, finalTransparentUrl);
       setCropImageSrc(null);
+      setImageSize(null);
       showToast('Logo enregistré avec succès', 'success');
     };
     img.src = cropImageSrc;
@@ -195,6 +226,7 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
 
   const cancelCrop = () => {
     setCropImageSrc(null);
+    setImageSize(null);
   };
 
   const handleRemove = () => {
@@ -294,6 +326,13 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
             )}
           </div>
 
+          {/* La taille se dit avant le choix du fichier, pas après : le logo
+              est ramené à un carré de 512 px, autant que le commerçant le sache
+              en ouvrant sa galerie plutôt qu'en découvrant son image coupée. */}
+          <p className="text-[11px] text-slate-400">
+            Image carrée conseillée · enregistrée en {TAILLE_SORTIE} × {TAILLE_SORTIE} px
+            {' · '}au moins 200 × 200 px pour rester net
+          </p>
           <p className="text-[11px] text-slate-400">
             JPG, PNG, WEBP, HEIC, SVG · 15 Mo max · Glisser-déposer ou Ctrl+V
           </p>
@@ -365,6 +404,18 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
               Fais glisser l'image ou ajuste le zoom pour centrer ton logo dans le carré.
             </p>
 
+            {imageSize && (
+              <p className="text-[11px] font-semibold text-mc-soft bg-slate-50 border border-mc-line rounded-xl px-3 py-2">
+                Ton image : {imageSize.w} × {imageSize.h} px · elle sera enregistrée en{' '}
+                {TAILLE_SORTIE} × {TAILLE_SORTIE} px
+                {Math.min(imageSize.w, imageSize.h) < 200 && (
+                  <span className="block text-amber-700 mt-0.5">
+                    Elle est petite : le logo risque d'être flou sur tes reçus.
+                  </span>
+                )}
+              </p>
+            )}
+
             {/* Crop canvas area */}
             <div
               className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-2 border-mc-primary bg-slate-900 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
@@ -386,9 +437,11 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
               <img
                 src={cropImageSrc}
                 alt="Aperçu recadrage"
-                className="max-w-none transition-transform pointer-events-none"
+                className="max-w-none pointer-events-none"
                 style={{
-                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                  width: `${largeurAffichee}px`,
+                  height: `${hauteurAffichee}px`,
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
                 }}
                 draggable={false}
               />
@@ -403,13 +456,18 @@ export const ShopLogoUploader: React.FC<ShopLogoUploaderProps> = ({
               </div>
               <input
                 type="range"
-                min="0.5"
-                max="3"
+                min="0"
+                max={ZOOM_MAX}
                 step="0.05"
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
                 className="w-full accent-indigo-600 cursor-pointer"
               />
+              <p className="text-[11px] text-slate-400">
+                100 % : ton image entière dans le carré. En dessous, elle rétrécit avec du
+                vide autour, et à 0 % il ne reste rien. Au-dessus, tu l'agrandis et tu coupes
+                les bords.
+              </p>
             </div>
 
             {/* Modal actions */}
