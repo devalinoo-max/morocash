@@ -7,8 +7,11 @@ import {
   UploadCloud,
   CheckCircle2,
   Package,
+  CalendarDays,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
+import { toDateInputValue } from '../../utils/period';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 
 interface BreakageModalProps {
   isOpen: boolean;
@@ -38,6 +41,9 @@ export const BreakageModal: React.FC<BreakageModalProps> = ({
   const [motif, setMotif] = useState('');
   const [note, setNote] = useState('');
   const [photo, setPhoto] = useState<string | undefined>(undefined);
+  // Une casse se constate souvent la veille au soir et se déclare le lendemain
+  // matin : la date est préremplie à aujourd'hui et se recule librement.
+  const [dateCasse, setDateCasse] = useState(toDateInputValue(new Date()));
   const [errorMsg, setErrorMsg] = useState('');
 
   if (!isOpen) return null;
@@ -82,6 +88,7 @@ export const BreakageModal: React.FC<BreakageModalProps> = ({
       motif: motif.trim(),
       note: note.trim() || undefined,
       photo,
+      dateOperation: dateCasse || undefined,
     });
     if (result) onClose();
   };
@@ -176,6 +183,30 @@ export const BreakageModal: React.FC<BreakageModalProps> = ({
             </div>
           </div>
 
+          {/* Jour du constat, distinct du jour de la saisie. */}
+          <div>
+            <label
+              htmlFor="casse-date"
+              className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5"
+            >
+              Date du constat
+            </label>
+            <div className="relative w-full sm:w-60">
+              <CalendarDays className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                id="casse-date"
+                type="date"
+                value={dateCasse}
+                max={toDateInputValue(new Date())}
+                onChange={(e) => setDateCasse(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-mc-line rounded-xl text-xs font-semibold text-mc-ink focus:bg-white focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Le jour où la casse a été constatée, pas celui de la saisie.
+            </p>
+          </div>
+
           {/* Stock Impact Visual Pill */}
           <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 flex items-center justify-between text-xs">
             <div className="space-y-0.5">
@@ -247,10 +278,11 @@ export const BreakageModal: React.FC<BreakageModalProps> = ({
             </label>
             {photo ? (
               <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                <img
-                  src={photo}
+                <ZoomablePhoto
+                  photo={photo}
+                  nom="Preuve de la casse"
                   alt="Preuve casse"
-                  className="w-12 h-12 rounded-lg object-cover border border-amber-300"
+                  className="w-12 h-12 rounded-lg border border-amber-300 shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-amber-900 truncate">

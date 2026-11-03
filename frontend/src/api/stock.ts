@@ -20,6 +20,8 @@ export interface ApiStockMovement {
   annule: boolean;
   mouvementInverseId: string | null;
   userId: string;
+  dateOperation: string;
+  datePeremption: string | null;
   createdAt: string;
   // Absents pour un SELLER (spec §0 règle 7).
   prixAchatUnitaire?: number;
@@ -35,6 +37,7 @@ export interface ApiStockReception {
   totalArticles: number;
   totalMontant: number;
   userId: string;
+  dateOperation: string;
   createdAt: string;
 }
 
@@ -47,8 +50,24 @@ export interface ApiStockCount {
   ecartUnites: number;
   ecartValeur: number;
   commentaire: string | null;
+  ecartValeurNette: number;
+  valeurStockComptee: number;
   userId: string;
+  dateOperation: string;
   createdAt: string;
+}
+
+/** Une ligne d'inventaire telle que la renvoie GET /stock/counts/:id. */
+export interface ApiStockCountLine {
+  productId: string;
+  productName: string;
+  unite: string;
+  stockTheorique: number;
+  stockCompte: number;
+  ecart: number;
+  coutUnitaire: number;
+  valeurEcart: number;
+  motif: string | null;
 }
 
 export function listMovements(productId?: string) {
@@ -66,9 +85,24 @@ export function listCounts() {
   return api.get<{ counts: ApiStockCount[] }>('/stock/counts').then((d) => d.counts);
 }
 
+/**
+ * `dateOperation` et `expiryDate` arrivent en AAAA-MM-JJ depuis les champs de
+ * date du navigateur : `jourEnIso` les ramène à midi heure locale avant
+ * l'envoi. Une date nue est lue par le serveur comme minuit UTC, ce qui place
+ * l'opération la veille pour toute boutique à l'ouest de Greenwich — nos
+ * utilisateurs y sont tous.
+ */
+function jourEnIso(jour?: string): string | undefined {
+  if (!jour) return undefined;
+  const [annee, mois, jourDuMois] = jour.split('-').map(Number);
+  if (!annee || !mois || !jourDuMois) return undefined;
+  return new Date(annee, mois - 1, jourDuMois, 12, 0, 0).toISOString();
+}
+
 export function createReception(input: {
   fournisseur?: string;
   note?: string;
+  dateOperation?: string;
   lines: StockReceptionLine[];
 }) {
   const clientUuid = generateClientUuid();
@@ -77,10 +111,12 @@ export function createReception(input: {
       clientUuid,
       fournisseur: input.fournisseur,
       note: input.note,
+      dateOperation: jourEnIso(input.dateOperation),
       lignes: input.lines.map((l) => ({
         productId: l.productId,
         quantite: l.quantity,
         prixAchatUnitaire: l.purchasePrice,
+        datePeremption: jourEnIso(l.expiryDate),
       })),
     })
     .then((d) => d.reception);
@@ -92,26 +128,45 @@ export function createAdjustment(input: {
   quantite: number;
   motif: string;
   note?: string;
+  dateOperation?: string;
 }) {
+  const { dateOperation, ...reste } = input;
   return api
     .post<{ status: 'CREATED' | 'DUPLICATE'; movement: ApiStockMovement }>('/stock/adjustments', {
       clientUuid: generateClientUuid(),
-      ...input,
+      ...reste,
+      dateOperation: jourEnIso(dateOperation),
     })
     .then((d) => d.movement);
+}
+
+/**
+ * Le détail d'un inventaire : ce qui a été compté, article par article.
+ * Réservé au propriétaire et au comptable côté serveur (coûts unitaires).
+ */
+export function getCountDetail(countId: string) {
+  return api.get<{ count: ApiStockCount; lines: ApiStockCountLine[] }>(
+    `/stock/counts/${countId}`
+  );
 }
 
 export function createStockCount(input: {
   perimetre?: string;
   commentaire?: string;
-  lines: { productId: string; countedQty: number }[];
+  dateOperation?: string;
+  lines: { productId: string; countedQty: number; motif?: string }[];
 }) {
   return api
     .post<{ status: 'CREATED' | 'DUPLICATE'; count: ApiStockCount }>('/stock/counts', {
       clientUuid: generateClientUuid(),
       perimetre: input.perimetre,
       commentaire: input.commentaire,
-      lignes: input.lines.map((l) => ({ productId: l.productId, stockCompte: l.countedQty })),
+      dateOperation: jourEnIso(input.dateOperation),
+      lignes: input.lines.map((l) => ({
+        productId: l.productId,
+        stockCompte: l.countedQty,
+        motif: l.motif,
+      })),
     })
     .then((d) => d.count);
 }
@@ -178,6 +233,8 @@ export function toFrontendStockMovement(
     mouvement_inverse_id: m.mouvementInverseId ?? undefined,
     user_id: m.userId,
     user_name: ctx.userName,
+    date_operation: m.dateOperation,
+    date_peremption: m.datePeremption ?? undefined,
     created_at: m.createdAt,
   };
 }
@@ -194,6 +251,7 @@ export function toFrontendStockReception(r: ApiStockReception, userName: string)
     expense_id: '',
     user_id: r.userId,
     user_name: userName,
+    date_operation: r.dateOperation,
     created_at: r.createdAt,
   };
 }
@@ -208,8 +266,11 @@ export function toFrontendStockCount(c: ApiStockCount, userName: string): StockC
     ecart_unites: c.ecartUnites,
     ecart_valeur: c.ecartValeur,
     commentaire: c.commentaire ?? undefined,
+    ecart_valeur_nette: c.ecartValeurNette,
+    valeur_stock_comptee: c.valeurStockComptee,
     user_id: c.userId,
     user_name: userName,
+    date_operation: c.dateOperation,
     created_at: c.createdAt,
   };
 }

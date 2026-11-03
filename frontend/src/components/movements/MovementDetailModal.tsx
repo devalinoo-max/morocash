@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 import { StockMovement } from '../../types';
 
 interface MovementDetailModalProps {
@@ -220,18 +221,53 @@ export const MovementDetailModal: React.FC<MovementDetailModalProps> = ({
             <div className="flex items-center justify-between py-2 border-b border-slate-100">
               <span className="text-mc-soft font-medium flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                Date & heure
+                Date de l'opération
               </span>
               <span className="font-semibold text-slate-700">
-                {new Date(movement.created_at).toLocaleString('fr-FR', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {new Date(movement.date_operation ?? movement.created_at).toLocaleDateString(
+                  'fr-FR',
+                  { day: 'numeric', month: 'short', year: 'numeric' }
+                )}
               </span>
             </div>
+
+            {/* La ligne de saisie ne s'affiche que si elle diffère du jour
+                déclaré : sur l'immense majorité des mouvements les deux dates
+                sont les mêmes, et la répéter n'apprendrait rien. */}
+            {movement.date_operation &&
+              movement.date_operation.slice(0, 10) !== movement.created_at.slice(0, 10) && (
+                <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                  <span className="text-mc-soft font-medium flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    Saisi le
+                  </span>
+                  <span className="font-semibold text-amber-700">
+                    {new Date(movement.created_at).toLocaleString('fr-FR', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              )}
+
+            {movement.date_peremption && (
+              <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                <span className="text-mc-soft font-medium flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  Date limite du lot
+                </span>
+                <span className="font-semibold text-slate-700">
+                  {new Date(movement.date_peremption).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-between py-2 border-b border-slate-100">
               <span className="text-mc-soft font-medium flex items-center gap-1.5">
@@ -273,10 +309,11 @@ export const MovementDetailModal: React.FC<MovementDetailModalProps> = ({
                 <span className="text-[11px] font-bold text-mc-soft uppercase tracking-wider block mb-1.5">
                   Justificatif joint
                 </span>
-                <img
-                  src={movement.justificatif_url}
+                <ZoomablePhoto
+                  photo={movement.justificatif_url}
+                  nom="Justificatif du mouvement"
                   alt="Justificatif mouvement"
-                  className="w-full max-h-48 object-cover rounded-xl border border-mc-line shadow-xs"
+                  className="w-full h-48 rounded-xl border border-mc-line shadow-xs"
                 />
               </div>
             )}

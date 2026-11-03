@@ -436,6 +436,10 @@ export interface StockMovement {
   mouvement_inverse_id?: string;
   user_id?: string;
   user_name: string;
+  /** Jour déclaré de l'opération. `created_at` reste le moment de la saisie. */
+  date_operation?: string;
+  /** Date limite du lot reçu (entrées seulement), quand l'article périme. */
+  date_peremption?: string;
   created_at: string;
 }
 
@@ -444,6 +448,8 @@ export interface StockReceptionLine {
   productName: string;
   quantity: number;
   purchasePrice: number;
+  /** Date limite de ce lot, au format AAAA-MM-JJ. Vide si l'article ne périme pas. */
+  expiryDate?: string;
 }
 
 export interface StockReception {
@@ -458,16 +464,27 @@ export interface StockReception {
   lines?: StockReceptionLine[];
   user_id?: string;
   user_name: string;
+  /** Jour de la réception déclaré sur le bon de livraison. */
+  date_operation?: string;
   created_at: string;
 }
 
+/**
+ * Une ligne d'inventaire : un article réellement compté. Les articles non
+ * comptés n'y figurent pas — c'est ce qui distingue « vérifié et conforme »
+ * de « pas regardé ».
+ */
 export interface StockCountItem {
   productId: string;
   productName: string;
+  unite?: string;
   stockTheorique: number;
   stockCompte: number;
   ecart: number;
+  coutUnitaire?: number;
   valeurEcart: number;
+  /** Pourquoi cet écart, écrit pendant le comptage. */
+  motif?: string;
   commentaire?: string;
 }
 
@@ -479,10 +496,16 @@ export interface StockCount {
   nb_ecarts: number;
   ecart_unites: number;
   ecart_valeur: number;
+  /** Écart en valeur signé : négatif quand le stock réel vaut moins qu'annoncé. */
+  ecart_valeur_nette?: number;
+  /** Valeur du stock compté, au coût moyen du moment. */
+  valeur_stock_comptee?: number;
   commentaire?: string;
   items?: StockCountItem[];
   user_id?: string;
   user_name: string;
+  /** Jour où le comptage physique a été fait. */
+  date_operation?: string;
   created_at: string;
 }
 

@@ -12,8 +12,11 @@ import {
   AlertCircle,
   Receipt,
   ScanLine,
+  CalendarDays,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
+import { toDateInputValue } from '../../utils/period';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 import { StockReceptionLine } from '../../types';
 
 interface ReceptionModalProps {
@@ -33,17 +36,23 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
   const [fournisseur, setFournisseur] = useState('');
   const [note, setNote] = useState('');
   const [justificatifUrl, setJustificatifUrl] = useState<string | undefined>(undefined);
+  // Le jour de la réception est prérempli à aujourd'hui : c'est le cas courant,
+  // et celui qui note lundi la marchandise reçue samedi n'a qu'à reculer la
+  // date au lieu de renoncer.
+  const [dateReception, setDateReception] = useState(toDateInputValue(new Date()));
   const [lines, setLines] = useState<
     Array<{
       productId: string;
       quantity: number;
       purchasePrice: number;
+      expiryDate: string;
     }>
   >([
     {
       productId: physicalProducts[0]?.id || '',
       quantity: 10,
       purchasePrice: physicalProducts[0]?.purchasePrice || 0,
+      expiryDate: '',
     },
   ]);
 
@@ -70,6 +79,10 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
     );
   };
 
+  const handleExpiryChange = (index: number, expiryDate: string) => {
+    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, expiryDate } : l)));
+  };
+
   const handlePriceChange = (index: number, price: number) => {
     setLines((prev) =>
       prev.map((l, i) => (i === index ? { ...l, purchasePrice: Math.max(0, price) } : l))
@@ -87,6 +100,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
           productId: available.id,
           quantity: 1,
           purchasePrice: available.purchasePrice,
+          expiryDate: '',
         },
       ]);
     }
@@ -129,6 +143,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
           productName: prod?.name || 'Produit',
           quantity: Number(l.quantity),
           purchasePrice: Number(l.purchasePrice),
+          expiryDate: l.expiryDate || undefined,
         };
       });
 
@@ -138,6 +153,7 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
       fournisseur: fournisseur.trim() || undefined,
       note: note.trim() || undefined,
       justificatif_url: justificatifUrl,
+      dateOperation: dateReception || undefined,
       lines: validLines,
     });
 
@@ -204,6 +220,32 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                 />
               </div>
             </div>
+
+            <div>
+              <label
+                htmlFor="reception-date"
+                className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5"
+              >
+                Date de réception
+              </label>
+              <div className="relative">
+                <CalendarDays className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="reception-date"
+                  type="date"
+                  value={dateReception}
+                  max={toDateInputValue(new Date())}
+                  onChange={(e) => setDateReception(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-mc-line rounded-xl text-xs font-semibold text-mc-ink focus:bg-white focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+              {/* Une marchandise ne peut pas arriver demain : la borne évite la
+                  faute de frappe sur l'année, qui enverrait la réception dans
+                  un futur où aucun écran ne va la chercher. */}
+              <p className="text-[11px] text-slate-400 mt-1">
+                Le jour où la marchandise est arrivée, pas celui de la saisie.
+              </p>
+            </div>
           </div>
 
           {/* Table of Products received */}
@@ -228,10 +270,8 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                 const lineTotal = (line.quantity || 0) * (line.purchasePrice || 0);
 
                 return (
-                  <div
-                    key={idx}
-                    className="p-3 bg-slate-50 rounded-xl border border-mc-line flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
-                  >
+                  <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-mc-line space-y-2.5">
+                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     {/* Product select */}
                     <div className="flex-1 min-w-[180px]">
                       <select
@@ -307,6 +347,37 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
+                   </div>
+
+                    {/* Date limite du lot. Laissée vide pour tout ce qui ne
+                        périme pas — c'est-à-dire la plupart des articles —,
+                        d'où une rangée discrète plutôt qu'un champ obligatoire
+                        au milieu de la ligne. */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        htmlFor={`peremption-${idx}`}
+                        className="text-[11px] font-bold text-slate-500"
+                      >
+                        Date limite {prod?.name ? `— ${prod.name}` : ''} (facultatif)
+                      </label>
+                      <input
+                        id={`peremption-${idx}`}
+                        type="date"
+                        value={line.expiryDate}
+                        min={dateReception || undefined}
+                        onChange={(e) => handleExpiryChange(idx, e.target.value)}
+                        className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-[11px] font-semibold text-mc-ink focus:outline-none focus:border-emerald-500"
+                      />
+                      {line.expiryDate && (
+                        <button
+                          type="button"
+                          onClick={() => handleExpiryChange(idx, '')}
+                          className="text-[11px] font-bold text-slate-400 hover:text-rose-600 cursor-pointer"
+                        >
+                          Retirer
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -320,10 +391,11 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
             </label>
             {justificatifUrl ? (
               <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <img
-                  src={justificatifUrl}
+                <ZoomablePhoto
+                  photo={justificatifUrl}
+                  nom="Bon de livraison"
                   alt="Justificatif"
-                  className="w-12 h-12 rounded-lg object-cover border border-emerald-300"
+                  className="w-12 h-12 rounded-lg border border-emerald-300 shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-emerald-900 truncate">

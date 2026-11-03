@@ -231,6 +231,7 @@ model Business {
   movements    StockMovement[]
   receptions   StockReception[]
   counts       StockCount[]
+  countLines   StockCountLine[]
   registers    CashRegister[]
   cashMoves    CashMovement[]
   dailyStats   DailyStats[]
@@ -345,9 +346,37 @@ model User {
   registersClosed CashRegister[] @relation("RegisterCloser")
   pushSubscriptions PushSubscription[]
   commercial Commercial?
+  onboarding Onboarding?
 
   @@unique([businessId, telephone])   // PAS unique globalement
   @@index([telephone])
+}
+
+/**
+ * Avancement de la visite guidée, une ligne par personne et non par boutique :
+ * l'employé ajouté six mois plus tard découvre l'app à son tour et refait la
+ * visite, tandis que le propriétaire qui a déjà tout vu n'est jamais reguidé.
+ *
+ * L'app écrit d'abord dans son stockage local puis pousse ici au mieux. Ces
+ * champs ne font que monter — un booléen ne redevient pas faux, l'étape ne
+ * recule pas — ce qui rend la fusion de deux appareils sans ambiguïté.
+ */
+model Onboarding {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // La visite d'accueil (4 bulles « Regarde ») a été vue jusqu'au bout ou passée.
+  visiteAccueilVue Boolean  @default(false)
+  // Le parcours en 3 actes est terminé — ou le compte avait déjà des ventes.
+  parcoursFait     Boolean  @default(false)
+  // Rang de la dernière étape franchie du parcours, pour reprendre où la
+  // personne s'est arrêtée si elle ferme l'application en plein milieu.
+  parcoursEtape    Int      @default(0)
+  // Écrans dont la bulle de première visite a déjà été montrée.
+  bullesVues       String[] @default([])
+
+  updatedAt DateTime @updatedAt
 }
 
 model Session {
@@ -435,6 +464,7 @@ model Product {
   codes     ProductCode[]
   items     OrderItem[]
   movements StockMovement[]
+  countLines StockCountLine[]
 
   @@unique([businessId, nom])
   @@index([businessId, actif])
@@ -643,6 +673,14 @@ model StockMovement {
   fournisseur        String?
   note               String?
   justificatifUrl    String?
+  // Quand l'opération a eu lieu, telle que déclarée par le commerçant : la
+  // marchandise arrive le samedi et se saisit le lundi. `createdAt` reste la
+  // trace de la saisie — c'est ce qui permet de voir qu'un mouvement a été
+  // antidaté. Les comptes de stock se lisent sur `dateOperation`.
+  dateOperation      DateTime      @default(now())
+  // Date limite du lot reçu (ENTREE uniquement) : vide quand le produit ne
+  // périme pas, ce qui est le cas de la plupart.
+  datePeremption     DateTime?
   orderId            String?
   order              Order?        @relation(fields: [orderId], references: [id])
   receptionId        String?
@@ -658,6 +696,7 @@ model StockMovement {
   @@index([businessId, createdAt])
   @@index([productId, createdAt])
   @@index([businessId, type])
+  @@index([businessId, dateOperation])
 }
 
 model StockReception {
@@ -672,6 +711,8 @@ model StockReception {
   totalMontant  Int
   userId        String
   user          User     @relation(fields: [userId], references: [id])
+  // Jour de la réception déclaré sur le bon de livraison, distinct de la saisie.
+  dateOperation DateTime @default(now())
   createdAt     DateTime @default(now())
 
   movements StockMovement[]
@@ -691,13 +732,53 @@ model StockCount {
   ecartUnites  Int
   ecartValeur  Int
   commentaire  String?
+  // Valeur du stock réellement compté, au coût moyen du moment : c'est le
+  // chiffre qu'un inventaire est censé arrêter. Il ne porte que sur les
+  // articles comptés — ceux qu'on n'a pas vus n'ont rien prouvé.
+  valeurStockComptee Int @default(0)
+  // Écart en valeur, signé : négatif quand le stock réel vaut moins que ce que
+  // disait le système. `ecartValeur` reste en valeur absolue, c'est ce qu'il a
+  // toujours voulu dire et l'historique est écrit ainsi.
+  ecartValeurNette Int @default(0)
   userId       String
   user         User     @relation(fields: [userId], references: [id])
+  // Jour où le comptage physique a été fait, distinct de la saisie.
+  dateOperation DateTime @default(now())
   createdAt    DateTime @default(now())
 
   movements StockMovement[]
+  lines     StockCountLine[]
 
   @@index([businessId, createdAt])
+}
+
+/**
+ * Une ligne par article réellement compté — y compris ceux trouvés conformes,
+ * qui ne produisent aucun mouvement et ne laissaient donc aucune trace. Sans
+ * elles, un inventaire validé ne prouvait rien : on ne pouvait pas dire ce qui
+ * avait été vérifié, ni rouvrir le comptage pour le relire.
+ *
+ * Un article absent de cette table n'a pas été compté. C'est différent d'un
+ * article compté conforme, et l'inventaire ne prétend rien à son sujet.
+ */
+model StockCountLine {
+  id             String     @id @default(cuid())
+  businessId     String
+  business       Business   @relation(fields: [businessId], references: [id])
+  countId        String
+  count          StockCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product    @relation(fields: [productId], references: [id])
+  stockTheorique Int
+  stockCompte    Int
+  ecart          Int        // stockCompte − stockTheorique, signé
+  coutUnitaire   Int        // CMP au moment du comptage
+  valeurEcart    Int        // ecart × coutUnitaire, signé
+  motif          String?    // pourquoi cet écart, écrit pendant le comptage
+  createdAt      DateTime   @default(now())
+
+  @@unique([countId, productId])
+  @@index([businessId, countId])
 }
 
 // ─────────────── CAISSE ───────────────

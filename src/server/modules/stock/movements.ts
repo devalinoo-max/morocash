@@ -18,6 +18,8 @@ export const receptionLineSchema = z.object({
   productId: z.string().cuid(),
   quantite: z.number().int().positive(),
   prixAchatUnitaire: z.number().int().nonnegative(),
+  /** Date limite du lot reçu. Absente pour tout ce qui ne périme pas. */
+  datePeremption: z.coerce.date().optional(),
 });
 
 export const receptionSchema = z.object({
@@ -25,6 +27,8 @@ export const receptionSchema = z.object({
   fournisseur: z.string().trim().max(200).optional(),
   note: z.string().trim().max(1000).optional(),
   justificatifUrl: z.string().url().optional(),
+  /** Jour de la réception. Absente, c'est l'instant de la saisie qui fait foi. */
+  dateOperation: z.coerce.date().optional(),
   lignes: z.array(receptionLineSchema).min(1),
 });
 
@@ -38,6 +42,8 @@ export const adjustmentSchema = z.object({
   motif: z.string().trim().min(1, 'Un motif est obligatoire pour un ajustement manuel.'),
   note: z.string().trim().max(1000).optional(),
   justificatifUrl: z.string().url().optional(),
+  /** Jour où la casse ou la perte a été constatée, si ce n'est pas aujourd'hui. */
+  dateOperation: z.coerce.date().optional(),
 });
 
 export type AdjustmentInput = z.infer<typeof adjustmentSchema>;
@@ -56,6 +62,11 @@ export async function createReception(
     let totalArticles = 0;
     let totalMontant = 0;
 
+    // Une réception sans date déclarée est réputée faite maintenant. La même
+    // valeur part sur la réception et sur chacun de ses mouvements : sans ça,
+    // un bon antidaté laisserait ses lignes au jour de la saisie.
+    const dateOperation = input.dateOperation ?? new Date();
+
     const reception = await tx.stockReception.create({
       data: {
         businessId,
@@ -63,6 +74,7 @@ export async function createReception(
         fournisseur: input.fournisseur,
         note: input.note,
         justificatifUrl: input.justificatifUrl,
+        dateOperation,
         totalArticles: 0,
         totalMontant: 0,
         userId,
@@ -74,20 +86,32 @@ export async function createReception(
     // lignes du même produit violaient sa contrainte d'unicité et faisaient
     // échouer TOUTE la réception, la transaction étant annulée. Or saisir deux
     // fois le même article dans un bon de livraison est courant.
+    // Deux lots du même produit n'ont pas forcément la même date limite : on
+    // retient la plus proche. Dire au commerçant que tout périme au plus tôt le
+    // dessert moins que lui laisser croire qu'il a jusqu'à la plus lointaine.
     const lignesFusionnees = [...
       input.lignes
         .reduce((acc, ligne) => {
-          const cumul = acc.get(ligne.productId) ?? { quantite: 0, montant: 0 };
+          const cumul = acc.get(ligne.productId) ?? {
+            quantite: 0,
+            montant: 0,
+            datePeremption: undefined as Date | undefined,
+          };
           acc.set(ligne.productId, {
             quantite: cumul.quantite + ligne.quantite,
             montant: cumul.montant + ligne.quantite * ligne.prixAchatUnitaire,
+            datePeremption:
+              cumul.datePeremption && ligne.datePeremption
+                ? new Date(Math.min(cumul.datePeremption.getTime(), ligne.datePeremption.getTime()))
+                : (cumul.datePeremption ?? ligne.datePeremption),
           });
           return acc;
-        }, new Map<string, { quantite: number; montant: number }>())
-    ].map(([productId, { quantite, montant }]) => ({
+        }, new Map<string, { quantite: number; montant: number; datePeremption?: Date }>())
+    ].map(([productId, { quantite, montant, datePeremption }]) => ({
       productId,
       quantite,
       prixAchatUnitaire: Math.round(montant / quantite),
+      datePeremption,
     }));
 
     for (const ligne of lignesFusionnees) {
@@ -122,6 +146,8 @@ export async function createReception(
           prixAchatUnitaire: ligne.prixAchatUnitaire,
           coutUnitaire: nouveauCmp,
           receptionId: reception.id,
+          dateOperation,
+          datePeremption: ligne.datePeremption,
           userId,
         },
       });
@@ -173,6 +199,7 @@ export async function createAdjustment(
         motif: input.motif,
         note: input.note,
         justificatifUrl: input.justificatifUrl,
+        dateOperation: input.dateOperation ?? new Date(),
         userId,
       },
     });
@@ -240,9 +267,15 @@ export async function cancelMovement(businessId: string, userId: string, movemen
   });
 }
 
+// Le journal se lit par date d'opération : une réception d'hier saisie ce matin
+// se range à hier, là où le commerçant la cherche. À date égale — l'immense
+// majorité des cas, puisque la date par défaut est l'instant de la saisie —
+// c'est l'ordre de saisie qui départage.
+const ORDRE_JOURNAL = [{ dateOperation: 'desc' as const }, { createdAt: 'desc' as const }];
+
 export async function listReceptions(businessId: string) {
   return runInTenantTransaction(businessId, (tx) =>
-    tx.stockReception.findMany({ where: { businessId }, orderBy: { createdAt: 'desc' } })
+    tx.stockReception.findMany({ where: { businessId }, orderBy: ORDRE_JOURNAL })
   );
 }
 
@@ -250,7 +283,7 @@ export async function listMovements(businessId: string, filters: { productId?: s
   return runInTenantTransaction(businessId, (tx) =>
     tx.stockMovement.findMany({
       where: { businessId, ...(filters.productId ? { productId: filters.productId } : {}) },
-      orderBy: { createdAt: 'desc' },
+      orderBy: ORDRE_JOURNAL,
     })
   );
 }

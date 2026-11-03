@@ -20,6 +20,7 @@ import {
   StockMovement,
   StockReception,
   StockCount,
+  StockCountItem,
   StockReceptionLine,
   ReceiptDelivery,
   ReceiptDeliveryChannel,
@@ -445,10 +446,12 @@ interface AppContextType {
   stockMovements: StockMovement[];
   stockReceptions: StockReception[];
   stockCounts: StockCount[];
+  /** `dateOperation` : jour déclaré de l'opération, en AAAA-MM-JJ. Absent, c'est aujourd'hui. */
   recordStockReception: (params: {
     fournisseur?: string;
     note?: string;
     justificatif_url?: string;
+    dateOperation?: string;
     lines: StockReceptionLine[];
   }) => Promise<{ reception: StockReception; expense: Expense | null } | null>;
   recordStockBreakage: (params: {
@@ -457,6 +460,7 @@ interface AppContextType {
     motif: string;
     note?: string;
     photo?: string;
+    dateOperation?: string;
   }) => Promise<StockMovement | null>;
   recordStockLoss: (params: {
     productId: string;
@@ -464,12 +468,17 @@ interface AppContextType {
     motif: string;
     note?: string;
     photo?: string;
+    dateOperation?: string;
   }) => Promise<StockMovement | null>;
+  /** `items` ne contient que les articles réellement comptés. */
   recordStockCount: (params: {
     perimetre: string;
-    items: { productId: string; countedQty: number }[];
+    items: { productId: string; countedQty: number; motif?: string }[];
     commentaire?: string;
+    dateOperation?: string;
   }) => Promise<StockCount | null>;
+  /** Relit un inventaire validé, article par article, pour l'afficher ou l'exporter. */
+  fetchStockCountDetail: (countId: string) => Promise<StockCountItem[] | null>;
   cancelStockMovement: (
     movementId: string,
     reason: string
@@ -3126,12 +3135,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fournisseur?: string;
     note?: string;
     justificatif_url?: string;
+    dateOperation?: string;
     lines: StockReceptionLine[];
   }): Promise<{ reception: StockReception; expense: Expense | null } | null> => {
     try {
       const created = await stockApi.createReception({
         fournisseur: params.fournisseur,
         note: params.note,
+        dateOperation: params.dateOperation,
         lines: params.lines,
       });
       const totalArticles = params.lines.reduce((sum, l) => sum + l.quantity, 0);
@@ -3151,6 +3162,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     motif: string;
     note?: string;
     photo?: string;
+    dateOperation?: string;
   }): Promise<StockMovement | null> => {
     const cleanMotif = (params.motif || '').trim();
     if (!cleanMotif) {
@@ -3164,6 +3176,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         type: 'CASSE',
         quantite: params.quantity,
         motif: cleanMotif + (params.note ? ` : ${params.note.trim()}` : ''),
+        dateOperation: params.dateOperation,
       });
       const movement = stockApi.toFrontendStockMovement(created, {
         productName: prod?.name,
@@ -3184,6 +3197,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     motif: string;
     note?: string;
     photo?: string;
+    dateOperation?: string;
   }): Promise<StockMovement | null> => {
     const cleanMotif = (params.motif || '').trim();
     if (!cleanMotif) {
@@ -3197,6 +3211,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         type: 'PERTE',
         quantite: params.quantity,
         motif: cleanMotif + (params.note ? ` : ${params.note.trim()}` : ''),
+        dateOperation: params.dateOperation,
       });
       const movement = stockApi.toFrontendStockMovement(created, {
         productName: prod?.name,
@@ -3211,15 +3226,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const fetchStockCountDetail = async (countId: string): Promise<StockCountItem[] | null> => {
+    try {
+      const { lines } = await stockApi.getCountDetail(countId);
+      return lines.map((l) => ({
+        productId: l.productId,
+        productName: l.productName,
+        unite: l.unite,
+        stockTheorique: l.stockTheorique,
+        stockCompte: l.stockCompte,
+        ecart: l.ecart,
+        coutUnitaire: l.coutUnitaire,
+        valeurEcart: l.valeurEcart,
+        motif: l.motif ?? undefined,
+      }));
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return null;
+    }
+  };
+
   const recordStockCount = async (params: {
     perimetre: string;
-    items: { productId: string; countedQty: number }[];
+    items: { productId: string; countedQty: number; motif?: string }[];
     commentaire?: string;
+    dateOperation?: string;
   }): Promise<StockCount | null> => {
     try {
       const created = await stockApi.createStockCount({
         perimetre: params.perimetre,
         commentaire: params.commentaire,
+        dateOperation: params.dateOperation,
         lines: params.items,
       });
       const stockCount = stockApi.toFrontendStockCount(created, currentUser?.nom ?? 'Vendeur');
@@ -3371,6 +3408,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         recordStockBreakage,
         recordStockLoss,
         recordStockCount,
+        fetchStockCountDetail,
         cancelStockMovement,
         activeTab,
         setActiveTab,

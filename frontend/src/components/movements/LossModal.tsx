@@ -6,8 +6,11 @@ import {
   UploadCloud,
   CheckCircle2,
   Package,
+  CalendarDays,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
+import { toDateInputValue } from '../../utils/period';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 
 interface LossModalProps {
   isOpen: boolean;
@@ -36,6 +39,9 @@ export const LossModal: React.FC<LossModalProps> = ({
   const [motif, setMotif] = useState('');
   const [note, setNote] = useState('');
   const [photo, setPhoto] = useState<string | undefined>(undefined);
+  // Une disparition se remarque à la fermeture et se déclare le lendemain :
+  // la date part d'aujourd'hui et se recule jusqu'au jour du constat.
+  const [datePerte, setDatePerte] = useState(toDateInputValue(new Date()));
   const [errorMsg, setErrorMsg] = useState('');
 
   if (!isOpen) return null;
@@ -80,6 +86,7 @@ export const LossModal: React.FC<LossModalProps> = ({
       motif: motif.trim(),
       note: note.trim() || undefined,
       photo,
+      dateOperation: datePerte || undefined,
     });
     if (result) onClose();
   };
@@ -174,6 +181,30 @@ export const LossModal: React.FC<LossModalProps> = ({
             </div>
           </div>
 
+          {/* Jour du constat, distinct du jour de la saisie. */}
+          <div>
+            <label
+              htmlFor="perte-date"
+              className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5"
+            >
+              Date du constat
+            </label>
+            <div className="relative w-full sm:w-60">
+              <CalendarDays className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                id="perte-date"
+                type="date"
+                value={datePerte}
+                max={toDateInputValue(new Date())}
+                onChange={(e) => setDatePerte(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-mc-line rounded-xl text-xs font-semibold text-mc-ink focus:bg-white focus:border-rose-500 focus:outline-none"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Le jour où la disparition a été constatée, pas celui de la saisie.
+            </p>
+          </div>
+
           {/* Stock Impact Visual Pill */}
           <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200/60 flex items-center justify-between text-xs">
             <div className="space-y-0.5">
@@ -245,10 +276,11 @@ export const LossModal: React.FC<LossModalProps> = ({
             </label>
             {photo ? (
               <div className="flex items-center gap-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                <img
-                  src={photo}
+                <ZoomablePhoto
+                  photo={photo}
+                  nom="Preuve du vol ou de la perte"
                   alt="Preuve vol/perte"
-                  className="w-12 h-12 rounded-lg object-cover border border-rose-300"
+                  className="w-12 h-12 rounded-lg border border-rose-300 shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-rose-900 truncate">
