@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Info,
   Layers,
+  RefreshCw,
   X,
 } from 'lucide-react';
 import { formatFCFA } from '../../utils/formatters';
@@ -44,6 +45,8 @@ export const MovementsTab: React.FC = () => {
     isWriteLocked,
     gateWrite,
     fetchStockCountDetail,
+    refreshNow,
+    isRefreshing,
   } = useApp();
 
   const isVendeur = settings.role === 'SELLER';
@@ -79,6 +82,10 @@ export const MovementsTab: React.FC = () => {
     return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
   });
   const [endDate, setEndDate] = useState(() => toDateInputValue(new Date()));
+  // Un mouvement ne peut pas avoir eu lieu demain : les deux bornes s'arrêtent
+  // à aujourd'hui, plutôt que d'accepter une fin de plage dans le futur qui
+  // n'ajoute jamais une seule ligne.
+  const aujourdhui = toDateInputValue(new Date());
   const [typeFilter, setTypeFilter] = useState<'ALL' | StockMovementType>('ALL');
   const [productFilter, setProductFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,6 +115,19 @@ export const MovementsTab: React.FC = () => {
       if (range) return { start: range.start, end: range.end };
     }
     return { start, end };
+  }, [period, startDate, endDate]);
+
+  /**
+   * La période en toutes lettres, telle qu'elle est appliquée à la liste.
+   * Le journal commence toujours par aujourd'hui : sans cette phrase, changer
+   * les dates ne se voyait nulle part et le filtre passait pour cassé.
+   */
+  const periodeLabel = useMemo(() => {
+    if (period === 'TODAY') return "Aujourd'hui";
+    if (period === '7D') return 'Les 7 derniers jours';
+    if (period === '30D') return 'Les 30 derniers jours';
+    if (period === 'THIS_MONTH') return 'Ce mois-ci';
+    return getCustomRange(startDate, endDate)?.label ?? DATE_RANGE_LABEL;
   }, [period, startDate, endDate]);
 
   // Filtered movements
@@ -604,6 +624,7 @@ export const MovementsTab: React.FC = () => {
                 <input
                   type="date"
                   value={startDate}
+                  max={aujourdhui}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="px-2.5 py-1.5 bg-slate-50 border border-mc-line rounded-lg text-xs font-bold text-mc-ink"
                 />
@@ -613,6 +634,7 @@ export const MovementsTab: React.FC = () => {
                 <input
                   type="date"
                   value={endDate}
+                  max={aujourdhui}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="px-2.5 py-1.5 bg-slate-50 border border-mc-line rounded-lg text-xs font-bold text-mc-ink"
                 />
@@ -637,7 +659,33 @@ export const MovementsTab: React.FC = () => {
         </div>
       )}
 
-      {/* 5. Main Content: Grouped Movement List */}
+      {/* 5. Ce que la liste montre en ce moment, et de quand ça date.
+          Le journal commence toujours par aujourd'hui : sans cette ligne,
+          changer la période ne se voyait pas, et le seul moyen de recharger
+          était le bouton du bandeau, à l'autre bout de l'écran. */}
+      {viewMode === 'movements' && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+          <p className="text-xs text-mc-soft min-w-0">
+            <span className="font-extrabold text-mc-ink">{periodeLabel}</span>
+            <span> · {countLabel(filteredMovements.length, 'mouvement')}</span>
+            {filteredMovements.length !== stockMovements.length && (
+              <span className="text-slate-400"> sur {stockMovements.length}</span>
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refreshNow()}
+            disabled={isRefreshing}
+            title="Recharger les mouvements depuis le serveur"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-mc-line bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-mc-soft ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Mise à jour…' : 'Actualiser'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 6. Main Content: Grouped Movement List */}
       {viewMode === 'movements' ? (
         filteredMovements.length === 0 ? (
           <div className="bg-white p-12 rounded-mc border border-mc-line text-center space-y-3">
