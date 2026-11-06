@@ -13,6 +13,7 @@ import { buildReceiptMessage, buildReminderMessage, openWhatsApp } from '../../u
 import { CancelOrderDialog } from './CancelOrderDialog';
 import { CollectRemainingModal } from './CollectRemainingModal';
 import { SaleCommercialRow } from './SaleCommercialRow';
+import { ZoomablePhoto } from '../common/ZoomablePhoto';
 
 interface OrderDetailPanelProps {
   sale: Sale;
@@ -61,7 +62,23 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
     focusCustomer,
     cancelVersement,
     currentUser,
+    products,
   } = useApp();
+
+  /**
+   * La photo de chaque article vendu, retrouvée dans le catalogue par son
+   * identifiant produit. La commande, elle, ne garde que le nom et le prix du
+   * jour : si la boutique a ajouté une photo depuis, elle apparaît ici ; si le
+   * produit a été supprimé, l'initiale colorée tient toujours la place.
+   */
+  const photosParProduit = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of products) {
+      const photo = p.photo || p.photos?.[0];
+      if (photo) map.set(p.id, photo);
+    }
+    return map;
+  }, [products]);
 
   // Les versements de la commande, du 1er au dernier, tels que le serveur les
   // a numérotés. Annuler l'un d'eux est réservé au propriétaire, avec un motif.
@@ -282,11 +299,21 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
               Ce qui a été vendu
             </h3>
             <div className="divide-y divide-slate-100">
-              {sale.items.map((item, index) => (
+              {sale.items.map((item, index) => {
+                const photo = photosParProduit.get(item.productId);
+                return (
                 <div
                   key={`${item.productId}-${index}`}
                   className="py-2 flex items-center gap-2.5 min-w-0"
                 >
+                  {photo ? (
+                    <ZoomablePhoto
+                      photo={photo}
+                      nom={item.name}
+                      legende={`${item.quantity} × ${formatMoney(item.unitPrice)}`}
+                      className="w-[34px] h-[34px] min-w-[34px] rounded-lg shrink-0"
+                    />
+                  ) : (
                   <div
                     className="w-[34px] h-[34px] rounded-lg shrink-0 flex items-center justify-center text-white font-extrabold text-[13px]"
                     style={{ backgroundColor: avatarColor(item.name) }}
@@ -294,6 +321,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                   >
                     {item.name.trim().charAt(0).toUpperCase() || '?'}
                   </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="text-[12.5px] font-semibold text-mc-ink truncate">
                       {item.name}
@@ -306,7 +334,8 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ sale, onClos
                     {formatMoney(item.total)}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
