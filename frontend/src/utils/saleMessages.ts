@@ -1,5 +1,6 @@
 import type { Sale } from '../types';
-import { formatMoney } from './formatters';
+import { formatMoney, formatPaymentMethod } from './formatters';
+import { versementLabel, versementShortDateTime, versementsOfSale } from './versements';
 
 /**
  * Le message WhatsApp envoyé au client.
@@ -16,7 +17,22 @@ export function buildReceiptMessage(sale: Sale, shopName: string): string {
     .join('\n');
   const reste = sale.remainingAmount > 0 ? `\nReste à régler : ${formatMoney(sale.remainingAmount)}` : '';
 
-  return `Bonjour ${client}, voici le récapitulatif de votre commande ${sale.reference} chez ${boutique} :\n${lignes}\nTotal : ${formatMoney(sale.totalAmount)}${reste}\nMerci pour votre confiance !`;
+  // Payé en plusieurs fois : le client retrouve chaque somme remise, avec sa
+  // date et son mode. Un versement unique est déjà dit par le total payé.
+  const versements = versementsOfSale(sale);
+  const historique =
+    versements.length > 1
+      ? `\nVersements :\n${versements
+          .map(
+            (v) =>
+              `- ${versementLabel(v.numero)} (${versementShortDateTime(v.createdAt)}, ${formatPaymentMethod(
+                v.method
+              )}) : ${formatMoney(v.amount)}${v.isCancelled ? ' (annulé)' : ''}`
+          )
+          .join('\n')}`
+      : '';
+
+  return `Bonjour ${client}, voici le récapitulatif de votre commande ${sale.reference} chez ${boutique} :\n${lignes}\nTotal : ${formatMoney(sale.totalAmount)}${historique}${reste}\nMerci pour votre confiance !`;
 }
 
 /** Relance : plus courte, et centrée sur ce qui reste dû. */

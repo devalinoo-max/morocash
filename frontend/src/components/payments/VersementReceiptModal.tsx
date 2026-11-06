@@ -1,19 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Printer, Receipt, Share2, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Versement } from '../../types';
 import { ReceiptView } from '../receipts/ReceiptView';
 import { fetchVersementReceipt } from '../../api/payments';
 import { toWhatsAppNumber } from '../../utils/receiptHelpers';
-import { receiptShellFor, versementLabel, versementWhatsAppText } from '../../utils/versements';
+import {
+  receiptShellFor,
+  versementLabel,
+  versementWhatsAppText,
+  versementsOfSale,
+} from '../../utils/versements';
 
 /** Ouvre WhatsApp sur le reçu d'un ou plusieurs versements, vers le numéro du client s'il est connu. */
 export function shareVersementsOnWhatsApp(
   versements: Versement[],
-  settings: ReturnType<typeof useApp>['settings']
+  settings: ReturnType<typeof useApp>['settings'],
+  /** Tous les versements de la commande, rappelés sous chaque reçu partagé. */
+  historique?: Versement[]
 ): void {
   if (versements.length === 0) return;
-  const text = versements.map((v) => versementWhatsAppText(v, settings)).join('\n\n');
+  const text = versements.map((v) => versementWhatsAppText(v, settings, historique)).join('\n\n');
   const phone = toWhatsAppNumber(versements[0].customerPhone ?? '');
   const url = phone
     ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
@@ -35,8 +42,19 @@ interface VersementReceiptModalProps {
  * relues sur le serveur : c'est sa version qui reste à l'écran.
  */
 export const VersementReceiptModal: React.FC<VersementReceiptModalProps> = ({ versement, onClose }) => {
-  const { settings } = useApp();
+  const { settings, sales } = useApp();
   const [current, setCurrent] = useState(versement);
+
+  /**
+   * Tous les versements de la commande, retrouvés sur la commande chargée.
+   * Le reçu d'un paiement partiel rappelle ainsi les versements précédents et
+   * suivants, pas seulement celui du jour. Commande absente de l'appareil :
+   * le reçu s'en tient au versement courant.
+   */
+  const historique = useMemo(() => {
+    const commande = sales.find((s) => s.id === current.orderId);
+    return commande ? versementsOfSale(commande) : [current];
+  }, [sales, current]);
 
   useEffect(() => {
     setCurrent(versement);
@@ -100,14 +118,19 @@ export const VersementReceiptModal: React.FC<VersementReceiptModalProps> = ({ ve
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-5 py-4 bg-slate-100/70">
           <div id="thermal-receipt" className="flex flex-col items-center">
-            <ReceiptView sale={receiptShellFor(current)} settings={settings} versement={current} />
+            <ReceiptView
+              sale={receiptShellFor(current)}
+              settings={settings}
+              versement={current}
+              historiqueVersements={historique}
+            />
           </div>
         </div>
 
         <div className="shrink-0 px-4 pt-2.5 pb-4 border-t border-mc-line bg-white space-y-2">
           <button
             type="button"
-            onClick={() => shareVersementsOnWhatsApp([current], settings)}
+            onClick={() => shareVersementsOnWhatsApp([current], settings, historique)}
             className="w-full h-[52px] px-4 bg-[#25D366] hover:bg-[#20bd5a] active:bg-[#1caa51] text-white font-bold rounded-xl text-[14.5px] flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
           >
             <Share2 className="w-[18px] h-[18px]" />

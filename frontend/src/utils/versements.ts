@@ -137,8 +137,26 @@ function dateHeure(iso: string): string {
 /** Date et heure DU VERSEMENT, en toutes lettres : « 10 octobre 2026 à 14:05 ». */
 export const versementDateTime = dateHeure;
 
+/** « 12 oct. à 14:05 » — la date courte d'un versement dans une liste. */
+export function versementShortDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return `${dayMonth(d)} à ${heure}`;
+}
+
 /** Texte du reçu de versement pour WhatsApp. Montants complets, jamais abrégés. */
-export function versementWhatsAppText(v: Versement, settings: ShopSettings): string {
+export function versementWhatsAppText(
+  v: Versement,
+  settings: ShopSettings,
+  /**
+   * Tous les versements de la même commande, du 1er au dernier. Le client qui
+   * paie en plusieurs fois retrouve ainsi sur chaque reçu ce qu'il a déjà
+   * versé, et pas seulement le paiement du jour. Absent : le reçu s'en tient
+   * au versement courant, comme avant.
+   */
+  historique?: Versement[]
+): string {
   const shopName = (settings.shopName || '').trim().toUpperCase();
   const phone = receiptPhone(settings);
   const line = '────────────────────';
@@ -167,6 +185,15 @@ export function versementWhatsAppText(v: Versement, settings: ShopSettings): str
       v.remainingAfter > 0
         ? `⚠️ *Reste à payer : ${formatMoneyFull(v.remainingAfter)}*\n`
         : '✅ *COMMANDE SOLDÉE*\n';
+  }
+  if (historique && historique.length > 1) {
+    text += `${line}\n`;
+    text += `🧾 *Tous les versements de la commande*\n`;
+    for (const h of historique) {
+      const marque = h.id === v.id ? ' ← ce reçu' : '';
+      const annule = h.isCancelled ? ' (annulé)' : '';
+      text += `• ${versementLabel(h.numero)} — ${versementShortDateTime(h.createdAt)} · ${formatPaymentMethod(h.method)} : ${formatMoneyFull(h.amount)}${annule}${marque}\n`;
+    }
   }
   text += '✨ _Reçu généré avec MoroCash_';
   return text;

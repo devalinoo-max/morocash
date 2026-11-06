@@ -2,7 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Store, Phone } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Sale, ShopSettings, Versement } from '../../types';
-import { orderLabel, versementDateTime, versementLabel } from '../../utils/versements';
+import {
+  orderLabel,
+  versementDateTime,
+  versementLabel,
+  versementShortDateTime,
+  versementsOfSale,
+} from '../../utils/versements';
 import { formatMoneyCompact, formatDate, formatPaymentMethod } from '../../utils/formatters';
 import { receiptPhone, receiptVerifyUrl, resolveReceiptMessage, resolveReceiptNotes } from '../../utils/receiptHelpers';
 
@@ -29,14 +35,71 @@ export interface ReceiptViewProps {
    * versement — le rouvrir plus tard affiche la même chose.
    */
   versement?: Versement;
+  /**
+   * Tous les versements de la commande, du 1er au dernier, en mode
+   * « versement » : la commande d'origine n'étant pas toujours chargée, c'est
+   * l'écran qui les fournit. En mode commande ils sont lus sur la commande.
+   */
+  historiqueVersements?: Versement[];
 }
 
-/** Corps du reçu en mode versement : qui a payé quoi, sur quelle commande, et ce qu'il reste. */
-const VersementBody: React.FC<{ versement: Versement; showCustomer: boolean; showSeller: boolean }> = ({
-  versement: v,
-  showCustomer,
-  showSeller,
+/**
+ * L'ardoise des paiements : chaque versement reçu sur la commande, du premier
+ * au dernier. Un client qui paie en plusieurs fois ne doit pas avoir à faire
+ * confiance au seul « déjà payé » — il retrouve ici chaque somme remise, avec
+ * sa date et son mode, sur le reçu de la commande comme sur celui de chaque
+ * versement. Les versements annulés restent visibles, barrés : les faire
+ * disparaître ferait croire à un reçu truqué.
+ */
+const VersementsHistory: React.FC<{ versements: Versement[]; courantId?: string }> = ({
+  versements,
+  courantId,
 }) => {
+  if (versements.length === 0) return null;
+  const money = formatMoneyCompact;
+  return (
+    <div className="py-2 border-b border-dashed border-slate-300 space-y-1.5">
+      <div className="flex justify-between font-bold text-[10px] text-slate-500 uppercase tracking-wider">
+        <span>Versements</span>
+        <span>Montant</span>
+      </div>
+      {versements.map((v) => (
+        <div
+          key={v.id}
+          className={`flex justify-between gap-3 text-[11px] leading-snug ${
+            v.id === courantId ? 'bg-indigo-50/70 rounded px-1.5 py-0.5 -mx-1.5' : ''
+          }`}
+        >
+          <div className="flex-1 min-w-0">
+            <div className={`font-semibold break-words ${v.isCancelled ? 'text-slate-400' : 'text-slate-800'}`}>
+              {versementLabel(v.numero)}
+              {v.id === courantId ? ' · ce reçu' : ''}
+            </div>
+            <div className="text-[10px] text-slate-500">
+              {versementShortDateTime(v.createdAt)} · {formatPaymentMethod(v.method)}
+              {v.isCancelled ? ' · annulé' : ''}
+            </div>
+          </div>
+          <span
+            className={`font-bold shrink-0 tabular-nums whitespace-nowrap ${
+              v.isCancelled ? 'text-slate-400 line-through' : 'text-slate-900'
+            }`}
+          >
+            {money(v.amount)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** Corps du reçu en mode versement : qui a payé quoi, sur quelle commande, et ce qu'il reste. */
+const VersementBody: React.FC<{
+  versement: Versement;
+  showCustomer: boolean;
+  showSeller: boolean;
+  historique: Versement[];
+}> = ({ versement: v, showCustomer, showSeller, historique }) => {
   const money = formatMoneyCompact;
   const ligne = 'flex justify-between items-center gap-3';
   return (
@@ -105,6 +168,8 @@ const VersementBody: React.FC<{ versement: Versement; showCustomer: boolean; sho
         </div>
       )}
 
+      {historique.length > 1 && <VersementsHistory versements={historique} courantId={v.id} />}
+
       <div className="space-y-1.5 text-[11px]">
         <div className="flex justify-between gap-3 font-extrabold text-sm text-slate-900 pt-1">
           <span>PAYÉ CE JOUR{v.numero ? ` (${versementLabel(v.numero)})` : ''} :</span>
@@ -158,6 +223,7 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   stickyTotal = false,
   showBottomFade = false,
   versement,
+  historiqueVersements,
 }) => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [expanded, setExpanded] = useState(false);
@@ -173,6 +239,10 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
   // Reçu de commande rouvert après d'autres versements : « Payé » veut dire
   // tout ce qui a été reçu depuis, pas seulement le jour de la commande.
   const paidLater = (sale.payments ?? []).filter((p) => !p.isCancelled).length > 1;
+  // Les versements de la commande, du 1er au dernier. Le reçu de commande les
+  // détaille dès qu'il y en a plus d'un : un paiement unique est déjà dit par
+  // la ligne « Payé ».
+  const versementsCommande = versement ? [] : versementsOfSale(sale);
   // Une commande annulée garde son reçu, mais il ne doit plus pouvoir passer
   // pour une preuve d'achat ni réclamer un reste à payer.
   const annulee = !versement && !!sale.isCancelled;
@@ -292,7 +362,12 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
       </div>
 
       {versement ? (
-        <VersementBody versement={versement} showCustomer={showCustomer} showSeller={showSeller} />
+        <VersementBody
+          versement={versement}
+          showCustomer={showCustomer}
+          showSeller={showSeller}
+          historique={historiqueVersements ?? [versement]}
+        />
       ) : (
         <>
       {annulee && (
@@ -385,6 +460,9 @@ export const ReceiptView: React.FC<ReceiptViewProps> = ({
           )}
         </div>
       )}
+
+      {/* 4 bis — Les versements, quand la commande n'a pas été réglée en une fois. */}
+      {versementsCommande.length > 1 && <VersementsHistory versements={versementsCommande} />}
 
       {/* Enfant direct de la carte, et non d'un sous-bloc : un élément collant ne
           sort jamais de son parent, il ne suivrait donc pas le défilement de la
