@@ -1,0 +1,12 @@
+-- Employés inclus par formule (cahier produit, « Les limites par formule ») :
+--   Gratuit (essai)  1  — le propriétaire seul
+--   9 900 F / mois   2
+--   19 900 F / mois  illimité
+--
+-- La formule Business était plafonnée à 10 employés, ce qui n'est pas ce que
+-- la page d'abonnement promet. 0 signifie « illimité » pour checkQuota
+-- (guards/index.ts : `if (plan.maxUsers > 0 && count >= plan.maxUsers)`).
+--
+-- La limite de l'essai n'est pas une ligne de cette table : une boutique en
+-- essai n'a aucun planId, et c'est checkQuota qui lui applique 1 employé.
+UPDATE "Plan" SET "maxUsers" = 0 WHERE "code" = 'BUSINESS';

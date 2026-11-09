@@ -22,6 +22,10 @@ import { CollectDebtSheet } from './CollectDebtSheet';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { CustomerDetailPanel } from './CustomerDetailPanel';
 import { Segmented } from '../sales/SalesKit';
+import { PeriodFilterBar } from '../common/PeriodFilterBar';
+import { usePeriodFilter } from '../../hooks/usePeriodFilter';
+import { useActivity } from '../../hooks/useActivity';
+import { downloadExport } from '../../api/exports';
 
 export const CustomersTab: React.FC = () => {
   const {
@@ -39,6 +43,28 @@ export const CustomersTab: React.FC = () => {
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Le filtre de période partagé : ici il sert aux totaux de la période et à
+  // l'export, pas à masquer des clients (voir le commentaire de la barre).
+  const { selection: periodSelection, setSelection: setPeriodSelection, period } =
+    usePeriodFilter('clients');
+  const { activity } = useActivity(period.start, period.end);
+  const [exportEnCours, setExportEnCours] = useState(false);
+
+  const exporterClients = async () => {
+    if (exportEnCours) return;
+    setExportEnCours(true);
+    try {
+      await downloadExport({ type: 'customers', format: 'pdf', from: period.start, to: period.end });
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "L'export n'a pas pu être préparé.",
+        'error'
+      );
+    } finally {
+      setExportEnCours(false);
+    }
+  };
 
   // Arrive du detail d'une commande : on cadre la liste sur ce client-la, en
   // passant par la recherche pour que le commercant voie pourquoi la liste est
@@ -168,6 +194,28 @@ export const CustomersTab: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Le filtre de période, le même que sur Commandes, Dépenses et
+          Rapports. Il porte sur ce qui s'est passé pendant la période (vendu,
+          encaissé) et sur l'export ; la liste en dessous garde les soldes
+          d'aujourd'hui, parce qu'une dette est un solde et non un flux — la
+          masquer parce qu'elle date d'avant la période viderait l'écran de son
+          seul usage. */}
+      <PeriodFilterBar
+        id="btn-customers-period"
+        selection={periodSelection}
+        onChange={setPeriodSelection}
+        period={period}
+        countLabel={`${countLabel(debtorCount, 'client')} avec une dette aujourd’hui`}
+        totals={
+          activity
+            ? { vendu: activity.totalVendu, resteDu: totalDebts }
+            : { resteDu: totalDebts }
+        }
+        onExport={exporterClients}
+        exportBusy={exportEnCours}
+        exportTitle="Exporter mes clients et leurs soldes"
+      />
 
       {/* Tous les clients, ou seulement ceux qui doivent */}
       <div className="flex flex-col md:flex-row md:items-center gap-3">

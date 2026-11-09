@@ -1,4 +1,4 @@
-import { guardRead, requireRole } from '@/server/guards';
+import { guardRead, requirePermission } from '@/server/guards';
 import { checkoutSchema, startCheckout } from '@/server/modules/subscriptions/service';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await guardRead();
     await assertCsrf();
-    requireRole(ctx.role, ['OWNER']);
+    requirePermission(ctx, 'GERER_ABONNEMENT');
 
     const body = await request.json().catch(() => null);
     const parsed = checkoutSchema.safeParse(body);

@@ -5,6 +5,7 @@ import { upsertDailyStatsForOrder } from '@/server/modules/reports/dailyStats';
 import { ensureOpenRegisterForPayment } from '@/server/modules/cash/service';
 import { receiptNumber } from '@/server/modules/payments/versements';
 import { resolveOrderCommercial } from '@/server/modules/commerciaux/service';
+import { requirePermission } from '@/server/modules/users/permissions';
 import type { UserRole, CashRegisterMode } from '@prisma/client';
 
 export const orderItemInputSchema = z.object({
@@ -41,6 +42,13 @@ export interface CreateOrderContext {
   businessId: string;
   userId: string;
   role: UserRole;
+  /**
+   * Droits cochés par le propriétaire. Facultatif pour les appels directs
+   * (scripts, tests) qui passent un propriétaire : celui-ci a tout quoi qu'il
+   * arrive. Pour un employé, une liste absente vaut « aucun droit », donc ni
+   * remise ni vente à crédit — le refus par défaut plutôt que l'inverse.
+   */
+  permissions?: string[];
   remiseMaxVendeur: number;
   cashRegisterMode: CashRegisterMode;
   /** Suivi des ventes par commercial activé pour la boutique. */
@@ -59,6 +67,10 @@ function formatOrderNumero(date: Date, sequence: number): string {
  * Serializable. Chaque commentaire numéroté correspond à l'étape du document.
  */
 export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInput) {
+  // Le porteur des droits, tel que les contrôles de permission l'attendent.
+  // Un propriétaire a tout ; un employé n'a que ce que le patron a coché.
+  const holder = { role: ctx.role, permissions: ctx.permissions ?? [] };
+
   return runInTenantTransaction(
     ctx.businessId,
     async (tx) => {
@@ -130,6 +142,14 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
             : input.remiseValeur;
         remiseMontant = Math.min(remiseMontant, sousTotal);
 
+        // Une remise rogne la marge du patron : elle demande le droit
+        // « Faire une remise », pas seulement un certain rôle.
+        if (remiseMontant > 0) {
+          requirePermission(holder, 'FAIRE_REMISE');
+        }
+
+        // Le plafond du vendeur s'applique en plus, à qui a reçu le droit :
+        // autoriser une remise n'est pas autoriser n'importe quelle remise.
         if (ctx.role === 'SELLER') {
           const tauxEffectif =
             input.remiseMode === 'POURCENTAGE'
@@ -161,6 +181,13 @@ export async function createOrder(ctx: CreateOrderContext, input: CreateOrderInp
       // 7. Statut déduit du montant reçu, jamais choisi par le client
       const statutPaiement =
         input.montantRecu === 0 ? 'CREDIT' : input.montantRecu >= total ? 'PAYEE' : 'PARTIELLE';
+
+      // Laisser partir de la marchandise sans l'argent engage la boutique :
+      // c'est le droit « Vendre à crédit ». Une vente intégralement payée ne
+      // le demande pas, même faite par un vendeur sans ce droit.
+      if (statutPaiement !== 'PAYEE') {
+        requirePermission(holder, 'VENDRE_A_CREDIT');
+      }
 
       // Un paiement encaissé exige une caisse, puisque le CashMovement qu'il
       // déclenche (étape 9) référence obligatoirement une caisse. En mode

@@ -33,6 +33,7 @@ import { StockCountModal } from './StockCountModal';
 import { MovementDetailModal } from './MovementDetailModal';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { Segmented } from '../sales/SalesKit';
+import { hasPermission } from '../../data/permissions';
 
 type PeriodFilter = 'TODAY' | '7D' | '30D' | 'THIS_MONTH' | 'CUSTOM';
 
@@ -49,7 +50,9 @@ export const MovementsTab: React.FC = () => {
     isRefreshing,
   } = useApp();
 
-  const isVendeur = settings.role === 'SELLER';
+  // Le prix d'achat se cache sur la permission, pas sur le rôle : un vendeur
+  // à qui le patron a coché « Voir les prix d'achat » doit les voir.
+  const isVendeur = !hasPermission(settings, 'VOIR_PRIX_ACHAT');
 
   // Modal states
   const [isReceptionOpen, setIsReceptionOpen] = useState(false);

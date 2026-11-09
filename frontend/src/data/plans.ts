@@ -60,7 +60,7 @@ export const PLANS: Record<'SOLO' | 'BUSINESS', PlanDefinition> = {
     aide: 'chat',
     description: 'Idéal si tu gères ton activité seul(e) ou à deux, de chez toi ou en boutique.',
     features: [
-      '2 utilisateurs (le 2ᵉ ne voit pas tes marges)',
+      '2 employés (le 2ᵉ ne voit ni tes prix d’achat ni ton bénéfice)',
       '900 commandes par mois',
       'Jusqu’à 1 000 produits',
       'Stock complet : scan code-barres, coût moyen, mouvements',
@@ -77,7 +77,7 @@ export const PLANS: Record<'SOLO' | 'BUSINESS', PlanDefinition> = {
     nom: 'Formule Business',
     prixMensuel: 19900,
     prix: { MENSUEL: 19900, TRIMESTRIEL: 55500, SEMESTRIEL: 103900, ANNUEL: 199000 },
-    maxUsers: 10,
+    maxUsers: 0, // 0 = illimité
     maxProduits: 0, // 0 = illimité
     maxCommandesMois: 0, // 0 = illimité
     rapportsComparatifs: true,
@@ -89,7 +89,7 @@ export const PLANS: Record<'SOLO' | 'BUSINESS', PlanDefinition> = {
     description: 'Gère ton équipe jusqu’à 10 personnes avec permissions avancées et protège tes bénéfices.',
     features: [
       'Tout ce qui est dans l’offre Solo +',
-      'Jusqu’à 10 utilisateurs',
+      'Employés illimités',
       'Commandes illimitées',
       'Produits illimités',
       'Employés et permissions avancées',

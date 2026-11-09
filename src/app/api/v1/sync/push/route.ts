@@ -22,6 +22,7 @@ export async function POST(request: Request) {
         businessId: ctx.businessId,
         userId: ctx.userId,
         role: ctx.role,
+        permissions: ctx.permissions,
         remiseMaxVendeur: ctx.business.remiseMaxVendeur,
         cashRegisterMode: ctx.business.cashRegisterMode,
         suiviCommercialActif: ctx.business.suiviCommercialActif,

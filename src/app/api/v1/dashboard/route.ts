@@ -1,4 +1,4 @@
-import { guardRead, requireRole } from '@/server/guards';
+import { guardRead, requirePermission } from '@/server/guards';
 import { getRangeReport, resolvePeriodRange, type DashboardPeriod } from '@/server/modules/reports/queries';
 import { ok, fail } from '@/server/shared/response';
 
@@ -10,7 +10,7 @@ const VALID_PERIODS: DashboardPeriod[] = ['today', 'week', 'month', 'year'];
 export async function GET(request: Request) {
   try {
     const ctx = await guardRead();
-    requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
+    requirePermission(ctx, 'VOIR_BENEFICE');
 
     const url = new URL(request.url);
     const periodParam = url.searchParams.get('period');

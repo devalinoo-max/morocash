@@ -32,6 +32,7 @@ import { NavigationTab } from '../../types';
 import type { MoreSubTab } from '../../utils/routes';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { avatarInitials } from '../../utils/avatar';
+import { ROLE_LABELS, hasPermission, type EmployeePermission } from '../../data/permissions';
 
 interface DesktopSidebarProps {
   onOpenSearch?: () => void;
@@ -344,6 +345,37 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
     },
   ];
 
+  /**
+   * Le droit qu'exige chaque entrée de la barre. Même table que le menu
+   * « Plus » : les deux doivent cacher exactement les mêmes choses, sinon un
+   * vendeur sur ordinateur voit un écran qu'il ne voit pas sur téléphone.
+   *
+   * Une entrée sans droit requis reste visible pour tout le monde.
+   */
+  const DROIT_PAR_ENTREE: Partial<Record<string, EmployeePermission>> = {
+    debtors: 'VOIR_DETTES_CLIENTS',
+    expenses: 'VOIR_DEPENSES',
+    movements: 'GERER_STOCK',
+    'low-stock': 'GERER_STOCK',
+    products: 'GERER_PRODUITS',
+    reports: 'VOIR_RAPPORTS',
+    employees: 'GERER_EMPLOYES',
+    permissions: 'GERER_EMPLOYES',
+    subscription: 'GERER_ABONNEMENT',
+    export: 'VOIR_RAPPORTS',
+  };
+
+  const groupesVisibles = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        const droit = DROIT_PAR_ENTREE[item.key];
+        return !droit || hasPermission(settings, droit);
+      }),
+    }))
+    // Un titre de groupe seul, sans aucune entrée sous lui, n'apprend rien.
+    .filter((group) => group.items.length > 0);
+
   const trialTotal = settings.trialDays ?? 14;
 
   return (
@@ -403,7 +435,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
             layoutScroll
             className="flex-1 min-h-0 overflow-y-auto px-3 pb-2 scrollbar-none"
           >
-            {groups.map((group) => (
+            {groupesVisibles.map((group) => (
               <div key={group.title}>
                 <div className="text-[11px] font-semibold text-[#75709F] uppercase tracking-wider px-3 pt-4 pb-1.5">
                   {group.title}
@@ -556,7 +588,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ onOpenSearch, on
                 {settings.ownerName}
               </p>
               <p className="text-[11px] text-[#9D99C9] truncate">
-                {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'} • {settings.city}
+                {ROLE_LABELS[settings.role] ?? 'Vendeur'} • {settings.city}
               </p>
             </div>
           </div>

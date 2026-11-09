@@ -18,6 +18,7 @@ import { formatFCFA } from '../../utils/formatters';
 import { toDateInputValue } from '../../utils/period';
 import { ZoomablePhoto } from '../common/ZoomablePhoto';
 import { StockReceptionLine } from '../../types';
+import { hasPermission } from '../../data/permissions';
 
 interface ReceptionModalProps {
   isOpen: boolean;
@@ -30,7 +31,9 @@ export const ReceptionModal: React.FC<ReceptionModalProps> = ({
 }) => {
   const { products, recordStockReception, settings } = useApp();
 
-  const isVendeur = settings.role === 'SELLER';
+  // Le prix d'achat se cache sur la permission, pas sur le rôle : un vendeur
+  // à qui le patron a coché « Voir les prix d'achat » doit les voir.
+  const isVendeur = !hasPermission(settings, 'VOIR_PRIX_ACHAT');
   const physicalProducts = products.filter((p) => !p.isService);
 
   const [fournisseur, setFournisseur] = useState('');

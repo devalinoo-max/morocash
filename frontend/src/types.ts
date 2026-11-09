@@ -313,6 +313,13 @@ export interface ShopSettings {
    */
   subscriptionDaysLeft?: number | null;
   role: UserRole;
+  /**
+   * Droits accordés à la personne connectée, relus à chaque connexion.
+   * Vide pour le propriétaire, qui a tout. L'app s'en sert pour CACHER ce à
+   * quoi elle n'a pas droit — le serveur refuse de toute façon les appels
+   * correspondants, l'un ne remplace pas l'autre.
+   */
+  permissions?: string[];
   isOfflineMode: boolean;
   quotaMaxProducts: number;
   maxDiscountPercent?: number; // Plafond remise vendeur

@@ -1,4 +1,4 @@
-import { guardRead, guardMutation, auditable, marginViewRole } from '@/server/guards';
+import { guardRead, guardMutation, auditable, marginViewRole, requirePermission } from '@/server/guards';
 import { createProduct, createProductSchema, listProducts } from '@/server/modules/products/service';
 import { serializeProductList } from '@/server/serializers/product';
 import { ok, fail } from '@/server/shared/response';
@@ -16,7 +16,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    const ctx = await guardMutation();
+    requirePermission(ctx, 'GERER_PRODUITS');
 
     const body = await request.json().catch(() => null);
     const parsed = createProductSchema.safeParse(body);

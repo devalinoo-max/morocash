@@ -421,6 +421,12 @@ interface AppContextType {
   }) => Promise<boolean>;
   setEmployeeActive: (id: string, actif: boolean) => Promise<boolean>;
   setEmployeeCommercial: (id: string, estCommercial: boolean) => Promise<boolean>;
+  /** Rôle et droits d'un employé — appliqués à sa prochaine connexion. */
+  setEmployeeAccess: (
+    id: string,
+    changes: { role?: 'SELLER' | 'ACCOUNTANT'; permissions?: EmployeePermission[] }
+  ) => Promise<boolean>;
+  resetEmployeeCode: (id: string, pin: string) => Promise<boolean>;
   /** Correction du commercial d'une vente (propriétaire, en ligne). */
   setSaleCommercial: (saleId: string, commercialId: string | null) => Promise<boolean>;
 
@@ -1951,6 +1957,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSettings((prev) => ({
       ...prev,
       role: session.user.role,
+      // Relus à chaque connexion : un droit coché par le patron ce matin
+      // s'applique dès que l'employé rouvre l'app.
+      permissions: session.user.permissions ?? [],
       ownerName: session.user.nom,
       ownerPhone: session.user.telephone,
       shopName: session.business.nom,
@@ -3027,6 +3036,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  /**
+   * Change le rôle d'un employé, ou ses droits un par un.
+   *
+   * Passer un rôle sans liste de droits laisse le serveur recocher les cases de
+   * ce rôle : promouvoir quelqu'un vendeur → gestionnaire sans lui donner les
+   * droits correspondants laisserait un gestionnaire qui ne peut rien faire.
+   */
+  const setEmployeeAccess = async (
+    id: string,
+    changes: { role?: 'SELLER' | 'ACCOUNTANT'; permissions?: EmployeePermission[] }
+  ): Promise<boolean> => {
+    try {
+      if (changes.role !== undefined) {
+        await usersApi.setEmployeeRole(id, changes.role);
+      }
+      if (changes.permissions !== undefined) {
+        await usersApi.setEmployeePermissions(id, changes.permissions);
+      }
+      showToast('Droits mis à jour. Ils s’appliquent à sa prochaine connexion.', 'success');
+      await fetchEmployees();
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
+  };
+
+  const resetEmployeeCode = async (id: string, pin: string): Promise<boolean> => {
+    try {
+      await usersApi.resetEmployeeCode(id, pin);
+      showToast('Nouveau code enregistré. Donne-le-lui de vive voix.', 'success');
+      await fetchEmployees();
+      return true;
+    } catch (error) {
+      showToast(apiErrorMessage(error), 'error');
+      return false;
+    }
+  };
+
   const fetchMySessions = async () => {
     try {
       const sessions = await authApi.listMySessions();
@@ -3471,6 +3519,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addEmployee,
         setEmployeeActive,
         setEmployeeCommercial,
+        setEmployeeAccess,
+        resetEmployeeCode,
         setSaleCommercial,
         mySessions,
         fetchMySessions,

@@ -39,6 +39,7 @@ import { ProductFormModal } from '../products/ProductFormModal';
 import { ProductPhotoLightbox } from '../products/ProductPhotoLightbox';
 import { ZoomablePhoto } from '../common/ZoomablePhoto';
 import { DiscountModal } from './DiscountModal';
+import { hasPermission } from '../../data/permissions';
 import { DeliveryModal } from './DeliveryModal';
 import { ServiceModal } from './ServiceModal';
 import { CustomerPickerModal } from './CustomerPickerModal';
@@ -193,6 +194,18 @@ export const NewSaleModal: React.FC = () => {
   const [discountMode, setDiscountMode] = useState<'PERCENTAGE' | 'AMOUNT'>('AMOUNT');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>('');
+
+  /**
+   * Ce que cette personne a le droit de faire à la vente.
+   *
+   * Sans « Faire une remise », la ligne Remise n'apparaît pas. Sans « Vendre à
+   * crédit », les deux boutons qui laissent partir la marchandise sans l'argent
+   * n'apparaissent pas non plus, et la vente reste forcément payée en entier.
+   * Le serveur refuse les deux de son côté (voir createOrder) : ici, on évite
+   * seulement de proposer ce qui sera refusé.
+   */
+  const peutFaireRemise = hasPermission(settings, 'FAIRE_REMISE');
+  const peutVendreACredit = hasPermission(settings, 'VENDRE_A_CREDIT');
 
   // Payment State
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL' | 'CREDIT'>('FULL');
@@ -862,8 +875,10 @@ export const NewSaleModal: React.FC = () => {
           </div>
         </section>
 
-        {/* c) La ligne Remise — toujours visible */}
-        {appliedDiscount > 0 ? (
+        {/* c) La ligne Remise — seulement pour qui a le droit d'en faire une.
+            Sans ce droit, la ligne n'existe pas : un bouton visible mais refusé
+            au moment de valider ferait perdre la vente au comptoir. */}
+        {!peutFaireRemise ? null : appliedDiscount > 0 ? (
           <div className="h-12 pr-3 rounded-[11px] bg-[#FEF2F2] flex items-center gap-2">
             <button
               id="btn-review-edit-discount"
@@ -1765,7 +1780,10 @@ export const NewSaleModal: React.FC = () => {
                   <span className="text-[10px] opacity-80">(100% encaissé)</span>
                 </button>
 
-                {/* 2. Il paie une partie */}
+                {/* Laisser partir la marchandise sans tout l'argent demande le
+                    droit « Vendre à crédit » : sans lui, ces deux boutons
+                    n'existent pas et la vente est forcément payée en entier. */}
+                {peutVendreACredit && (
                 <button
                   id="btn-pay-partial"
                   type="button"
@@ -1787,7 +1805,9 @@ export const NewSaleModal: React.FC = () => {
                   <span className="text-[10px] opacity-80">(Acompte reçu)</span>
                 </button>
 
-                {/* 3. Il paie plus tard (Crédit) */}
+                )}
+
+                {peutVendreACredit && (
                 <button
                   id="btn-pay-later"
                   type="button"
@@ -1805,6 +1825,7 @@ export const NewSaleModal: React.FC = () => {
                   <span className="text-xs sm:text-sm font-extrabold">Il paie plus tard</span>
                   <span className="text-[10px] opacity-80">(0 F reçu)</span>
                 </button>
+                )}
               </div>
 
               {/* Saisie montant acompte si "Il paie une partie" */}

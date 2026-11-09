@@ -1,11 +1,13 @@
 import { z } from 'zod';
-import { guardRead, requireRole, requireExportExcelAllowed, requirePermission } from '@/server/guards';
+import { guardRead, requireExportExcelAllowed, requirePermission } from '@/server/guards';
 import {
   getDailyReport,
   getRangeReport,
   getProductsReport,
   getCustomersReport,
   getExpensesReport,
+  getExpenseLines,
+  getOrderLines,
   getPaymentMethodsReport,
   resolveMonthRange,
 } from '@/server/modules/reports/queries';
@@ -15,13 +17,29 @@ import { AppError } from '@/server/shared/errors';
 import { assertCsrf } from '@/server/middleware/csrf';
 
 const exportSchema = z.object({
-  type: z.enum(['daily', 'monthly', 'products', 'customers', 'expenses', 'payment-methods']),
+  type: z.enum([
+    'daily',
+    'monthly',
+    'products',
+    'customers',
+    'expenses',
+    'expense-lines',
+    'orders',
+    'payment-methods',
+  ]),
   format: z.enum(['pdf', 'excel']),
   date: z.coerce.date().optional(),
   year: z.number().int().optional(),
   month: z.number().int().min(1).max(12).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  /**
+   * Lignes exactement affichées à l'écran, quand celui-ci a filtré plus loin
+   * que la période (statut, vendeur, recherche). Sans cette liste, le fichier
+   * contiendrait des lignes que le commerçant ne voyait pas au moment du clic.
+   * Plafonnée : au-delà, la période entière part plutôt qu'un refus.
+   */
+  ids: z.array(z.string()).max(5_000).optional(),
 });
 
 async function buildTable(
@@ -48,6 +66,26 @@ async function buildTable(
 
   const from = input.from ?? defaultRange.from;
   const to = input.to ?? defaultRange.to;
+
+  if (input.type === 'orders') {
+    const lignes = await getOrderLines(businessId, from, to, input.ids);
+    return {
+      title: 'Commandes',
+      // « Vendu » et « encaissé » voyagent côte à côte jusque dans le fichier :
+      // la même règle qu'à l'écran, sinon le tableur recrée la confusion.
+      headers: ['N°', 'Date', 'Client', 'Vendu par', 'Vendu', 'Encaissé', 'Reste dû', 'Statut'],
+      rows: lignes.map((l) => [l.numero, l.date, l.client, l.vendeur, l.vendu, l.encaisse, l.reste, l.statut]),
+    };
+  }
+
+  if (input.type === 'expense-lines') {
+    const lignes = await getExpenseLines(businessId, from, to, input.ids);
+    return {
+      title: 'Dépenses',
+      headers: ['Date', 'Catégorie', 'Montant', 'Note'],
+      rows: lignes.map((l) => [l.date, l.categorie, l.montant, l.note]),
+    };
+  }
 
   if (input.type === 'products') {
     const products = await getProductsReport(businessId, from, to);
@@ -88,8 +126,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await guardRead();
     await assertCsrf();
-    requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
-    requirePermission(ctx, 'EXPORTER_DONNEES');
+    requirePermission(ctx, 'VOIR_RAPPORTS');
 
     const body = await request.json().catch(() => null);
     const parsed = exportSchema.safeParse(body);

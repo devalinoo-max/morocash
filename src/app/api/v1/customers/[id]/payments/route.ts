@@ -1,4 +1,4 @@
-import { guardMutation, guardRead } from '@/server/guards';
+import { guardMutation, guardRead, requirePermission } from '@/server/guards';
 import {
   collectCustomerDebt,
   listCustomerVersements,
@@ -27,6 +27,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const ctx = await guardMutation();
+    requirePermission(ctx, 'ENCAISSER_VERSEMENT');
 
     const body = await request.json().catch(() => null);
     const parsed = versementSchema.safeParse(body);

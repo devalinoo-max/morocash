@@ -33,18 +33,30 @@ import {
   Percent,
   LogOut,
   AlertTriangle,
+  X,
 } from 'lucide-react';
 import { formatMoney, formatDate, getTerminology } from '../../utils/formatters';
-import { ActivityType, Expense, PaymentMethod, UserRole } from '../../types';
+import { ActivityType, UserRole } from '../../types';
 import { PLANS } from '../../data/plans';
-import { PERMISSION_OPTIONS, type EmployeePermission } from '../../data/permissions';
-import { MoneyInput } from '../common/UIStates';
+import {
+  PERMISSION_OPTIONS,
+  ROLE_LABELS,
+  defaultPermissionsForRole,
+  hasPermission,
+  type EmployeePermission,
+} from '../../data/permissions';
+import { NewExpenseModal } from '../expenses/NewExpenseModal';
 import { SubscriptionView } from '../subscription/SubscriptionView';
 import { SubscriptionBanner } from './SubscriptionBanner';
 import { ReportsTab } from '../reports/ReportsTab';
 import { SettingsPage } from '../settings/SettingsPage';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { avatarInitials } from '../../utils/avatar';
+import { PeriodFilterBar } from '../common/PeriodFilterBar';
+import { EmployeesPanel } from './EmployeesPanel';
+import { usePeriodFilter } from '../../hooks/usePeriodFilter';
+import { isWithinPeriod } from '../../utils/periodFilter';
+import { downloadExport } from '../../api/exports';
 
 export const MoreTab: React.FC = () => {
   const {
@@ -52,7 +64,6 @@ export const MoreTab: React.FC = () => {
     setActiveMoreSubTab,
     setActiveTab,
     expenses,
-    addExpense,
     sales,
     customers,
     products,
@@ -86,9 +97,19 @@ export const MoreTab: React.FC = () => {
   const [empPhone, setEmpPhone] = useState('');
   const [empPin, setEmpPin] = useState('');
   const [empRole, setEmpRole] = useState<'SELLER' | 'ACCOUNTANT'>('SELLER');
-  // Toutes décochées : un employé ne reçoit que ce que le propriétaire coche
-  // lui-même. Rien n'est accordé « pour faire gagner du temps ».
-  const [empPermissions, setEmpPermissions] = useState<EmployeePermission[]>([]);
+  // Le rôle coche ses cases tout seul : un vendeur part avec vendre, encaisser
+  // et voir ses ventes ; un gestionnaire avec tout sauf les employés et
+  // l'abonnement. Le propriétaire reprend ensuite ligne par ligne — partir de
+  // zéro obligeait à cocher dix cases pour obtenir un gestionnaire ordinaire.
+  const [empPermissions, setEmpPermissions] = useState<EmployeePermission[]>(() =>
+    defaultPermissionsForRole('SELLER')
+  );
+
+  /** Changer de rôle repose les cases de ce rôle, sans garder les précédentes. */
+  const choisirRole = (role: 'SELLER' | 'ACCOUNTANT') => {
+    setEmpRole(role);
+    setEmpPermissions(defaultPermissionsForRole(role));
+  };
   // Case « Commercial » : visible seulement si le suivi par commercial est activé.
   const [empCommercial, setEmpCommercial] = useState(false);
   const suiviCommercial = !!settings.suiviCommercialActif;
@@ -136,11 +157,17 @@ export const MoreTab: React.FC = () => {
   };
 
   // Sub-Tab 1: Expenses state
+  // Le filtre de période des dépenses, le même que celui des Commandes, des
+  // Rapports et des Clients. Déclaré ici, au niveau du composant : les
+  // sous-écrans de MoreTab sont des `return` conditionnels, et un hook appelé
+  // dans l'un d'eux changerait d'ordre d'un rendu à l'autre.
+  const {
+    selection: depensesPeriode,
+    setSelection: setDepensesPeriode,
+    period: periodeDepenses,
+  } = usePeriodFilter('depenses');
+  const [exportDepensesEnCours, setExportDepensesEnCours] = useState(false);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
-  const [expAmount, setExpAmount] = useState<number>(0);
-  const [expCategory, setExpCategory] = useState('Factures & Charges');
-  const [expNote, setExpNote] = useState('');
-  const [expPaymentMethod, setExpPaymentMethod] = useState<PaymentMethod>('CASH');
 
   // « Créer › Nouvelle dépense » depuis la barre du bas : le formulaire
   // s'ouvre directement, sans passer par la liste.
@@ -149,26 +176,6 @@ export const MoreTab: React.FC = () => {
     setIsAddExpenseOpen(true);
     clearNewExpenseRequest();
   }, [newExpenseRequested, clearNewExpenseRequest]);
-
-  const handleAddExpenseSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (expAmount <= 0) {
-      showToast('Saisis un montant valide pour la dépense', 'warning');
-      return;
-    }
-    const created = await addExpense({
-      amount: expAmount,
-      category: expCategory,
-      note: expNote.trim() || undefined,
-      date: new Date().toISOString(),
-      paymentMethod: expPaymentMethod,
-      isAuto: false,
-    });
-    if (!created) return;
-    setExpAmount(0);
-    setExpNote('');
-    setIsAddExpenseOpen(false);
-  };
 
   // Sub-Tab 2: Export Data
   const handleExportCSV = () => {
@@ -195,125 +202,50 @@ export const MoreTab: React.FC = () => {
   const debtorsCount = customers.filter((c) => c.totalDebt > 0).length;
   const lowStockCount = products.filter((p) => !p.isService && p.stock <= p.alertThreshold).length;
 
-  // SUB-VIEW: EMPLOYEES (BLOC 8)
+  // SUB-VIEW: EMPLOYÉS — la liste, les fiches et les droits vivent dans
+  // EmployeesPanel. Le formulaire d'ajout reste ici : il partage son état
+  // avec le reste de MoreTab (gateWrite, quota, toast).
   if (activeMoreSubTab === 'employees') {
     return (
-      <div className="space-y-4 pb-24 animate-in fade-in duration-150">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setActiveMoreSubTab(null)}
-            className="inline-flex items-center gap-1.5 h-11 pr-4 text-[16px] md:text-[14px] font-bold text-mc-primary hover:text-mc-primary-dark cursor-pointer active:scale-[0.97]"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Menu</span>
-          </button>
-          {isOwner && (
-            <button
-              onClick={() => gateWrite(() => setIsAddEmployeeOpen(true))}
-              className={`h-10 px-4 rounded-full bg-mc-primary hover:bg-mc-primary-dark text-white text-[14px] font-bold flex items-center gap-1.5 cursor-pointer shadow-mc-card transition-all active:scale-[0.97] ${isWriteLocked ? LOCKED_BTN_CLASS : ''}`}
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Ajouter une personne</span>
-            </button>
-          )}
-        </div>
+      <>
+        <EmployeesPanel
+          onBack={() => setActiveMoreSubTab(null)}
+          onAdd={() => setIsAddEmployeeOpen(true)}
+        />
 
-        <div className="p-4 rounded-2xl bg-mc-primary-tint border border-[#DAD6FC] flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-mc-primary text-white flex items-center justify-center shrink-0">
-            <UserCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-xs font-extrabold text-mc-primary-dark">Gestion de l’équipe</h3>
-            <p className="text-[11px] text-mc-primary-dark">
-              Chaque vendeur se connecte avec son mot de passe à 6 chiffres pour enregistrer ses commandes.
-            </p>
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          {employees
-            .filter((emp) => emp.actif)
-            .map((emp) => (
-              <div
-                key={emp.id}
-                className="p-4 rounded-2xl bg-white border border-mc-line shadow-xs flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 font-extrabold text-xs text-slate-700 flex items-center justify-center">
-                    {emp.nom.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-mc-ink">{emp.nom}</span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
-                          emp.role === 'OWNER'
-                            ? 'bg-amber-100 text-amber-800'
-                            : emp.role === 'ACCOUNTANT'
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-mc-primary-tint text-mc-primary-dark'
-                        }`}
-                      >
-                        {emp.role === 'OWNER'
-                          ? 'Propriétaire'
-                          : emp.role === 'ACCOUNTANT'
-                          ? 'Gestionnaire'
-                          : 'Vendeur'}
-                      </span>
-                      {suiviCommercial && emp.estCommercial && (
-                        <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
-                          Commercial
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-mc-soft mt-0.5 flex items-center gap-2">
-                      <span>{emp.telephone}</span>
-                      <span>•</span>
-                      <span className="text-slate-400">Mot de passe : ••••</span>
-                    </p>
-                    {/* Ce que cette personne a le droit de faire, lisible sans ouvrir de fiche. */}
-                    {emp.role !== 'OWNER' && (
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        {emp.permissions.length === 0
-                          ? 'Aucun droit particulier'
-                          : PERMISSION_OPTIONS.filter((o) => emp.permissions.includes(o.code))
-                              .map((o) => o.label)
-                              .join(' · ')}
-                      </p>
-                    )}
-                  </div>
-                </div>
+        {/*
+          Modal: Ajouter une personne (BLOC 8: nom, téléphone, code à 4 chiffres, rôle)
 
-                {isOwner && emp.role !== 'OWNER' && suiviCommercial && (
-                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={!!emp.estCommercial}
-                      onChange={(e) => void setEmployeeCommercial(emp.id, e.target.checked)}
-                      className="w-4 h-4 accent-[#5B4BF0] cursor-pointer"
-                    />
-                    Commercial
-                  </label>
-                )}
-                {isOwner && emp.role !== 'OWNER' && (
-                  <button
-                    onClick={() => setEmployeeActive(emp.id, false)}
-                    className="text-slate-300 hover:text-rose-500 p-2 cursor-pointer transition-colors"
-                    title="Retirer l'employé"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-        </div>
-
-        {/* Modal: Ajouter une personne (BLOC 8: nom, téléphone, code à 4 chiffres, rôle) */}
+          La liste des droits fait dix-sept lignes. Sans hauteur plafonnée ni
+          défilement, le panneau dépassait l'écran par le haut ET par le bas :
+          on ne pouvait plus atteindre le bouton « Annuler », ni même le titre.
+          On borne donc le panneau, seul le contenu défile, et les deux boutons
+          restent collés en pied. Le fond et la croix ferment aussi : un écran
+          dont on ne peut pas sortir est un écran cassé.
+        */}
         {isAddEmployeeOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white max-w-sm w-full rounded-mc p-5 space-y-4 shadow-2xl">
-              <h3 className="font-extrabold text-base text-mc-ink">Ajouter une personne</h3>
-              <form onSubmit={handleAddEmployeeSubmit} className="space-y-3">
+          <div
+            className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setIsAddEmployeeOpen(false)}
+          >
+            <div
+              className="bg-white max-w-sm w-full max-h-[85vh] rounded-mc shadow-2xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 flex items-start justify-between gap-3 p-5 pb-3">
+                <h3 className="font-extrabold text-base text-mc-ink">Ajouter une personne</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsAddEmployeeOpen(false)}
+                  aria-label="Fermer"
+                  className="shrink-0 -mt-1 -mr-1 p-1.5 rounded-lg text-slate-400 hover:text-mc-ink hover:bg-slate-100 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <form onSubmit={handleAddEmployeeSubmit} className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 space-y-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Nom complet *</label>
                   <input
@@ -361,11 +293,11 @@ export const MoreTab: React.FC = () => {
                   <label className="text-xs font-bold text-slate-700 block mb-1">Rôle *</label>
                   <select
                     value={empRole}
-                    onChange={(e) => setEmpRole(e.target.value as 'SELLER' | 'ACCOUNTANT')}
+                    onChange={(e) => choisirRole(e.target.value as 'SELLER' | 'ACCOUNTANT')}
                     className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs font-bold text-mc-ink bg-white"
                   >
-                    <option value="SELLER">Vendeur (Commandes, encaissement, stock)</option>
-                    <option value="ACCOUNTANT">Gestionnaire (Ajout produits, validation)</option>
+                    <option value="SELLER">Vendeur — vend et encaisse, ne voit pas tes marges</option>
+                    <option value="ACCOUNTANT">Gestionnaire — gère le quotidien et voit l’argent</option>
                   </select>
                 </div>
 
@@ -429,7 +361,9 @@ export const MoreTab: React.FC = () => {
                   </label>
                 )}
 
-                <div className="pt-2 flex gap-2">
+                </div>
+
+                <div className="shrink-0 flex gap-2 px-5 py-4 border-t border-mc-line bg-white">
                   <button
                     type="button"
                     onClick={() => setIsAddEmployeeOpen(false)}
@@ -449,7 +383,7 @@ export const MoreTab: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </>
     );
   }
 
@@ -568,7 +502,33 @@ export const MoreTab: React.FC = () => {
 
   // SUB-VIEW: EXPENSES
   if (activeMoreSubTab === 'expenses') {
-    const totalExp = expenses.reduce((acc, e) => acc + e.amount, 0);
+    // La liste et le total ne montrent que la période choisie : avant, l'écran
+    // empilait toutes les dépenses depuis l'ouverture de la boutique, et son
+    // total ne correspondait à aucun chiffre des Rapports.
+    const depensesPeriodeAffichees = expenses.filter((e) => isWithinPeriod(e.date, periodeDepenses));
+    const totalExp = depensesPeriodeAffichees.reduce((acc, e) => acc + e.amount, 0);
+
+    const exporterDepenses = async () => {
+      if (exportDepensesEnCours || depensesPeriodeAffichees.length === 0) return;
+      setExportDepensesEnCours(true);
+      try {
+        await downloadExport({
+          type: 'expense-lines',
+          format: 'pdf',
+          from: periodeDepenses.start,
+          to: periodeDepenses.end,
+          ids: depensesPeriodeAffichees.map((e) => e.id),
+        });
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : "L'export n'a pas pu être préparé.",
+          'error'
+        );
+      } finally {
+        setExportDepensesEnCours(false);
+      }
+    };
+
     return (
       <div className="space-y-4 pb-24 animate-in fade-in duration-150">
         <div className="flex items-center justify-between">
@@ -588,18 +548,36 @@ export const MoreTab: React.FC = () => {
           </button>
         </div>
 
+        <PeriodFilterBar
+          id="btn-expenses-period"
+          selection={depensesPeriode}
+          onChange={setDepensesPeriode}
+          period={periodeDepenses}
+          countLabel={`${depensesPeriodeAffichees.length} dépense${
+            depensesPeriodeAffichees.length > 1 ? 's' : ''
+          }`}
+          onExport={exporterDepenses}
+          exportBusy={exportDepensesEnCours}
+          exportDisabled={depensesPeriodeAffichees.length === 0}
+          exportTitle={`Exporter les ${depensesPeriodeAffichees.length} dépenses affichées`}
+        />
+
         <div className="p-4 md:p-6 rounded-mc bg-mc-warning-bg">
-          <span className="text-[14px] font-semibold text-[#92400E]">Ce que tu as dépensé</span>
+          <span className="text-[14px] font-semibold text-[#92400E]">
+            Ce que tu as dépensé · {periodeDepenses.label.toLowerCase()}
+          </span>
           <div className="text-[28px] md:text-[40px] font-extrabold text-[#B45309] tabular-nums tracking-tight leading-tight">{formatMoney(totalExp)}</div>
         </div>
 
         <div className="space-y-2">
-          {expenses.length === 0 ? (
+          {depensesPeriodeAffichees.length === 0 ? (
             <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border border-mc-line text-xs">
-              Aucune dépense enregistrée.
+              {expenses.length === 0
+                ? 'Aucune dépense enregistrée.'
+                : 'Aucune dépense sur cette période.'}
             </div>
           ) : (
-            expenses.map((exp) => (
+            depensesPeriodeAffichees.map((exp) => (
               <div
                 key={exp.id}
                 className="p-3.5 rounded-2xl bg-white border border-mc-line shadow-xs flex items-center justify-between gap-3"
@@ -625,70 +603,8 @@ export const MoreTab: React.FC = () => {
           )}
         </div>
 
-        {/* Modal: Quick 2-step Expense */}
-        {isAddExpenseOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white max-w-sm w-full rounded-mc p-5 space-y-4 shadow-2xl">
-              <h3 className="font-extrabold text-base text-mc-ink">Enregistrer une dépense</h3>
-              <form onSubmit={handleAddExpenseSubmit} className="space-y-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    1. Montant dépensé (FCFA) *
-                  </label>
-                  <MoneyInput
-                    id="input-exp-amount"
-                    value={expAmount}
-                    onChange={(val) => setExpAmount(val)}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    2. Catégorie de la charge *
-                  </label>
-                  <select
-                    value={expCategory}
-                    onChange={(e) => setExpCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-mc-ink bg-white"
-                  >
-                    <option value="Factures & Charges">Facture CIE / Eau / Internet</option>
-                    <option value="Transport & Livraisons">Transport & Déplacement</option>
-                    <option value="Loyer boutique">Loyer boutique / Emplacement</option>
-                    <option value="Salaires & Aides">Salaires & Commissions</option>
-                    <option value="Autre dépense">Autre charge diverse</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Note / Détail (Facultatif)</label>
-                  <input
-                    type="text"
-                    value={expNote}
-                    onChange={(e) => setExpNote(e.target.value)}
-                    placeholder="Ex: Taxi retour grossiste"
-                    className="w-full px-3 py-2 rounded-xl border border-mc-line text-xs text-mc-ink"
-                  />
-                </div>
-
-                <div className="pt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddExpenseOpen(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-mc-line text-xs font-bold text-slate-600"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs shadow-md"
-                  >
-                    Valider dépense
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        {/* Modal: saisie d'une dépense — le même formulaire que dans la Caisse */}
+        {isAddExpenseOpen && <NewExpenseModal onClose={() => setIsAddExpenseOpen(false)} />}
       </div>
     );
   }
@@ -958,9 +874,41 @@ export const MoreTab: React.FC = () => {
     },
   ];
 
+  /**
+   * Le droit qu'exige chaque entrée du menu.
+   *
+   * Une entrée sans droit requis est ouverte à tous. Les autres DISPARAISSENT
+   * quand la personne n'a pas le droit : un vendeur ne doit jamais voir une
+   * tuile « Mes chiffres » sur laquelle appuyer pour se faire refuser. Le
+   * serveur refuse de toute façon les appels correspondants — cacher ici est
+   * une politesse, pas la sécurité.
+   */
+  const DROIT_PAR_ENTREE: Partial<Record<string, EmployeePermission>> = {
+    debtors: 'VOIR_DETTES_CLIENTS',
+    expenses: 'VOIR_DEPENSES',
+    movements: 'GERER_STOCK',
+    reports: 'VOIR_RAPPORTS',
+    employees: 'GERER_EMPLOYES',
+    permissions: 'GERER_EMPLOYES',
+    subscription: 'GERER_ABONNEMENT',
+    export: 'VOIR_RAPPORTS',
+  };
+
+  const entreeAutorisee = (entree: Entree): boolean => {
+    const droit = DROIT_PAR_ENTREE[entree.key];
+    return !droit || hasPermission(settings, droit);
+  };
+
+  const tuilesVisibles = tuiles.filter(entreeAutorisee);
+  // Un groupe dont toutes les entrées sont cachées disparaît avec elles :
+  // un titre « Mon équipe » seul sur l'écran n'apprend rien à personne.
+  const groupesVisibles = groupes
+    .map((g) => ({ ...g, entrees: g.entrees.filter(entreeAutorisee) }))
+    .filter((g) => g.entrees.length > 0);
+
   const nomUtilisateur = currentUser?.nom ?? 'Utilisateur';
   const roleLisible =
-    settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur';
+    ROLE_LABELS[settings.role] ?? 'Vendeur';
 
   return (
     <div id="more-tab-content" className="font-jakarta text-mc-ink space-y-6 pb-24 max-w-2xl mx-auto">
@@ -1007,7 +955,7 @@ export const MoreTab: React.FC = () => {
       <section className="space-y-2">
         <h2 className="text-[12px] font-bold uppercase tracking-wider text-mc-soft px-1">Tous les jours</h2>
         <div className="grid grid-cols-2 gap-3">
-          {tuiles.map((t) => {
+          {tuilesVisibles.map((t) => {
             const Icone = t.icone;
             return (
               <button
@@ -1044,7 +992,7 @@ export const MoreTab: React.FC = () => {
       </section>
 
       {/* LE RESTE — une carte par groupe, une ligne par écran */}
-      {groupes.map((g) => (
+      {groupesVisibles.map((g) => (
         <section key={g.titre} className="space-y-2">
           <h2 className="text-[12px] font-bold uppercase tracking-wider text-mc-soft px-1">{g.titre}</h2>
           <div className="bg-white rounded-mc border border-mc-line shadow-mc-card overflow-hidden divide-y divide-mc-line">

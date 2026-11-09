@@ -1,4 +1,4 @@
-import { guardRead, guardMutation, requireRole, auditable, requirePermission } from '@/server/guards';
+import { guardRead, guardMutation, auditable, requirePermission } from '@/server/guards';
 import { createReception, listReceptions, receptionSchema } from '@/server/modules/stock/movements';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -8,7 +8,7 @@ import { AppError } from '@/server/shared/errors';
 export async function GET() {
   try {
     const ctx = await guardRead();
-    requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
+    requirePermission(ctx, 'GERER_STOCK');
     const receptions = await listReceptions(ctx.businessId);
     return ok({ receptions });
   } catch (error) {

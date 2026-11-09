@@ -23,6 +23,7 @@ import { formatMoney, formatDate, formatShortDate } from '../../utils/formatters
 import { PaymentMethod } from '../../types';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import { CashJournalSection } from './CashJournalSection';
+import { NewExpenseModal } from '../expenses/NewExpenseModal';
 import { MC_EASE, TrialPill } from '../sales/SalesKit';
 
 export const CashRegisterTab: React.FC = () => {
@@ -46,6 +47,8 @@ export const CashRegisterTab: React.FC = () => {
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [isOpenModalOpen, setIsOpenModalOpen] = useState(false);
   const [isActionModalOpen, setIsActionModalOpen] = useState<'WITHDRAW' | 'DEPOSIT' | null>(null);
+  // Saisie d'une dépense sur place : même formulaire que l'écran Dépenses.
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
 
   // Close Register form state
   const [countedAmount, setCountedAmount] = useState<number>(0);
@@ -242,20 +245,11 @@ export const CashRegisterTab: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {(
             [
-              {
-                key: 'withdraw',
-                titre: "Sortir de l'argent de la caisse",
-                aide: 'Motif obligatoire pour traçabilité',
-                icone: Minus,
-                pastille: 'bg-mc-danger-bg text-[#DC2626]',
-                verrouillable: true,
-                action: () =>
-                  gateWrite(() => {
-                    setIsActionModalOpen('WITHDRAW');
-                    setActionAmount(0);
-                    setActionReason('');
-                  }),
-              },
+              // Pas de tuile « Sortir de l'argent » pour l'instant : une seule
+              // sorte de sortie, la dépense, pour que Accueil et Caisse parlent
+              // du même chiffre. Le formulaire (isActionModalOpen === 'WITHDRAW')
+              // et la route serveur existent encore : il suffira de remettre une
+              // tuile qui appelle setIsActionModalOpen('WITHDRAW').
               {
                 key: 'deposit',
                 titre: "Ajouter de l'argent dans la caisse",
@@ -272,15 +266,12 @@ export const CashRegisterTab: React.FC = () => {
               },
               {
                 key: 'expense',
-                titre: 'Noter une dépense',
+                titre: 'Saisir une dépense',
                 aide: 'Facture, transport ou marchandise',
                 icone: Receipt,
                 pastille: 'bg-mc-warning-bg text-[#B45309]',
-                verrouillable: false,
-                action: () => {
-                  setActiveTab('more');
-                  setActiveMoreSubTab('expenses');
-                },
+                verrouillable: true,
+                action: () => gateWrite(() => setIsExpenseOpen(true)),
               },
               {
                 key: 'repayment',
@@ -551,6 +542,8 @@ export const CashRegisterTab: React.FC = () => {
 
       {/* ========================================================================= */}
       {/* MODALE 3 : SORTIE / AJOUT DE FONDS (BLOC 7: motif obligatoire si sortie) */}
+      {isExpenseOpen && <NewExpenseModal onClose={() => setIsExpenseOpen(false)} />}
+
       {/* ========================================================================= */}
       {isActionModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">

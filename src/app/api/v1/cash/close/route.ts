@@ -1,4 +1,4 @@
-import { guardMutation, marginViewRole } from '@/server/guards';
+import { guardMutation, marginViewRole, requirePermission } from '@/server/guards';
 import { closeRegister, closeRegisterSchema } from '@/server/modules/cash/service';
 import { serializeCashRegister } from '@/server/serializers/cash';
 import { ok, fail } from '@/server/shared/response';
@@ -7,6 +7,9 @@ import { AppError } from '@/server/shared/errors';
 export async function POST(request: Request) {
   try {
     const ctx = await guardMutation();
+    // La clôture arrête la caisse de la journée et fige l'écart : elle n'est
+    // pas un geste de comptoir.
+    requirePermission(ctx, 'CLOTURE_CAISSE');
 
     const body = await request.json().catch(() => null);
     const parsed = closeRegisterSchema.safeParse(body);

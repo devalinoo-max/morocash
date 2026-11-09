@@ -1,4 +1,4 @@
-import { guardMutation, auditable, marginViewRole } from '@/server/guards';
+import { guardMutation, auditable, marginViewRole, requirePermission } from '@/server/guards';
 import { updateProduct, updateProductSchema, deleteProduct } from '@/server/modules/products/service';
 import { serializeProductList } from '@/server/serializers/product';
 import { ok, fail } from '@/server/shared/response';
@@ -11,7 +11,8 @@ interface RouteParams {
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    const ctx = await guardMutation();
+    requirePermission(ctx, 'GERER_PRODUITS');
 
     const body = await request.json().catch(() => null);
     const parsed = updateProductSchema.safeParse(body);
@@ -37,7 +38,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const ctx = await guardMutation({ roles: ['OWNER', 'ACCOUNTANT'] });
+    const ctx = await guardMutation();
+    requirePermission(ctx, 'GERER_PRODUITS');
 
     await deleteProduct(ctx.businessId, id);
 

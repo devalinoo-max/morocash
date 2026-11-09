@@ -33,13 +33,11 @@ import { SaleCard } from './SaleCard';
 import { OrderDetailPanel } from './OrderDetailPanel';
 import { CancelOrderDialog } from './CancelOrderDialog';
 import { CollectRemainingModal } from './CollectRemainingModal';
-import {
-  computePeriodInterval,
-  countByStatus,
-  filterSales,
-  type PeriodFilter,
-  type StatusFilter,
-} from '../../utils/salesFilters';
+import { countByStatus, filterSales, type StatusFilter } from '../../utils/salesFilters';
+import { PeriodFilterBar } from '../common/PeriodFilterBar';
+import { usePeriodFilter } from '../../hooks/usePeriodFilter';
+import { DEFAULT_PERIOD } from '../../utils/periodFilter';
+import { downloadExport } from '../../api/exports';
 import { LOCKED_BTN_CLASS } from '../../utils/paywall';
 import {
   ChartsSkeleton,
@@ -49,7 +47,6 @@ import {
   PASTILLES_STATUT,
   Segmented,
   TrialPill,
-  previousInterval,
   staggerParent,
   variationPct,
 } from './SalesKit';
@@ -58,9 +55,6 @@ import type { DayBar } from './SalesCharts';
 // recharts est lourd et ne sert qu'aux deux graphiques : il se charge après la
 // liste, pas avant.
 const SalesCharts = lazy(() => import('./SalesCharts'));
-
-/** Sept jours : le matin, « aujourd'hui » est vide alors que les ventes de la veille comptent encore. */
-const PERIODE_PAR_DEFAUT: PeriodFilter = '7days';
 
 /** Graphiques affichés ou repliés : le choix du commerçant, gardé sur l'appareil. */
 const CLE_GRAPHIQUES = 'morocash_sales_charts_open';
@@ -111,14 +105,6 @@ const BandeauVersements: React.FC<{
     ))}
   </>
 );
-
-const LIBELLES_PERIODE: Record<PeriodFilter, string> = {
-  today: "aujourd'hui",
-  '7days': 'sur 7 jours',
-  '30days': 'sur 30 jours',
-  thisMonth: 'ce mois',
-  custom: 'sur la période choisie',
-};
 
 export const SalesTab: React.FC = () => {
   const {
@@ -184,16 +170,18 @@ export const SalesTab: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(PERIODE_PAR_DEFAUT);
   const [selectedSeller, setSelectedSeller] = useState<string>('ALL');
 
-  // Période libre : repliée par défaut, elle ne vole pas la rangée des quatre
-  // raccourcis que tout le monde utilise.
-  const todayObj = new Date();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const [customStart, setCustomStart] = useState(thirtyDaysAgo.toISOString().slice(0, 10));
-  const [customEnd, setCustomEnd] = useState(todayObj.toISOString().slice(0, 10));
+  // Le filtre de période, commun aux quatre écrans qui en ont un. Il est gardé
+  // tant qu'on reste dans la journée et repart sur « Aujourd'hui » le lendemain
+  // (voir utils/periodFilter.ts).
+  const {
+    selection: periodSelection,
+    setSelection: setPeriodSelection,
+    period,
+    previous: intervalleAvant,
+  } = usePeriodFilter('commandes');
+  const [exportEnCours, setExportEnCours] = useState(false);
 
   // Une seule commande à la fois est « ouverte », quelle que soit la forme :
   // détail plein écran, feuille d'actions, annulation, encaissement.
@@ -232,8 +220,8 @@ export const SalesTab: React.FC = () => {
   // eux qui décident ce que le commerçant voit et quel total s'affiche en haut,
   // ils doivent donc être vérifiables hors de l'écran (tests/vente).
   const dateInterval = useMemo(
-    () => computePeriodInterval(periodFilter, customStart, customEnd),
-    [periodFilter, customStart, customEnd]
+    () => ({ start: period.start, end: period.end }),
+    [period.start, period.end]
   );
 
   const statusCounts = useMemo(
@@ -260,13 +248,9 @@ export const SalesTab: React.FC = () => {
 
   // Même lecture serveur, sur la période juste avant : la base des pastilles
   // de variation. Pas de base, pas de pastille.
-  const intervalleAvant = useMemo(
-    () => previousInterval(periodFilter, dateInterval),
-    [periodFilter, dateInterval]
-  );
   const { activity: activityAvant } = useActivity(intervalleAvant.start, intervalleAvant.end);
 
-  const libellePeriode = LIBELLES_PERIODE[periodFilter];
+  const libellePeriode = period.label;
 
   // « Qui me doit » : ce que tous les clients doivent à ce jour, toutes périodes confondues.
   const { totalDu, nbDebiteurs } = useMemo(() => {
@@ -354,11 +338,10 @@ export const SalesTab: React.FC = () => {
 
   // Un réglage avancé actif doit rester visible depuis la liste : sinon le
   // commerçant cherche pourquoi il manque des commandes.
+  // La période n'en fait plus partie : elle a sa propre barre, toujours
+  // visible, avec son libellé en toutes lettres.
   const reglagesAvancesActifs =
-    selectedSeller !== 'ALL' ||
-    periodFilter === 'custom' ||
-    statusFilter === 'CANCELLED' ||
-    versementsSeuls;
+    selectedSeller !== 'ALL' || statusFilter === 'CANCELLED' || versementsSeuls;
 
   // Point 9: GROUPE PAR JOUR
   const groupedByDay = useMemo(() => {
@@ -456,8 +439,36 @@ export const SalesTab: React.FC = () => {
     setSearchQuery('');
     setVersementsSeuls(false);
     setStatusFilter('ALL');
-    setPeriodFilter(PERIODE_PAR_DEFAUT);
+    setPeriodSelection(DEFAULT_PERIOD);
     setSelectedSeller('ALL');
+  };
+
+  /**
+   * Exporte exactement les lignes affichées.
+   *
+   * La période ne suffit pas à les désigner : le statut, le vendeur et la
+   * recherche ont pu en retirer. On envoie donc la liste des commandes
+   * visibles, et le serveur n'écrit que celles-là.
+   */
+  const exporterPeriode = async () => {
+    if (exportEnCours || filteredSales.length === 0) return;
+    setExportEnCours(true);
+    try {
+      await downloadExport({
+        type: 'orders',
+        format: 'pdf',
+        from: period.start,
+        to: period.end,
+        ids: filteredSales.map((s) => s.id),
+      });
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "L'export n'a pas pu être préparé.",
+        'error'
+      );
+    } finally {
+      setExportEnCours(false);
+    }
   };
 
   const envoyerRecu = (sale: Sale) => {
@@ -657,21 +668,27 @@ export const SalesTab: React.FC = () => {
               bouton « Filtres ».
               ================================================================= */}
           <div className="space-y-3">
+            <PeriodFilterBar
+              id="btn-sales-period"
+              selection={periodSelection}
+              onChange={setPeriodSelection}
+              period={period}
+              countLabel={countLabel(filteredSales.length, 'commande')}
+              totals={
+                activity
+                  ? {
+                      vendu: activity.totalVendu,
+                      resteDu: activity.resteSurCommandes,
+                    }
+                  : undefined
+              }
+              onExport={exporterPeriode}
+              exportBusy={exportEnCours}
+              exportDisabled={filteredSales.length === 0}
+              exportTitle={`Exporter les ${filteredSales.length} commandes affichées`}
+            />
+
             <div className="flex flex-col xl:flex-row xl:items-center gap-3">
-              <Segmented<PeriodFilter>
-                id="btn-sales-period"
-                label="Période"
-                value={periodFilter}
-                onChange={setPeriodFilter}
-                options={
-                  [
-                    { id: 'today', label: "Aujourd'hui" },
-                    { id: '7days', label: '7 jours' },
-                    { id: '30days', label: '30 jours' },
-                    { id: 'thisMonth', label: 'Ce mois' },
-                  ] as const
-                }
-              />
               <Segmented<StatusFilter>
                 id="btn-sales-status"
                 label="Statut"
@@ -732,9 +749,6 @@ export const SalesTab: React.FC = () => {
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 {[
                   selectedSeller !== 'ALL' ? `Vendu par ${selectedSeller}` : null,
-                  periodFilter === 'custom'
-                    ? `Du ${formatShortDate(dateInterval.start)} au ${formatShortDate(dateInterval.end)}`
-                    : null,
                   statusFilter === 'CANCELLED' ? 'Commandes annulées' : null,
                   versementsSeuls ? 'Versements seulement' : null,
                 ]
@@ -754,7 +768,7 @@ export const SalesTab: React.FC = () => {
             variants={staggerParent}
             initial="hidden"
             animate="show"
-            className="grid grid-cols-2 xl:grid-cols-4 gap-2 md:gap-4"
+            className="grid grid-cols-2 xl:grid-cols-5 gap-2 md:gap-4"
           >
             <KpiCard
               compact
@@ -1268,31 +1282,9 @@ export const SalesTab: React.FC = () => {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <span className="text-xs font-bold text-slate-700">Période libre</span>
-              <div className="flex items-center gap-2 bg-slate-50 border border-mc-line rounded-xl p-2.5 text-[12px] min-w-0">
-                <span className="text-mc-soft shrink-0">Du</span>
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => {
-                    setCustomStart(e.target.value);
-                    setPeriodFilter('custom');
-                  }}
-                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer min-w-0 flex-1"
-                />
-                <span className="text-mc-soft shrink-0">au</span>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => {
-                    setCustomEnd(e.target.value);
-                    setPeriodFilter('custom');
-                  }}
-                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer min-w-0 flex-1"
-                />
-              </div>
-            </div>
+            {/* La période libre a quitté cette feuille : elle est devenue la
+                puce « Personnalisé » de la barre de filtre, visible sans
+                détour et identique sur les quatre écrans. */}
 
             {/* Les commandes annulées ne méritent pas une pastille dans la
                 rangée de tous les jours, mais elles doivent rester atteignables :

@@ -1,4 +1,4 @@
-import { guardRead, requireRole } from '@/server/guards';
+import { guardRead, requirePermission } from '@/server/guards';
 import { getCommerciauxReport } from '@/server/modules/commerciaux/service';
 import { ok, fail } from '@/server/shared/response';
 import { parsePeriod } from './period';
@@ -7,7 +7,7 @@ import { parsePeriod } from './period';
 export async function GET(request: Request) {
   try {
     const ctx = await guardRead();
-    requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
+    requirePermission(ctx, 'VOIR_VENTES_EQUIPE');
     const { from, to } = parsePeriod(new URL(request.url));
     const report = await getCommerciauxReport(ctx.businessId, from, to);
     return ok({ from, to, ...report });

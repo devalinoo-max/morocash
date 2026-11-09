@@ -241,6 +241,13 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
   const lines = journal?.lines ?? [];
   const journalLines = filter === 'ALL' ? lines : lines.filter((l) => l.kind === filter);
 
+  // Ce qui est sorti se scinde en deux : les dépenses notées (une dépense porte
+  // toujours son `expenseId`) et les retraits d'argent. Aucun chiffre nouveau :
+  // c'est le total « Sorties » raconté en deux morceaux.
+  const sortiesValides = lines.filter((l) => l.kind === 'SORTIE' && !l.isCancelled);
+  const depensesSorties = sortiesValides.filter((l) => l.expenseId).reduce((s, l) => s + l.amount, 0);
+  const retraitsSortis = sortiesValides.filter((l) => !l.expenseId).reduce((s, l) => s + l.amount, 0);
+
   const detailView = useMemo(() => {
     if (!detail || !journal) return null;
     if (detail.kind === 'MODE') {
@@ -362,7 +369,14 @@ export const CashJournalSection: React.FC<{ children?: React.ReactNode }> = ({ c
               <FigureCard
                 label="Sorties"
                 operator="−"
-                hint="Dépenses et argent sorti"
+                hint={
+                  // Le même chiffre « Dépenses » que sur l'accueil, puis ce qui est
+                  // sorti du tiroir sans être une dépense (un retrait). Les lignes
+                  // annulées sont hors total, comme dans la carte.
+                  retraitsSortis > 0
+                    ? `Dépenses ${formatMoney(depensesSorties)} · Retraits ${formatMoney(retraitsSortis)}`
+                    : `Dépenses ${formatMoney(depensesSorties)}`
+                }
                 amount={journal.sorties}
                 color="#DC2626"
                 onClick={() => setDetail({ kind: 'SORTIE' })}

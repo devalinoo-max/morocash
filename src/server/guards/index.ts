@@ -95,8 +95,17 @@ export async function checkQuota(businessId: string, type: 'products' | 'users')
 
   if (type === 'users') {
     const count = await prisma.user.count({ where: { businessId, actif: true } });
-    if (plan.maxUsers > 0 && count >= plan.maxUsers) {
-      throw new AppError('QUOTA_USERS_REACHED', "Limite d'utilisateurs atteinte pour votre offre.");
+    // Pendant l'essai (aucune formule payée), la boutique vaut une personne :
+    // le propriétaire seul. Les autres quotas de l'essai sont ceux de Solo,
+    // mais pas celui-là — embaucher est justement ce qu'on paie.
+    const maxUsers = business.planId ? plan.maxUsers : 1;
+    if (maxUsers > 0 && count >= maxUsers) {
+      // Le message dit le nombre permis et quoi faire : « limite atteinte »
+      // tout seul laisse le commerçant sans la moindre piste.
+      throw new AppError(
+        'QUOTA_USERS_REACHED',
+        `Ta formule permet ${maxUsers} employé${maxUsers > 1 ? 's' : ''}. Passe à la formule supérieure pour en ajouter plus.`
+      );
     }
     return;
   }

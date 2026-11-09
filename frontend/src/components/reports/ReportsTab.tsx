@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { DATE_RANGE_LABEL } from '../common/DateRangeInputs';
 import { Segmented } from '../sales/SalesKit';
+import { PeriodFilterBar } from '../common/PeriodFilterBar';
+import { usePeriodFilter } from '../../hooks/usePeriodFilter';
 import { useApp } from '../../context/AppContext';
 import {
   TrendingUp,
@@ -33,7 +34,8 @@ import { CustomerDetailPanel } from '../customers/CustomerDetailPanel';
 import { CommerciauxReport } from './CommerciauxReport';
 import { ZoomablePhoto } from '../common/ZoomablePhoto';
 
-type PeriodPreset = 'today' | '7days' | '30days' | 'thisMonth' | 'thisYear' | 'custom';
+// Les raccourcis de période ne sont plus définis ici : ce sont ceux de
+// utils/periodFilter.ts, partagés avec Commandes, Dépenses et Clients.
 
 interface ReportsTabProps {
   onBack?: () => void;
@@ -78,70 +80,28 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
   }
 
   // --- 1. FILTER BAR STATE ---
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('30days');
+  // Le filtre de période est celui de tous les écrans, gardé jusqu'au soir.
+  const {
+    selection: periodSelection,
+    setSelection: setPeriodSelection,
+    period,
+    previous: periodePrecedente,
+  } = usePeriodFilter('rapports');
   const [comparePrevious, setComparePrevious] = useState<boolean>(true);
   const [detailCustomer, setDetailCustomer] = useState<Customer | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState<{ dateStr: string; dateLabel: string; sales: Sale[] } | null>(null);
 
-  // Custom date range state (defaults to last 30 days)
-  const todayObj = new Date();
-  const thirtyDaysAgoObj = new Date();
-  thirtyDaysAgoObj.setDate(thirtyDaysAgoObj.getDate() - 30);
-
-  const [customStartDate, setCustomStartDate] = useState(
-    thirtyDaysAgoObj.toISOString().slice(0, 10)
+  // Les deux intervalles viennent du filtre partagé : plus de second calcul de
+  // « 7 jours » propre à cet écran, qui pouvait diverger de celui des Commandes.
+  const currentRange = useMemo(
+    () => ({ start: period.start, end: period.end }),
+    [period.start, period.end]
   );
-  const [customEndDate, setCustomEndDate] = useState(
-    todayObj.toISOString().slice(0, 10)
+  const previousRange = useMemo(
+    () => ({ start: periodePrecedente.start, end: periodePrecedente.end }),
+    [periodePrecedente.start, periodePrecedente.end]
   );
-
-  // Helper to compute date range intervals [start, end]
-  const { currentRange, previousRange } = useMemo(() => {
-    const now = new Date();
-    let start = new Date();
-    let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-    if (periodPreset === 'today') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    } else if (periodPreset === '7days') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
-    } else if (periodPreset === '30days') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0);
-    } else if (periodPreset === 'thisMonth') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    } else if (periodPreset === 'thisYear') {
-      start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-      end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-    } else {
-      // custom
-      const partsS = customStartDate.split('-');
-      const partsE = customEndDate.split('-');
-      start = new Date(Number(partsS[0]), Number(partsS[1]) - 1, Number(partsS[2]), 0, 0, 0, 0);
-      end = new Date(Number(partsE[0]), Number(partsE[1]) - 1, Number(partsE[2]), 23, 59, 59, 999);
-    }
-
-    // Previous range
-    let prevStart: Date;
-    let prevEnd: Date;
-    if (periodPreset === 'thisMonth') {
-      prevStart = new Date(start.getFullYear(), start.getMonth() - 1, 1, 0, 0, 0, 0);
-      prevEnd = new Date(start.getFullYear(), start.getMonth(), 0, 23, 59, 59, 999);
-    } else if (periodPreset === 'thisYear') {
-      prevStart = new Date(start.getFullYear() - 1, 0, 1, 0, 0, 0, 0);
-      prevEnd = new Date(start.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
-    } else {
-      const diffMs = end.getTime() - start.getTime();
-      prevEnd = new Date(start.getTime() - 1);
-      prevStart = new Date(prevEnd.getTime() - diffMs);
-    }
-
-    return {
-      currentRange: { start, end },
-      previousRange: { start: prevStart, end: prevEnd },
-    };
-  }, [periodPreset, customStartDate, customEndDate]);
 
   // Filter items in ranges
   const isDateInRange = (dateStr: string, r: { start: Date; end: Date }) => {
@@ -692,7 +652,7 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
     link.setAttribute('href', url);
     link.setAttribute(
       'download',
-      `Mes_Chiffres_${periodPreset}_${new Date().toISOString().slice(0, 10)}.csv`
+      `Mes_Chiffres_${periodSelection.shortcut}_${new Date().toISOString().slice(0, 10)}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -724,46 +684,25 @@ const GeneralReports: React.FC<ReportsTabProps> = ({ onBack }) => {
           ===================================================================== */}
       <div className="sticky top-0 z-30 bg-[#F4F4F8]/95 backdrop-blur-md pt-1 pb-3 border-b border-mc-line -mx-4 sm:-mx-6 px-4 sm:px-6 transition-all">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Preset Buttons */}
-          <div className="min-w-0">
-            <Segmented<PeriodPreset>
+          {/* Les mêmes sept raccourcis que partout ailleurs, et la même
+              feuille « Personnalisé » — l'export de la période a déjà son
+              propre menu PDF / Excel juste à côté. */}
+          <div className="min-w-0 flex-1">
+            <PeriodFilterBar
               id="btn-reports-period"
-              label="Période"
-              value={periodPreset}
-              onChange={setPeriodPreset}
-              options={[
-                { id: 'today', label: "Aujourd'hui" },
-                { id: '7days', label: '7 jours' },
-                { id: '30days', label: '30 jours' },
-                { id: 'thisMonth', label: 'Ce mois' },
-                { id: 'thisYear', label: 'Cette année' },
-                { id: 'custom', label: DATE_RANGE_LABEL },
-              ]}
+              selection={periodSelection}
+              onChange={setPeriodSelection}
+              period={period}
+              totals={{
+                vendu: curr.total_vendu,
+                encaisse: curr.recu,
+                resteDu: curr.a_credit,
+              }}
             />
           </div>
 
-          {/* Date Picker + Comparison Switch + Export Button */}
+          {/* Comparison Switch + Export Button */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Date Pickers (Custom range or preview) */}
-            {periodPreset === 'custom' && (
-              <div className="flex items-center gap-1.5 text-xs bg-slate-50 px-2.5 py-1.5 rounded-xl border border-mc-line">
-                <span className="text-mc-soft font-medium">Du</span>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer"
-                />
-                <span className="text-mc-soft font-medium">au</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-transparent font-bold text-mc-ink focus:outline-none cursor-pointer"
-                />
-              </div>
-            )}
-
             {/* Comparison Switch */}
             <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-mc-line hover:bg-slate-100 transition-all">
               <input

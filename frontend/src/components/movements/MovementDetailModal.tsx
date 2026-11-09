@@ -17,6 +17,7 @@ import {
 import { formatFCFA } from '../../utils/formatters';
 import { ZoomablePhoto } from '../common/ZoomablePhoto';
 import { StockMovement } from '../../types';
+import { hasPermission } from '../../data/permissions';
 
 interface MovementDetailModalProps {
   movement: StockMovement | null;
@@ -34,7 +35,9 @@ export const MovementDetailModal: React.FC<MovementDetailModalProps> = ({
 
   if (!movement) return null;
 
-  const isVendeur = settings.role === 'SELLER';
+  // Le prix d'achat se cache sur la permission, pas sur le rôle : un vendeur
+  // à qui le patron a coché « Voir les prix d'achat » doit les voir.
+  const isVendeur = !hasPermission(settings, 'VOIR_PRIX_ACHAT');
   const isOrderLinked = Boolean(
     movement.order_id || movement.type === 'SORTIE' || movement.type === 'RETOUR'
   );

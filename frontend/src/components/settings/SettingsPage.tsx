@@ -39,6 +39,7 @@ import {
 import { formatMoney, formatDate } from '../../utils/formatters';
 import { DEFAULT_LABEL_VARIANT, LABEL_PALETTES, type LabelVariant } from '../../utils/labelTicket';
 import { TEXT_SIZES, textSizeFactor } from '../../utils/receiptPrint';
+import { ROLE_LABELS } from '../../data/permissions';
 import {
   editableReceiptMessage,
   receiptPhone,
@@ -325,7 +326,7 @@ export const SettingsPage: React.FC = () => {
         <div className="hidden md:flex items-center gap-3">
           <h1 className="text-[28px] font-extrabold tracking-tight leading-tight">Réglages</h1>
           <span className="text-[12px] font-bold px-3 py-1 rounded-full bg-mc-primary-tint text-mc-primary-dark">
-            {settings.role === 'OWNER' ? 'Propriétaire' : settings.role === 'ACCOUNTANT' ? 'Comptable' : 'Vendeur'}
+            {ROLE_LABELS[settings.role] ?? 'Vendeur'}
           </span>
           {process.env.NODE_ENV !== 'production' && (
             <span className="text-[12px] text-[#B45309] font-bold bg-mc-warning-bg px-3 py-1 rounded-full">

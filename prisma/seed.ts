@@ -44,7 +44,7 @@ async function seedBusiness(opts: {
       prixTrimestriel: 55500,
       prixSemestriel: 103900,
       prixAnnuel: 199000,
-      maxUsers: 10,
+      maxUsers: 0, // illimité, comme maxProduits
       maxProduits: 0,
       maxCommandesMois: 0,
       rapportsComparatifs: true,

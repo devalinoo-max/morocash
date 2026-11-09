@@ -1,14 +1,18 @@
-import { guardRead, guardMutation, auditable } from '@/server/guards';
+import { guardRead, guardMutation, auditable, requirePermission } from '@/server/guards';
 import { createEmployee, createEmployeeSchema, listEmployees } from '@/server/modules/users/service';
 import { serializeUserList, serializeUser } from '@/server/serializers/user';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
 
-// Lecture ouverte à tout rôle connecté (liste d'équipe non sensible en soi,
-// contrairement aux coûts/marges) — seule la création est réservée OWNER.
+// Lire la liste demande le même droit que la gérer : elle porte les numéros de
+// téléphone, les rôles et les droits cochés de chaque collègue. Un vendeur n'a
+// pas à savoir qui, dans la boutique, a le droit de voir le prix d'achat.
+// Cacher le volet dans l'application ne suffit pas : l'appel direct doit être
+// refusé aussi.
 export async function GET() {
   try {
     const ctx = await guardRead();
+    requirePermission(ctx, 'GERER_EMPLOYES');
     const users = await listEmployees(ctx.businessId);
     return ok({ users: serializeUserList(users) });
   } catch (error) {
@@ -18,7 +22,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const ctx = await guardMutation({ roles: ['OWNER'] });
+    // « Gérer les employés » : coché d'office pour le propriétaire, accordable
+    // à un gestionnaire. Le rôle seul ne suffit plus à décider.
+    const ctx = await guardMutation();
+    requirePermission(ctx, 'GERER_EMPLOYES');
 
     const body = await request.json().catch(() => null);
     const parsed = createEmployeeSchema.safeParse(body);

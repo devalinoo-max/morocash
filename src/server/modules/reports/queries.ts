@@ -188,6 +188,92 @@ export async function getExpensesReport(businessId: string, from: Date, to: Date
   });
 }
 
+/** Date lisible dans un fichier exporté : « 15/10/2026 ». */
+function jourFr(d: Date): string {
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+const LIBELLES_STATUT_PAIEMENT: Record<string, string> = {
+  PAYEE: 'Payée',
+  PARTIELLE: 'En partie',
+  CREDIT: 'Pas payée',
+};
+
+/**
+ * Les commandes d'une période, une ligne par commande, pour l'export.
+ *
+ * `ids` restreint le fichier aux lignes réellement affichées quand l'écran a
+ * filtré au-delà de la période (statut, vendeur, recherche) : le fichier doit
+ * contenir ce que le commerçant voyait, ni plus ni moins. Sans `ids`, c'est
+ * toute la période.
+ *
+ * Le coût d'achat n'y figure pas : un export se transfère, et c'est la donnée
+ * qu'un vendeur ne doit jamais lire.
+ */
+export async function getOrderLines(businessId: string, from: Date, to: Date, ids?: string[]) {
+  return runInTenantTransaction(businessId, async (tx) => {
+    const orders = await tx.order.findMany({
+      where: {
+        businessId,
+        createdAt: { gte: startOfDay(from), lt: addDays(startOfDay(to), 1) },
+        ...(ids && ids.length > 0 ? { id: { in: ids } } : {}),
+      },
+      select: {
+        numero: true,
+        createdAt: true,
+        total: true,
+        statut: true,
+        statutPaiement: true,
+        customer: { select: { nom: true } },
+        user: { select: { nom: true } },
+        payments: { select: { montant: true, statut: true } },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    return orders.map((o) => {
+      const encaisse = o.payments
+        .filter((p) => p.statut === 'VALIDE')
+        .reduce((acc, p) => acc + p.montant, 0);
+      const annulee = o.statut === 'ANNULEE';
+      return {
+        numero: o.numero,
+        date: jourFr(o.createdAt),
+        client: o.customer?.nom ?? 'Client de passage',
+        vendeur: o.user?.nom ?? '',
+        // Une commande annulée est montrée pour 0 F : elle est dans la liste,
+        // elle n'est dans aucun total.
+        vendu: annulee ? 0 : o.total,
+        encaisse,
+        reste: annulee ? 0 : Math.max(0, o.total - encaisse),
+        statut: annulee ? 'Annulée' : (LIBELLES_STATUT_PAIEMENT[o.statutPaiement] ?? o.statutPaiement),
+      };
+    });
+  });
+}
+
+/** Les dépenses d'une période, une ligne par dépense (et non par catégorie). */
+export async function getExpenseLines(businessId: string, from: Date, to: Date, ids?: string[]) {
+  return runInTenantTransaction(businessId, async (tx) => {
+    const expenses = await tx.expense.findMany({
+      where: {
+        businessId,
+        date: { gte: startOfDay(from), lt: addDays(startOfDay(to), 1) },
+        ...(ids && ids.length > 0 ? { id: { in: ids } } : {}),
+      },
+      include: { category: true },
+      orderBy: [{ date: 'desc' }],
+    });
+
+    return expenses.map((e) => ({
+      date: jourFr(e.date),
+      categorie: e.category.nom,
+      montant: e.montant,
+      note: e.note ?? '',
+    }));
+  });
+}
+
 export async function getPaymentMethodsReport(businessId: string, from: Date, to: Date) {
   return runInTenantTransaction(businessId, async (tx) => {
     const payments = await tx.payment.findMany({

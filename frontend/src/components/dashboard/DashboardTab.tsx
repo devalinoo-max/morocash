@@ -30,6 +30,7 @@ import {
 // recharts ne sert qu'au graphique horaire du mode détaillé : chargé à part.
 const HourlyChart = lazy(() => import('./HourlyChart'));
 import { formatMoney, formatMoneyCompact, formatDate, formatPaymentMethod, getTerminology } from '../../utils/formatters';
+import { hasPermission } from '../../data/permissions';
 import type { CashMovement, Expense, Sale } from '../../types';
 import { DashboardDetailSheet, type DashboardDetail, type DetailRow } from './DashboardDetailSheet';
 import { CustomerDetailPanel } from '../customers/CustomerDetailPanel';
@@ -91,6 +92,14 @@ export const DashboardTab: React.FC = () => {
 
   const terminology = getTerminology(settings.activityType);
   const isOwner = settings.role === 'OWNER';
+
+  /**
+   * Sans le droit « Voir le bénéfice », la carte vedette « Ce que tu as gagné »
+   * n'existe pas — ni grisée, ni à zéro : absente. Un vendeur qui lit le gain
+   * de la boutique en déduit la marge, et la marge est l'affaire du patron.
+   * Le serveur refuse de son côté /dashboard et /reports (requirePermission).
+   */
+  const voitBenefice = hasPermission(settings, 'VOIR_BENEFICE');
 
   // Period filter state (§ BLOC 4: 1. Filtres, synchronized with Settings)
   const [period, setPeriod] = useState<DashboardPeriod>(settings.periodeParDefaut || 'TODAY');
@@ -673,7 +682,7 @@ export const DashboardTab: React.FC = () => {
               ================================================================ */}
           {isSimpleMode ? (
             <motion.div variants={staggerParent} initial="hidden" animate="show" className="space-y-4 md:space-y-6">
-              {renderHero(false)}
+              {voitBenefice && renderHero(false)}
 
               {/* Les chiffres essentiels */}
               <motion.div data-tour="kpis-accueil" variants={staggerParent} className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
@@ -839,7 +848,7 @@ export const DashboardTab: React.FC = () => {
               )}
 
               {/* Chiffre : vert si positif, rouge avec « - » si négatif (jamais 0 si négatif) */}
-              {renderHero(true)}
+              {voitBenefice && renderHero(true)}
 
               {/* ============================================================
                   LES CINQ INDICATEURS

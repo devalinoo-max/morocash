@@ -1,4 +1,4 @@
-import { guardRead, requireRole, requirePermission } from '@/server/guards';
+import { guardRead, requirePermission } from '@/server/guards';
 import { getExpensesReport, resolveMonthRange } from '@/server/modules/reports/queries';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -6,7 +6,7 @@ import { AppError } from '@/server/shared/errors';
 export async function GET(request: Request) {
   try {
     const ctx = await guardRead();
-    requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
+    requirePermission(ctx, 'VOIR_RAPPORTS');
     requirePermission(ctx, 'VOIR_DEPENSES');
 
     const url = new URL(request.url);

@@ -1,4 +1,4 @@
-import { guardRead } from '@/server/guards';
+import { guardRead, requirePermission } from '@/server/guards';
 import { getCustomerHistory, getCustomerBalance } from '@/server/modules/customers/debt';
 import { ok, fail } from '@/server/shared/response';
 
@@ -10,6 +10,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const ctx = await guardRead();
+    requirePermission(ctx, 'VOIR_DETTES_CLIENTS');
 
     const [history, balance] = await Promise.all([
       getCustomerHistory(ctx.businessId, id),

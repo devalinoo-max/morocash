@@ -1,4 +1,4 @@
-import { guardMutation, guardRead, marginViewRole } from '@/server/guards';
+import { guardMutation, guardRead, marginViewRole, requirePermission, hasPermission } from '@/server/guards';
 import { createOrder, createOrderSchema } from '@/server/modules/orders/createOrder';
 import { listOrders } from '@/server/modules/orders/service';
 import { serializeOrderList } from '@/server/serializers/order';
@@ -31,7 +31,11 @@ function describeOrderIssue(path: PropertyKey[]): string {
 export async function GET() {
   try {
     const ctx = await guardRead();
-    const orders = await listOrders(ctx.businessId);
+    // Sans le droit de voir les ventes de l'équipe, on ne reçoit que les
+    // siennes — le serveur ne les envoie pas, il ne se contente pas de les
+    // cacher à l'écran.
+    const toutVoir = hasPermission(ctx, 'VOIR_VENTES_EQUIPE');
+    const orders = await listOrders(ctx.businessId, toutVoir ? undefined : ctx.userId);
     return ok({ orders: serializeOrderList(orders, marginViewRole(ctx)) });
   } catch (error) {
     return fail(error);
@@ -41,6 +45,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await guardMutation();
+    requirePermission(ctx, 'ENREGISTRER_VENTE');
 
     const body = await request.json().catch(() => null);
     const parsed = createOrderSchema.safeParse(body);
@@ -57,6 +62,7 @@ export async function POST(request: Request) {
         businessId: ctx.businessId,
         userId: ctx.userId,
         role: ctx.role,
+        permissions: ctx.permissions,
         remiseMaxVendeur: ctx.business.remiseMaxVendeur,
         cashRegisterMode: ctx.business.cashRegisterMode,
         suiviCommercialActif: ctx.business.suiviCommercialActif,

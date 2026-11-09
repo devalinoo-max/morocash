@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { guardRead, requireRole } from '@/server/guards';
+import { guardRead, requirePermission } from '@/server/guards';
 import { getCommercialSales, NON_ATTRIBUE } from '@/server/modules/commerciaux/service';
 import { ok, fail } from '@/server/shared/response';
 import { AppError } from '@/server/shared/errors';
@@ -9,7 +9,7 @@ import { parsePeriod } from '../period';
 export async function GET(request: Request) {
   try {
     const ctx = await guardRead();
-    requireRole(ctx.role, ['OWNER', 'ACCOUNTANT']);
+    requirePermission(ctx, 'VOIR_VENTES_EQUIPE');
     const url = new URL(request.url);
     const { from, to } = parsePeriod(url);
     const raw = url.searchParams.get('commercialId');

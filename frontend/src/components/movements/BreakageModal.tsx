@@ -12,6 +12,7 @@ import {
 import { formatFCFA } from '../../utils/formatters';
 import { toDateInputValue } from '../../utils/period';
 import { ZoomablePhoto } from '../common/ZoomablePhoto';
+import { hasPermission } from '../../data/permissions';
 
 interface BreakageModalProps {
   isOpen: boolean;
@@ -33,7 +34,9 @@ export const BreakageModal: React.FC<BreakageModalProps> = ({
 }) => {
   const { products, recordStockBreakage, settings } = useApp();
 
-  const isVendeur = settings.role === 'SELLER';
+  // Le prix d'achat se cache sur la permission, pas sur le rôle : un vendeur
+  // à qui le patron a coché « Voir les prix d'achat » doit les voir.
+  const isVendeur = !hasPermission(settings, 'VOIR_PRIX_ACHAT');
   const physicalProducts = products.filter((p) => !p.isService);
 
   const [productId, setProductId] = useState(physicalProducts[0]?.id || '');
