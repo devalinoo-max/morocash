@@ -27,6 +27,10 @@ export type ErrorCode =
   | 'RESOURCE_NOT_OWNED'
   | 'VALIDATION_ERROR'
   | 'RATE_LIMITED'
+  | 'OTP_INVALID'
+  | 'OTP_EXPIRED'
+  | 'OTP_COOLDOWN'
+  | 'OTP_SEND_FAILED'
   | 'SERVER_ERROR';
 
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
@@ -57,6 +61,10 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   RESOURCE_NOT_OWNED: 404,
   VALIDATION_ERROR: 400,
   RATE_LIMITED: 429,
+  OTP_INVALID: 401,
+  OTP_EXPIRED: 401,
+  OTP_COOLDOWN: 429,
+  OTP_SEND_FAILED: 503,
   SERVER_ERROR: 500,
 };
 

@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:security": "vitest run tests/security",
-    "check:prisma-usage": "node scripts/check-prisma-usage.mjs"
+    "check:prisma-usage": "node scripts/check-prisma-usage.mjs",
+    "test:unit": "vitest run --config vitest.unit.config.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -30,6 +31,7 @@
     "date-fns": "^4.4.0",
     "exceljs": "^4.4.0",
     "jose": "^6.2.11",
+    "libphonenumber-js": "^1.13.16",
     "nanoid": "^6.0.1",
     "next": "16.4.0",
     "otplib": "13.5.0",

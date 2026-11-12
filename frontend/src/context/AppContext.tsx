@@ -262,6 +262,8 @@ interface AppContextType {
   loginUser: (
     input: authApi.LoginInput
   ) => Promise<{ success: boolean; requiresBusinessSelection?: boolean; businesses?: { businessId: string; businessNom: string }[]; message?: string }>;
+  /** Après une connexion par code WhatsApp : le serveur a posé le cookie, on charge la session comme loginUser. */
+  completeCodeLogin: () => Promise<{ success: boolean; message?: string }>;
   logoutUser: () => Promise<void>;
   closeAccount: () => Promise<boolean>;
 
@@ -2102,6 +2104,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const completeCodeLogin = async () => {
+    try {
+      const session = await authApi.fetchCurrentSession();
+      if (!session) return { success: false, message: 'Connexion impossible, réessaie.' };
+      await bootstrapSession(session);
+      showToast('Connexion réussie !', 'success');
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: apiErrorMessage(error) };
+    }
+  };
+
   /**
    * Vide ce que l'appareil garde de la boutique à la déconnexion : l'écran,
    * la copie locale (localStorage) et l'instantané hors ligne. Sans ça les
@@ -3430,6 +3444,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         justRegisteredShop,
         dismissWelcome: () => setJustRegisteredShop(null),
         loginUser,
+        completeCodeLogin,
         logoutUser,
         closeAccount,
         uiState,

@@ -31,6 +31,7 @@ import type { ActivityType } from '../../types';
 import { Logo, LogoMark } from '../common/Logo';
 import { PinInput } from '../common/PinInput';
 import { ForgotPinFlow } from './ForgotPinFlow';
+import { WhatsappCodeFlow } from './WhatsappCodeFlow';
 import { COUNTRIES, DEFAULT_COUNTRY, CountryOption } from '../../data/countries';
 
 
@@ -65,7 +66,7 @@ interface AuthScreenProps {
  * le premier produit s'ajoute ensuite, depuis une carte du tableau de bord.
  */
 export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER', onModeChange }) => {
-  const { registerBusinessAccount, loginUser, showToast } = useApp();
+  const { registerBusinessAccount, loginUser, completeCodeLogin, showToast } = useApp();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,6 +148,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
 
   // « Mot de passe oublié ? » : parcours à part, dans la même carte (voir ForgotPinFlow).
   const [isForgotPinOpen, setIsForgotPinOpen] = useState(false);
+  // Le « mot de passe oublié » par e-mail (parcours existant) prend le relais si WhatsApp échoue deux fois.
+  const [isForgotEmailOpen, setIsForgotEmailOpen] = useState(false);
+  // Connexion : par code reçu sur WhatsApp (écran par défaut) ou par mot de passe.
+  const [loginMethod, setLoginMethod] = useState<'CODE' | 'PASSWORD'>('CODE');
 
   const resetBusinessChoices = () => setBusinessChoices(null);
 
@@ -156,6 +161,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
     setRegisterStep(1);
     setErrorMessage(null);
     setIsForgotPinOpen(false);
+    setIsForgotEmailOpen(false);
     resetBusinessChoices();
   };
 
@@ -353,16 +359,32 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                 </div>
               )}
 
-              {isForgotPinOpen ? (
+              {isForgotEmailOpen ? (
                 <ForgotPinFlow
                   initialPhone={telephone}
-                  onCancel={() => setIsForgotPinOpen(false)}
+                  onCancel={() => setIsForgotEmailOpen(false)}
                   onDone={(numero) => {
+                    setIsForgotEmailOpen(false);
                     setIsForgotPinOpen(false);
+                    setLoginMethod('PASSWORD');
                     setTelephone(numero);
                     setPin('');
                     setErrorMessage(null);
                     showToast('Nouveau mot de passe enregistré. Connecte-toi avec.', 'success');
+                  }}
+                />
+              ) : isForgotPinOpen ? (
+                <WhatsappCodeFlow
+                  purpose="PASSWORD_RESET"
+                  initialPhone={telephone}
+                  initialCountry={country.code}
+                  onCancel={() => setIsForgotPinOpen(false)}
+                  onUseEmail={() => setIsForgotEmailOpen(true)}
+                  onDone={() => {
+                    setIsForgotPinOpen(false);
+                    setLoginMethod('PASSWORD');
+                    setPin('');
+                    setErrorMessage(null);
                   }}
                 />
               ) : businessChoices ? (
@@ -669,6 +691,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                     </form>
                   )}
                 </>
+              ) : loginMethod === 'CODE' ? (
+                <WhatsappCodeFlow
+                  purpose="LOGIN"
+                  initialPhone={telephone}
+                  initialCountry={country.code}
+                  onLoggedIn={async () => {
+                    const result = await completeCodeLogin();
+                    if (!result.success) setErrorMessage(result.message ?? 'Connexion impossible, réessaie.');
+                    return result;
+                  }}
+                  onUsePassword={() => {
+                    setErrorMessage(null);
+                    setLoginMethod('PASSWORD');
+                  }}
+                  onForgot={() => {
+                    setErrorMessage(null);
+                    setIsForgotPinOpen(true);
+                  }}
+                />
               ) : (
                 <form onSubmit={(e) => handleLogin(e)} className="space-y-3">
                   <div
@@ -773,6 +814,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'REGISTER'
                     className="w-full text-center text-xs font-bold text-mc-soft hover:text-mc-ink cursor-pointer pt-1"
                   >
                     Mot de passe oublié ?
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMessage(null);
+                      setLoginMethod('CODE');
+                    }}
+                    className="w-full text-center text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer min-h-10"
+                  >
+                    Recevoir un code sur WhatsApp
                   </button>
                 </form>
               )}

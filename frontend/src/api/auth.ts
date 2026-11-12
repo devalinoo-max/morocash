@@ -164,3 +164,32 @@ export function verifyPinReset(target: ResetTarget, code: string) {
 export function confirmPinReset(target: ResetTarget, input: { code: string; newPin: string; businessId?: string }) {
   return api.post<{ reset: true }>('/auth/reset-code/confirm', { ...target, ...input });
 }
+
+// ─── Connexion par code WhatsApp / mot de passe oublié (modèle Meta) ───────
+// Le serveur décide de tout : limites, durée du code, nombre d'essais. Le code
+// n'est jamais renvoyé par l'API.
+
+export type OtpPurpose = 'LOGIN' | 'PASSWORD_RESET';
+
+export type OtpVerifyResult =
+  | { requiresBusinessSelection: true; businesses: ResetBusinessChoice[] }
+  | { requiresBusinessSelection?: false; userId?: string; businessId?: string; resetToken?: string };
+
+/** Demande un code. La réponse est la même que le numéro ait un compte ou non. */
+export function requestWhatsappCode(phone: string, purpose: OtpPurpose) {
+  return api.post<{ sent: true; message: string }>('/auth/otp/request', { phone, purpose }).then((d) => d.message);
+}
+
+/**
+ * Vérifie le code. LOGIN : ouvre la session (cookie posé par le serveur).
+ * PASSWORD_RESET : renvoie un resetToken. `businessId` seulement si le numéro
+ * ouvre plusieurs boutiques (deuxième appel, même code).
+ */
+export function verifyWhatsappCode(input: { phone: string; purpose: OtpPurpose; code: string; businessId?: string }) {
+  return api.post<OtpVerifyResult>('/auth/otp/verify', input);
+}
+
+/** Change le mot de passe avec le jeton ; ferme toutes les sessions du compte. */
+export function resetPasswordWithToken(resetToken: string, newPin: string) {
+  return api.post<{ reset: true }>('/auth/password/reset', { resetToken, newPin });
+}

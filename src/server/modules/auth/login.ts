@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/server/database/client';
 import { AppError } from '@/server/shared/errors';
 import { verifyPin } from './pin';
@@ -89,6 +90,17 @@ export async function login(
   await clearRateLimit(rlPhone);
   if (rlIp) await clearRateLimit(rlIp);
 
+  return openSessionForUser(target, meta);
+}
+
+/**
+ * Ouvre la session d'un utilisateur dont l'identité est déjà prouvée (mot de
+ * passe, ou code reçu sur WhatsApp) : un seul système de session pour les deux.
+ */
+export async function openSessionForUser(
+  target: Prisma.UserGetPayload<{ include: { business: true } }>,
+  meta: { ip?: string; userAgent?: string }
+): Promise<Extract<LoginResult, { status: 'OK' }>> {
   // Reconnexion après une fermeture volontaire du compte (voir closeAccount.ts)
   // : la boutique était en lecture seule, la reconnexion dans le délai annoncé
   // dans l'UI ("90 jours") restaure l'accès complet, sans jamais toucher une

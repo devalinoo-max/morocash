@@ -7,6 +7,8 @@ interface PinInputProps {
   autoFocus?: boolean;
   disabled?: boolean;
   id?: string;
+  /** Chiffres cachés (mot de passe, défaut). `false` pour un code reçu par message : on veut le voir. */
+  masked?: boolean;
 }
 
 /**
@@ -25,6 +27,7 @@ export const PinInput: React.FC<PinInputProps> = ({
   autoFocus = false,
   disabled = false,
   id,
+  masked = true,
 }) => {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const digits = Array.from({ length }, (_, i) => value[i] ?? '');
@@ -90,10 +93,10 @@ export const PinInput: React.FC<PinInputProps> = ({
           ref={(el) => {
             inputsRef.current[index] = el;
           }}
-          type="password"
+          type={masked ? 'password' : 'text'}
           aria-label={`Chiffre ${index + 1} sur ${length}`}
           inputMode="numeric"
-          autoComplete="off"
+          autoComplete={!masked && index === 0 ? 'one-time-code' : 'off'}
           maxLength={1}
           autoFocus={autoFocus && index === 0}
           disabled={disabled}

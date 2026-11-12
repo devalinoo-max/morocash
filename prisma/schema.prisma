@@ -419,6 +419,48 @@ model OtpCode {
   @@index([email, expiresAt])
 }
 
+// Code à 6 chiffres envoyé sur WhatsApp (connexion par code, mot de passe
+// oublié). Distinct de OtpCode, qui sert encore l'ancien parcours « PIN oublié ».
+// Le code n'est jamais stocké : seulement son HMAC-SHA256 (clé OTP_SECRET).
+// Aucune ligne n'est supprimée : un code utilisé ou annulé reçoit `usedAt`.
+model WhatsappOtp {
+  id          String     @id @default(cuid())
+  // Format international sans « + » : 225 + 10 chiffres.
+  phone       String
+  purpose     OtpPurpose
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int        @default(0)
+  usedAt      DateTime?
+  waMessageId String?
+  // sent | delivered | read | failed | not_sent (numéro sans compte : rien n'est parti)
+  waStatus    String?
+  ip          String?
+  createdAt   DateTime   @default(now())
+
+  @@index([phone, purpose, createdAt])
+  @@index([ip, createdAt])
+  @@index([waMessageId])
+}
+
+enum OtpPurpose {
+  LOGIN
+  PASSWORD_RESET
+}
+
+// Jeton remis après un bon code « mot de passe oublié » : 10 minutes, un seul
+// usage. Seul son HMAC-SHA256 est stocké.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
 model RateLimit {
   id        String   @id @default(cuid())
   cle       String                       // "login:2250700000000" | "ip:1.2.3.4"
