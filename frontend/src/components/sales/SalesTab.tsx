@@ -971,6 +971,7 @@ export const SalesTab: React.FC = () => {
                         <span className="hidden lg:block w-[22%]">Articles</span>
                         <span className="hidden xl:block w-28">Vendu par</span>
                         <span className="w-28 text-right">Total</span>
+                        <span className="w-28 text-right">Déjà versé</span>
                         <span className="w-28 text-right">Reste à payer</span>
                         <span className="w-20 text-center">Statut</span>
                         <span className="w-8" />
@@ -1088,6 +1089,18 @@ export const SalesTab: React.FC = () => {
                                 }`}
                               >
                                 {formatMoney(sale.totalAmount)}
+                              </div>
+
+                              <div className="w-28 text-right text-[14px] tabular-nums whitespace-nowrap">
+                                {isCancelled ? (
+                                  <span className="text-mc-soft">—</span>
+                                ) : sale.paidAmount > 0 ? (
+                                  <span className="font-bold text-[#15803D]">
+                                    {formatMoney(sale.paidAmount)}
+                                  </span>
+                                ) : (
+                                  <span className="text-mc-soft">0 F</span>
+                                )}
                               </div>
 
                               <div className="w-28 text-right text-[14px] tabular-nums whitespace-nowrap">
